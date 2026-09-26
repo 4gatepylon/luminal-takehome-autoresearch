@@ -18,7 +18,7 @@ import tempfile
 import time
 import uuid
 
-import duckdb
+from .database import ResultsStore
 
 
 ATTRIBUTION = "Implemented by codex astra 6 xhigh."
@@ -27,15 +27,7 @@ METRICS = {
     "scratch_reduction": "public geometric-mean scratch reduction",
     "combined_score": "public combined score",
 }
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS results (
-    run_id VARCHAR, iteration INTEGER, started_at TIMESTAMPTZ DEFAULT current_timestamp,
-    branch VARCHAR, parent_commit VARCHAR, commit_sha VARCHAR, status VARCHAR,
-    cycle_speedup DOUBLE, scratch_reduction DOUBLE, combined_score DOUBLE,
-    elapsed_seconds DOUBLE, model VARCHAR, effort VARCHAR, logs VARCHAR, error VARCHAR,
-    PRIMARY KEY (run_id, iteration)
-)
-"""
+
 
 
 def git(repo: Path, *args: str) -> str:
@@ -82,7 +74,8 @@ def evaluate(path: Path, log: Path, timeout: float) -> dict[str, float]:
     # read-only; the parent runner, outside the sandbox, owns logs and Git writes.
     sandbox = ["codex", "sandbox", "--include-managed-config",
                "--permission-profile", ":read-only", "--cd", str(path), "--"]
-    execute([*sandbox, sys.executable, "-B", "-m", "unittest", "-v"], path, log, timeout)
+    execute([*sandbox, sys.executable, "-B", "-m", "unittest", "-v",
+             "tests.test_machine", "tests.test_public_programs"], path, log, timeout)
     execute([*sandbox, sys.executable, "-B", "score.py"], path, log, timeout)
     output = log.read_text()
     metrics = {}
@@ -141,22 +134,18 @@ def research(args: argparse.Namespace, repo: Path) -> None:
     rules = Path(__file__).with_name("agent_instructions.md").read_text()
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ-") + uuid.uuid4().hex[:8]
     db_path = args.db.resolve()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
     logs_root = db_path.parent / "logs" / run_id
     best_commit, best_branch, best_score = base, args.base, 0.0
-    with duckdb.connect(str(db_path)) as db:
-        db.execute(SCHEMA)
+    with ResultsStore(db_path) as store:
         # Iteration zero evaluates the actual starting commit without using Codex.
         for iteration in range(args.iterations + 1):
             branch = f"autoresearch/{run_id}/{iteration:04d}" if iteration else args.base
             parent = best_commit
             logs = logs_root / f"{iteration:04d}"
             logs.mkdir(parents=True)
-            db.execute(
-                """INSERT INTO results
-                   (run_id, iteration, branch, parent_commit, status, model, effort, logs)
-                   VALUES (?, ?, ?, ?, 'running', ?, ?, ?)""",
-                [run_id, iteration, branch, parent, args.model, args.effort, str(logs)],
+            store.start_attempt(
+                run_id, iteration, branch=branch, parent_commit=parent,
+                model=args.model, effort=args.effort, logs=logs,
             )
             start = time.monotonic()
             status, error, commit, metrics = "failed", None, None, {}
@@ -164,11 +153,7 @@ def research(args: argparse.Namespace, repo: Path) -> None:
             try:
                 with worktree(repo, parent, branch if iteration else None) as path:
                     if iteration:
-                        recent = db.execute(
-                            """SELECT iteration, status, combined_score, error FROM results
-                               WHERE run_id = ? AND iteration < ?
-                               ORDER BY iteration DESC LIMIT 5""", [run_id, iteration],
-                        ).fetchall()
+                        recent = store.recent_attempts(run_id, iteration)
                         prompt = f"""Follow these instructions from agent_instructions.md:
 {rules}
 
@@ -181,7 +166,7 @@ Do not commit or switch branches; the runner handles Git. Use only the standard
 library. Do not hardcode public programs or alter evaluation behavior.
 The filesystem is read-only except for compiler.py. Edit that file in place;
 do not create temporary files or bytecode caches. Run inline checks with -B.
-Run {sys.executable} -B -m unittest -v and {sys.executable} -B score.py.
+Run {sys.executable} -B -m unittest -v tests.test_machine tests.test_public_programs and {sys.executable} -B score.py.
 Maximize the public combined score while preserving correctness for arbitrary
 valid inputs. The score equally weights cycle speedup and scratch reduction.
 The current best combined score is {best_score:.3f}x. Try a new idea informed by
@@ -224,12 +209,9 @@ of your hypothesis, change, and measured result. Only compiler.py may change.
                 if iteration == 0:
                     raise RuntimeError(f"Baseline evaluation failed: {error}") from exc
             finally:
-                db.execute(
-                    """UPDATE results SET commit_sha=?, status=?, cycle_speedup=?,
-                       scratch_reduction=?, combined_score=?, elapsed_seconds=?, error=?
-                       WHERE run_id=? AND iteration=?""",
-                    [commit, status, metrics.get("cycle_speedup"), metrics.get("scratch_reduction"),
-                     metrics.get("combined_score"), time.monotonic() - start, error, run_id, iteration],
+                store.finish_attempt(
+                    run_id, iteration, commit_sha=commit, status=status, metrics=metrics,
+                    elapsed_seconds=time.monotonic() - start, error=error,
                 )
                 print(f"  {status}: score={metrics.get('combined_score')} {error or ''}", flush=True)
         print(f"Best: {best_branch} ({best_commit}), score={best_score:.3f}x\nResults: {db_path}")
