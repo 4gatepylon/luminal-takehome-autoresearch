@@ -11,6 +11,7 @@ autoresearch/
 ├── runner.py            baseline → propose → validate → commit → evaluate → record
 ├── database.py          SQLAlchemy Result schema + ResultsStore read/write interface
 ├── environment.py       Git worktrees, subprocesses, permissions, artifact checks
+├── usage.py             Codex SDK account quotas and stop decisions
 ├── agent_instructions.md rules injected from the runner's checkout
 └── agent_prompt.md       task template + recent results + current best score
 ```
@@ -42,6 +43,55 @@ and public tests in `pyproject.toml`. Cursor's formatter settings and rulers als
 use 150. Installed YAML/Markdown package resources preserve CLI defaults and
 agent instructions outside the source checkout. The `autoresearch` console
 command is equivalent to `python -m autoresearch`.
+
+## Usage limits
+
+Before each agent attempt, the runner reads fresh account quotas using the
+[official Python SDK](https://learn.chatgpt.com/docs/codex-sdk#python-library)
+and the app server's
+[`account/rateLimits/read`](https://learn.chatgpt.com/docs/app-server#6-rate-limits-chatgpt).
+The SDK uses the same `codex` executable on PATH and its saved authentication.
+The check starts no agent thread or model turn. Baseline-only runs skip it.
+
+The named limits have these default minimum percentages remaining:
+
+```yaml
+min_weekly_limit_remaining_allowed: 25
+min_5h_limit_remaining_allowed: 5
+min_monthly_limit_remaining_allowed: 25
+```
+
+The [five-hour and weekly windows](https://learn.chatgpt.com/docs/pricing#what-are-the-usage-limits-for-my-plan)
+are identified by their reported durations. The monthly setting applies to the
+workspace credit limit returned as `individualLimit`, which Codex labels
+[Monthly credit limit](https://github.com/openai/codex/blob/rust-v0.157.0/codex-rs/tui/src/status/rate_limits.rs).
+Only reported limits are checked; accounts without a monthly credit limit do
+not need one. Purchased credit balances have no percentage denominator, so they
+are not treated as another quota. All returned quota buckets are checked.
+
+Override these values in YAML or with the corresponding CLI flags, such as
+`--min-weekly-limit-remaining-allowed 30`. Values range from 0 to 100; equality
+is allowed. Zero removes the reserve but still stops at exhaustion. A low
+quota prints a stop reason and the best result, without creating the next
+attempt's branch, log directory, or database row. Checks happen between
+attempts; a running attempt may consume more than the remaining reserve.
+
+Usage reads time out after 15 seconds. Authentication failures, unavailable or
+malformed quota data, and unrecognized window durations abort with an error
+before another attempt starts. API-key-only accounts without ChatGPT quotas
+cannot use this guard. The runner does not infer a reset from its timestamp,
+spend earned reset credits, or treat a failed check as unused quota.
+
+The module is reusable independently of the runner:
+
+```python
+from autoresearch.config import load_config
+from autoresearch.usage import read_usage, usage_stop_reason
+
+reason = usage_stop_reason(read_usage(), load_config())
+if reason is not None:
+    print(f"Stop: {reason}")
+```
 
 ## System and concurrency
 

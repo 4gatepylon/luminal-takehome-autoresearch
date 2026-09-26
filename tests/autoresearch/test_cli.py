@@ -35,11 +35,14 @@ class CliTests(unittest.TestCase):
             patch("autoresearch.environment.GitRepository.discover", return_value=GitRepository(Path("/repo"))),
             patch("autoresearch.runner.research") as research,
         ):
-            Path("run.yaml").write_text("iterations: 4\neffort: high\n")
-            result = self.cli.invoke(main, ["--config", "run.yaml", "--iterations", "0"])
+            Path("run.yaml").write_text("iterations: 4\neffort: high\nmin_weekly_limit_remaining_allowed: 30\n")
+            result = self.cli.invoke(main, ["--config", "run.yaml", "--iterations", "0", "--min-5h-limit-remaining-allowed", "10"])
             self.assertEqual(result.exit_code, 0, result.output)
             config, repo = research.call_args.args
             self.assertEqual((config.iterations, config.effort, repo), (0, "high", Path("/repo")))
+            self.assertEqual(config.min_weekly_limit_remaining_allowed, 30)
+            self.assertEqual(config.min_5h_limit_remaining_allowed, 10)
+            self.assertEqual(config.min_monthly_limit_remaining_allowed, 25)
 
     def test_bad_config_fails_before_tools_run(self):
         with self.cli.isolated_filesystem(), patch("autoresearch.cli.shutil.which") as which:
@@ -52,7 +55,15 @@ class CliTests(unittest.TestCase):
             which.assert_not_called()
 
     def test_bad_cli_values_and_missing_yaml(self):
-        for args in (["--iterations", "-1"], ["--eval-timeout", "0"], ["--effort", "extreme"], ["--config", "/missing/config.yaml"]):
+        for args in (
+            ["--iterations", "-1"],
+            ["--eval-timeout", "0"],
+            ["--effort", "extreme"],
+            ["--config", "/missing/config.yaml"],
+            ["--min-weekly-limit-remaining-allowed", "101"],
+            ["--min-5h-limit-remaining-allowed", "-1"],
+            ["--min-monthly-limit-remaining-allowed", "101"],
+        ):
             with self.subTest(args=args):
                 result = self.cli.invoke(main, args)
                 self.assertEqual(result.exit_code, 2, result.output)

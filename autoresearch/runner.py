@@ -12,6 +12,7 @@ import uuid
 from .config import ResearchConfig
 from .database import ResultsStore
 from .environment import GitRepository, codex_command, evaluate, execute, validate_artifact
+from .usage import read_usage, usage_stop_reason
 
 
 def research(args: ResearchConfig, repo: Path) -> None:
@@ -28,6 +29,11 @@ def research(args: ResearchConfig, repo: Path) -> None:
     with ResultsStore(db_path) as store:
         # Iteration zero evaluates the actual starting commit without using Codex.
         for iteration in range(args.iterations + 1):
+            if iteration:
+                reason = usage_stop_reason(read_usage(cwd=repo), args)
+                if reason is not None:
+                    print(f"Stopping before attempt {iteration}: {reason}", flush=True)
+                    break
             branch = f"autoresearch/{run_id}/{iteration:04d}" if iteration else args.base
             parent = best_commit
             logs = logs_root / f"{iteration:04d}"

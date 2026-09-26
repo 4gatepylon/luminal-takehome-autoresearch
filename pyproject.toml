@@ -17,6 +17,7 @@ dependencies = [
     "pydantic>=2,<3",
     "pydantic-yaml>=1.3,<2",
     "click>=8.1,<9",
+    "openai-codex>=0.157,<0.158",
 ]
 
 [project.optional-dependencies]

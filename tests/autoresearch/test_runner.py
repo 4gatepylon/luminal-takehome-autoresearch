@@ -11,10 +11,12 @@ import unittest
 from unittest.mock import patch
 
 import duckdb
+from openai_codex.generated.v2_all import GetAccountRateLimitsResponse
 
 from autoresearch.config import load_config
 from autoresearch.environment import GitRepository, git
 from autoresearch.runner import research
+from autoresearch.usage import UsageUnavailable
 from tests.autoresearch.support import create_repository
 
 
@@ -30,6 +32,10 @@ class RunnerTests(unittest.TestCase):
         self.repo = create_repository(self.root / "repo")
         self.base = self.repo.resolve("main")
         self.db = self.root / "results.duckdb"
+        self.available_usage = GetAccountRateLimitsResponse.model_validate({"rateLimits": {"primary": {"usedPercent": 0, "windowDurationMins": 300}}})
+        usage_patch = patch("autoresearch.runner.read_usage", return_value=self.available_usage)
+        self.read_usage = usage_patch.start()
+        self.addCleanup(usage_patch.stop)
 
     def config(self, iterations):
         return load_config(overrides={"db": self.db, "iterations": iterations})
@@ -123,6 +129,57 @@ class RunnerTests(unittest.TestCase):
             research(self.config(3), self.repo.root)
         agent.assert_not_called()
         self.assertEqual([(row[0], row[1]) for row in self.rows()], [(0, "failed")])
+        self.assert_cleaned_up()
+
+    def test_baseline_only_does_not_read_account_usage(self):
+        with patch("autoresearch.runner.evaluate", return_value=metrics(1)), redirect_stdout(StringIO()):
+            research(self.config(0), self.repo.root)
+        self.read_usage.assert_not_called()
+        self.assertEqual([(row[0], row[1]) for row in self.rows()], [(0, "baseline")])
+        self.assert_cleaned_up()
+
+    def test_low_weekly_quota_stops_before_creating_an_attempt(self):
+        self.read_usage.return_value = GetAccountRateLimitsResponse.model_validate(
+            {"rateLimits": {"secondary": {"usedPercent": 76, "windowDurationMins": 10080}}}
+        )
+        output = StringIO()
+        with patch("autoresearch.runner.execute") as agent, patch("autoresearch.runner.evaluate", return_value=metrics(1)), redirect_stdout(output):
+            research(self.config(3), self.repo.root)
+        agent.assert_not_called()
+        self.assertEqual([(row[0], row[1]) for row in self.rows()], [(0, "baseline")])
+        self.assertEqual(git(self.repo.root, "branch", "--list", "autoresearch/*"), "")
+        self.assertIn("weekly: 24% remaining", output.getvalue())
+        self.assertIn("Best: main", output.getvalue())
+        self.assert_cleaned_up()
+
+    def test_fresh_quota_check_stops_after_a_completed_attempt(self):
+        self.read_usage.side_effect = [
+            self.available_usage,
+            GetAccountRateLimitsResponse.model_validate({"rateLimits": {"primary": {"usedPercent": 96, "windowDurationMins": 300}}}),
+        ]
+        with (
+            patch("autoresearch.runner.execute") as agent,
+            patch("autoresearch.runner.evaluate", return_value=metrics(1)),
+            redirect_stdout(StringIO()),
+        ):
+            research(self.config(3), self.repo.root)
+        agent.assert_called_once()
+        self.assertEqual(self.read_usage.call_count, 2)
+        self.read_usage.assert_called_with(cwd=self.repo.root)
+        self.assertEqual([(row[0], row[1]) for row in self.rows()], [(0, "baseline"), (1, "no_change")])
+        self.assert_cleaned_up()
+
+    def test_unavailable_usage_aborts_before_any_agent(self):
+        self.read_usage.side_effect = UsageUnavailable("quota service unavailable")
+        with (
+            patch("autoresearch.runner.execute") as agent,
+            patch("autoresearch.runner.evaluate", return_value=metrics(1)),
+            redirect_stdout(StringIO()),
+            self.assertRaisesRegex(UsageUnavailable, "quota service unavailable"),
+        ):
+            research(self.config(3), self.repo.root)
+        agent.assert_not_called()
+        self.assertEqual([(row[0], row[1]) for row in self.rows()], [(0, "baseline")])
         self.assert_cleaned_up()
 
     def test_interruption_is_durable_and_propagates(self):

@@ -26,6 +26,9 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.effort, "high")
         self.assertEqual(config.model, defaults.model)
         self.assertEqual(config.db, Path(".autoresearch/results.duckdb"))
+        self.assertEqual(defaults.min_weekly_limit_remaining_allowed, 25)
+        self.assertEqual(defaults.min_5h_limit_remaining_allowed, 5)
+        self.assertEqual(defaults.min_monthly_limit_remaining_allowed, 25)
         self.assertEqual(load_config().iterations, defaults.iterations)
         with self.assertRaises(FrozenInstanceError):
             config.iterations = 5
@@ -43,6 +46,12 @@ class ConfigTests(unittest.TestCase):
             "eval_timeout: 0",
             "codex_timeout: .inf",
             "eval_timeout: .nan",
+            "min_weekly_limit_remaining_allowed: -1",
+            "min_5h_limit_remaining_allowed: 101",
+            "min_monthly_limit_remaining_allowed: .nan",
+            "min_weekly_limit_remaining_allowed: .inf",
+            "min_5h_limit_remaining_allowed: true",
+            "min_monthly_limit_remaining_allowed: '25%'",
             "effort: extreme",
             "model: ''",
             "base: ' '",

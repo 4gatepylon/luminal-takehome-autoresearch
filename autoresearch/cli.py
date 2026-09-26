@@ -32,6 +32,9 @@ from .config import Effort, config_yaml, load_config
 @click.option("--effort", type=click.Choice(get_args(Effort)), help="Reasoning effort.")
 @click.option("--codex-timeout", type=click.FloatRange(min=0, min_open=True), help="Seconds allowed per agent attempt.")
 @click.option("--eval-timeout", type=click.FloatRange(min=0, min_open=True), help="Seconds allowed per evaluation command.")
+@click.option("--min-weekly-limit-remaining-allowed", type=click.FloatRange(0, 100), help="Minimum weekly Codex quota remaining, in percent.")
+@click.option("--min-5h-limit-remaining-allowed", type=click.FloatRange(0, 100), help="Minimum five-hour Codex quota remaining, in percent.")
+@click.option("--min-monthly-limit-remaining-allowed", type=click.FloatRange(0, 100), help="Minimum monthly credit limit remaining, in percent.")
 @click.option("--show-config", is_flag=True, help="Print validated, hydrated YAML and exit without running anything.")
 def main(config_path: Path | None, show_config: bool, **overrides) -> None:
     """Run sequential compiler experiments in disposable worktrees.

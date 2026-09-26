@@ -12,6 +12,7 @@ from pydantic_yaml import parse_yaml_file_as, to_yaml_str
 
 DEFAULT_CONFIG = Path(__file__).with_name("defaults.yaml")
 Effort = Literal["low", "medium", "high", "xhigh"]
+RemainingPercent = Annotated[float, Field(ge=0, le=100, strict=True)]
 
 
 @dataclass(frozen=True, config=ConfigDict(extra="forbid", allow_inf_nan=False, str_strip_whitespace=True))
@@ -25,6 +26,9 @@ class ResearchConfig:
     effort: Effort
     codex_timeout: Annotated[float, Field(gt=0, strict=True)]
     eval_timeout: Annotated[float, Field(gt=0, strict=True)]
+    min_weekly_limit_remaining_allowed: RemainingPercent
+    min_5h_limit_remaining_allowed: RemainingPercent
+    min_monthly_limit_remaining_allowed: RemainingPercent
 
 
 def load_config(path: Path | None = None, *, overrides: dict[str, Any] | None = None) -> ResearchConfig:
