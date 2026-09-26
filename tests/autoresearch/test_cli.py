@@ -1,4 +1,6 @@
-"""Click boundary tests; research and Git discovery are mocked."""
+"""Implemented by Codex (GPT-6).
+
+Click boundary tests; research and Git discovery are mocked."""
 
 from pathlib import Path
 import unittest

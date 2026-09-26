@@ -1,4 +1,6 @@
-"""Real Git and subprocess tests; evaluator command construction is mocked."""
+"""Implemented by Codex (GPT-6).
+
+Real Git and subprocess tests; evaluator command construction is mocked."""
 
 from pathlib import Path
 import subprocess

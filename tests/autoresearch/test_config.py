@@ -1,4 +1,6 @@
-"""YAML hydration and validation, independent of Git, databases, or Codex."""
+"""Implemented by Codex (GPT-6).
+
+YAML hydration and validation, independent of Git, databases, or Codex."""
 
 from dataclasses import FrozenInstanceError
 from pathlib import Path

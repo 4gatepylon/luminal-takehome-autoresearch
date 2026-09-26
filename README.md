@@ -42,7 +42,7 @@ once.
 Run the public suite and benchmark with:
 
 ```sh
-python3 -m unittest -v
+python3 -m unittest -v tests.test_machine tests.test_public_programs
 python3 score.py
 ```
 

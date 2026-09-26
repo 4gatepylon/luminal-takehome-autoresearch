@@ -1,4 +1,6 @@
-"""Host Git operations, sandboxed child commands, and artifact validation.
+"""Implemented by Codex (GPT-6).
+
+Host Git operations, sandboxed child commands, and artifact validation.
 
 The parent runner is trusted. Only disposable worktrees are forcibly removed.
 """

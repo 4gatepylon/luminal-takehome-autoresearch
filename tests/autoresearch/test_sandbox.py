@@ -1,4 +1,6 @@
-"""Opt-in real Codex OS sandbox probes; these never invoke a model."""
+"""Implemented by Codex (GPT-6).
+
+Opt-in real Codex OS sandbox probes; these never invoke a model."""
 
 import os
 from pathlib import Path

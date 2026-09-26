@@ -6,3 +6,7 @@ __pycache__/
 trace.json
 .venv/
 .autoresearch/
+.ruff_cache/
+*.egg-info/
+build/
+dist/

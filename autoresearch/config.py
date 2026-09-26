@@ -1,4 +1,6 @@
-"""Validated YAML configuration; defaults live only in defaults.yaml."""
+"""Implemented by Codex (GPT-6).
+
+Validated YAML configuration; defaults live only in defaults.yaml."""
 
 from pathlib import Path
 from typing import Annotated, Any, Literal

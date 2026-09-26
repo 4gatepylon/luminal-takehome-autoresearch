@@ -1,4 +1,6 @@
-"""Real temporary DuckDB databases; no agent calls."""
+"""Implemented by Codex (GPT-6).
+
+Real temporary DuckDB databases; no agent calls."""
 
 from pathlib import Path
 import tempfile

@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "luminal-autoresearch"
+version = "0.1.0"
+description = "Sequential compiler experiments in disposable Git worktrees"
+readme = "autoresearch/README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "duckdb>=1.0,<2",
+    "SQLAlchemy>=2.0,<3",
+    "duckdb-engine>=0.17,<1",
+    "pytz>=2024.1",
+    "pydantic>=2,<3",
+    "pydantic-yaml>=1.3,<2",
+    "click>=8.1,<9",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.14,<1"]
+
+[project.scripts]
+autoresearch = "autoresearch.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["autoresearch*"]
+
+[tool.setuptools.package-data]
+autoresearch = ["*.yaml", "*.md"]
+
+[tool.ruff]
+line-length = 150
+target-version = "py310"
+force-exclude = true
+# Preserve the supplied compiler, evaluator, and public tests, even when named explicitly.
+extend-exclude = [
+    "compiler.py",
+    "machine.py",
+    "score.py",
+    "tests/__init__.py",
+    "tests/test_machine.py",
+    "tests/test_public_programs.py",
+    ".autoresearch",
+]
+
+[tool.black]
+line-length = 150
+force-exclude = '''
+/(compiler\.py|machine\.py|score\.py|tests/(__init__|test_machine|test_public_programs)\.py)$
+'''

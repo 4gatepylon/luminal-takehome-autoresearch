@@ -22,7 +22,7 @@ The permission-profile flags were checked against Codex 0.157.0.
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
+make install  # editable package + development tools from pyproject.toml
 # Install Codex if needed; then authenticate with codex login.
 .venv/bin/python -m autoresearch --show-config
 .venv/bin/python -m autoresearch --config experiment.yaml --iterations 3
@@ -35,6 +35,13 @@ options. Unknown keys and invalid values fail before execution. `--show-config`
 prints complete reusable YAML without opening Git, a database, or Codex.
 Relative `db` paths start at the repository root; `--config` is relative to the
 calling directory. Logs are beside the selected database.
+
+`make format` runs Ruff formatting and fixes at line length 150; `make check`
+checks without edits. Ruff and Black exclude the original compiler, evaluator,
+and public tests in `pyproject.toml`. Cursor's formatter settings and rulers also
+use 150. Installed YAML/Markdown package resources preserve CLI defaults and
+agent instructions outside the source checkout. The `autoresearch` console
+command is equivalent to `python -m autoresearch`.
 
 ## System and concurrency
 
@@ -127,6 +134,8 @@ Sources: [permission profiles and enforcement](https://learn.chatgpt.com/docs/pe
 .venv/bin/python -B -m unittest -v tests.test_machine tests.test_public_programs
 .venv/bin/python -B score.py
 ```
+
+`make test` runs both test suites; `make test-sandbox` enables the OS probes.
 
 [tests/autoresearch/README.md](../tests/autoresearch/README.md) lists real versus
 mocked boundaries and the opt-in OS sandbox probes. Compiler evaluation selects

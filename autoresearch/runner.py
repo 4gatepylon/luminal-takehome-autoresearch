@@ -1,4 +1,6 @@
-"""One synchronous runner: baseline, then one proposal and evaluation at a time."""
+"""Implemented by Codex (GPT-6).
+
+One synchronous runner: baseline, then one proposal and evaluation at a time."""
 
 from datetime import datetime, timezone
 from pathlib import Path

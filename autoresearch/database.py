@@ -1,4 +1,6 @@
-"""SQLAlchemy models and persistence boundary for one DuckDB results database."""
+"""Implemented by Codex (GPT-6).
+
+SQLAlchemy models and persistence boundary for one DuckDB results database."""
 
 from datetime import datetime
 from pathlib import Path

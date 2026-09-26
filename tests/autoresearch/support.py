@@ -1,4 +1,6 @@
-"""Disposable fixtures; no tests modify this repository's Git history."""
+"""Implemented by Codex (GPT-6).
+
+Disposable fixtures; no tests modify this repository's Git history."""
 
 from pathlib import Path
 

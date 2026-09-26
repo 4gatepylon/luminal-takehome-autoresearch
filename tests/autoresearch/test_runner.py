@@ -1,4 +1,6 @@
-"""Lifecycle integration: real Git and DuckDB; agent and evaluator are scripted."""
+"""Implemented by Codex (GPT-6).
+
+Lifecycle integration: real Git and DuckDB; agent and evaluator are scripted."""
 
 from contextlib import redirect_stdout
 from io import StringIO

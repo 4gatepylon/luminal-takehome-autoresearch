@@ -1,4 +1,6 @@
-"""Click entry point; CLI values override the hydrated YAML configuration."""
+"""Implemented by Codex (GPT-6).
+
+Click entry point; CLI values override the hydrated YAML configuration."""
 
 from pathlib import Path
 import shutil
