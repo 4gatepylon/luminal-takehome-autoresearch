@@ -82,7 +82,7 @@ def research(args: ResearchConfig, repo: Path) -> None:
                     metrics = evaluate(path, logs, args.eval_timeout)
                     # Evaluation must not leave source or test changes behind.
                     if validate_artifact(path, commit, branch if iteration else ""):
-                        raise RuntimeError("Evaluation modified compiler.py")
+                        raise RuntimeError("Evaluation modified work/compiler.py")
                 # Select the next parent only after validation and worktree cleanup succeed.
                 # TODO(hadriano) score selection should be a module to enable different selection strategies, some of which
                 # can focus on pareto improvement and some of which can focus on 1D optimization.

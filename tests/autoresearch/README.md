@@ -15,7 +15,7 @@ python -B -m unittest discover -s tests/autoresearch -t . -v
 | `test_score.py` | Importable scoring API, silent return values, CLI presentation, empty input rejection | Public programs compiled with the serial reference compiler |
 | `test_runner.py` | Real Git + DuckDB across baseline/improvement/rejection/no-change/failure/timeout/interruption; quota stops/errors; invalid commits retained without evaluation; creation/cleanup failures cannot promote proposals | Codex execution, quota responses, benchmark execution, commit mutation, and creation/cleanup failure scripted |
 | `test_usage.py` | Named quota thresholds, multiple buckets, monthly credit limits, missing/unsupported data; real Codex Python SDK handshake, timeout, response validation, process cleanup | Local scripted app server; no credentials, network, or model |
-| `test_sandbox.py` | Actual Codex OS sandbox: compiler-only writes, read-only evaluation, blocked loopback networking | Opt-in; no model call |
+| `test_sandbox.py` | Actual Codex OS sandbox: `work/`-only writes, read-only evaluation, blocked loopback networking | Opt-in; no model call |
 
 The original `tests/test_machine.py` and `tests/test_public_programs.py` are
 unchanged and test the simulator contract and eight public compiler programs:

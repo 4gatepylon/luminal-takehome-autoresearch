@@ -5,4 +5,4 @@ Both automated and manual verification that you only modified the allowed files 
 1. Never modify any folder in `programs/`
 2. Never modify any file in `tests/`
 3. Never modify `machine.py`
-4. You _may_ modify `compiler.py` ONLY.
+4. You _may_ modify `work/compiler.py` ONLY.

@@ -58,10 +58,10 @@ class RunnerTests(unittest.TestCase):
             with duckdb.connect(str(self.db), read_only=True) as db:
                 self.assertEqual(db.execute("SELECT status FROM results ORDER BY iteration DESC LIMIT 1").fetchone(), ("running",))
             seen.append(git(path, "rev-parse", "HEAD"))
-            with (path / "compiler.py").open("a") as output:
+            with (path / "work" / "compiler.py").open("a") as output:
                 output.write(f"# attempt {len(seen)}\n")
             self.assertIn("Never modify", prompt)
-            self.assertIn("Only compiler.py may change", prompt)
+            self.assertIn("Only work/compiler.py may change", prompt)
             log.write_text("scripted agent\n")
 
         with (
@@ -105,7 +105,7 @@ class RunnerTests(unittest.TestCase):
 
     def test_failed_evaluation_retains_proposal_commit(self):
         def agent(command, path, *args):
-            (path / "compiler.py").write_text("# invalid compiler\n")
+            (path / "work" / "compiler.py").write_text("# invalid compiler\n")
 
         with (
             patch("autoresearch.runner.execute", side_effect=agent),
@@ -123,7 +123,7 @@ class RunnerTests(unittest.TestCase):
         original_commit = GitRepository.commit_compiler
 
         def agent(command, path, *args):
-            (path / "compiler.py").write_text("# proposed compiler\n")
+            (path / "work" / "compiler.py").write_text("# proposed compiler\n")
 
         def invalid_commit(repository, path, *args, **kwargs):
             # Inject a commit-time mutation independently of hooks being disabled.
@@ -142,7 +142,7 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(row[1], "failed")
         self.assertEqual(self.repo.resolve(git(self.repo.root, "branch", "--format=%(refname:short)", "--list", "autoresearch/*")), row[3])
         self.assertIsNone(row[4])
-        self.assertIn("must change only compiler.py", row[5])
+        self.assertIn("must change only work/compiler.py", row[5])
         evaluate.assert_called_once()  # Only the baseline reached evaluation.
         self.assert_cleaned_up()
 
@@ -222,7 +222,7 @@ class RunnerTests(unittest.TestCase):
 
     def test_evaluator_mutation_is_rejected(self):
         def evaluator(path, log, timeout):
-            (path / "compiler.py").write_text("# evaluation tampered with compiler\n")
+            (path / "work" / "compiler.py").write_text("# evaluation tampered with compiler\n")
             return metrics(100)
 
         with (
@@ -249,7 +249,7 @@ class RunnerTests(unittest.TestCase):
         def agent(command, path, *args):
             contents = next(attempts)
             if contents is not None:
-                (path / "compiler.py").write_text(contents)
+                (path / "work" / "compiler.py").write_text(contents)
 
         with (
             patch.object(GitRepository, "worktree", failing_cleanup),
@@ -272,7 +272,7 @@ class RunnerTests(unittest.TestCase):
             return result
 
         def agent(command, path, *args):
-            (path / "compiler.py").write_text("# proposed compiler\n")
+            (path / "work" / "compiler.py").write_text("# proposed compiler\n")
 
         with (
             patch("autoresearch.environment.git", side_effect=fail_after_registration),

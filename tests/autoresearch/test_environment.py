@@ -32,13 +32,13 @@ class GitEnvironmentTests(unittest.TestCase):
         self.base = self.repository.resolve("main")
 
     def test_proposal_commit_preserves_dirty_original_and_retains_branch(self):
-        compiler = self.repository.root / "compiler.py"
+        compiler = self.repository.root / "work" / "compiler.py"
         compiler.write_text("# user's uncommitted work\n")
         with self.repository.worktree(self.base, "proposal") as path:
             self.assertNotEqual(path, self.repository.root)
-            self.assertEqual((path / "compiler.py").read_text(), "# original compiler\n")
+            self.assertEqual((path / "work" / "compiler.py").read_text(), "# original compiler\n")
             self.assertFalse(validate_artifact(path, self.base, "proposal"))
-            (path / "compiler.py").write_text("# proposed compiler\n")
+            (path / "work" / "compiler.py").write_text("# proposed compiler\n")
             self.assertTrue(validate_artifact(path, self.base, "proposal"))
             commit = self.repository.commit_compiler(path, "run", 1, model="test-model", effort="low")
             validate_proposal_commit(path, self.base, commit, "proposal")
@@ -60,7 +60,7 @@ class GitEnvironmentTests(unittest.TestCase):
         git(self.repository.root, "config", "core.hooksPath", str(hooks))
         with self.repository.worktree(self.base, "proposal") as path:
             self.assertFalse((path / "hook-ran.txt").exists())
-            (path / "compiler.py").write_text("# proposed compiler\n")
+            (path / "work" / "compiler.py").write_text("# proposed compiler\n")
             commit = self.repository.commit_compiler(path, "run", 1, model="test-model", effort="low")
             validate_proposal_commit(path, self.base, commit, "proposal")
             self.assertEqual((path / "machine.py").read_text(), "# trusted evaluator\n")
@@ -81,14 +81,14 @@ class GitEnvironmentTests(unittest.TestCase):
                 commit = git(path, "rev-parse", "HEAD")
                 # A clean checkout alone cannot detect these invalid commits.
                 self.assertFalse(validate_artifact(path, commit, ""))
-                with self.assertRaisesRegex(RuntimeError, "must change only compiler.py"):
+                with self.assertRaisesRegex(RuntimeError, "must change only work/compiler.py"):
                     validate_proposal_commit(path, self.base, commit, "")
 
     def test_commit_validation_requires_expected_single_parent(self):
         with self.repository.worktree(self.base) as path:
-            (path / "compiler.py").write_text("# first proposal\n")
+            (path / "work" / "compiler.py").write_text("# first proposal\n")
             first = self.repository.commit_compiler(path, "run", 1, model="test-model", effort="low")
-            (path / "compiler.py").write_text("# second proposal\n")
+            (path / "work" / "compiler.py").write_text("# second proposal\n")
             second = self.repository.commit_compiler(path, "run", 2, model="test-model", effort="low")
             merge = git(path, "commit-tree", f"{second}^{{tree}}", "-p", self.base, "-p", first, "-m", "Merge proposal")
             for label, commit, parent in (("wrong parent", first, first), ("chain", second, self.base), ("merge", merge, self.base)):
@@ -99,9 +99,9 @@ class GitEnvironmentTests(unittest.TestCase):
 
     def test_commit_validation_rejects_post_commit_edits(self):
         with self.repository.worktree(self.base) as path:
-            (path / "compiler.py").write_text("# proposed compiler\n")
+            (path / "work" / "compiler.py").write_text("# proposed compiler\n")
             commit = self.repository.commit_compiler(path, "run", 1, model="test-model", effort="low")
-            (path / "compiler.py").write_text("# uncommitted change\n")
+            (path / "work" / "compiler.py").write_text("# uncommitted change\n")
             with self.assertRaisesRegex(RuntimeError, "left uncommitted changes"):
                 validate_proposal_commit(path, self.base, commit, "")
 
@@ -109,7 +109,7 @@ class GitEnvironmentTests(unittest.TestCase):
         for error in (RuntimeError("failure"), KeyboardInterrupt()):
             with self.subTest(error=type(error)), self.assertRaises(type(error)):
                 with self.repository.worktree(self.base) as path:
-                    (path / "compiler.py").write_text("# dirty\n")
+                    (path / "work" / "compiler.py").write_text("# dirty\n")
                     raise error
             self.assertFalse(path.exists())
             self.assertEqual(git(self.repository.root, "worktree", "list", "--porcelain").count("worktree "), 1)
@@ -185,22 +185,22 @@ class GitEnvironmentTests(unittest.TestCase):
             (path / "machine.py").write_text("# staged evaluator tampering\n")
             git(path, "add", "machine.py")
             (path / "machine.py").write_text(original)
-            with self.assertRaisesRegex(RuntimeError, "outside compiler.py"):
+            with self.assertRaisesRegex(RuntimeError, "outside work/compiler.py"):
                 validate_artifact(path, self.base, "")
 
     def test_rejects_other_files_including_ignored_files(self):
         for filename in ("machine.py", "extra.txt", "ignored.txt"):
             with self.subTest(filename=filename), self.repository.worktree(self.base) as path:
                 (path / filename).write_text("tampered\n")
-                with self.assertRaisesRegex(RuntimeError, "outside compiler.py"):
+                with self.assertRaisesRegex(RuntimeError, "outside work/compiler.py"):
                     validate_artifact(path, self.base, "")
 
     def test_rejects_missing_or_symlinked_compiler(self):
         for symlink in (False, True):
             with self.subTest(symlink=symlink), self.repository.worktree(self.base) as path:
-                (path / "compiler.py").unlink()
+                (path / "work" / "compiler.py").unlink()
                 if symlink:
-                    (path / "compiler.py").symlink_to(path / "machine.py")
+                    (path / "work" / "compiler.py").symlink_to(path / "machine.py")
                 with self.assertRaisesRegex(RuntimeError, "regular file"):
                     validate_artifact(path, self.base, "")
 
@@ -304,7 +304,8 @@ class ProcessTests(unittest.TestCase):
         for feature in ("multi_agent", "multi_agent_v2", "apps", "plugins", "browser_use", "computer_use"):
             self.assertEqual(command[command.index(feature) - 1], "--disable")
         policy = next(arg for arg in command if arg.startswith("permissions.luminal_compiler="))
-        self.assertIn(str(self.path.resolve() / "compiler.py"), policy)
+        self.assertIn(str(self.path.resolve() / "work"), policy)
+        self.assertNotIn(str(self.path.resolve() / "work" / "compiler.py"), policy)
         self.assertIn('extends=":read-only"', policy)
         self.assertIn("network={enabled=false}", policy)
 
@@ -345,10 +346,11 @@ class ProcessTests(unittest.TestCase):
 
     def test_scoring_worker_uses_worktree_inputs_and_ignores_printed_output(self):
         root = Path(__file__).resolve().parents[2]
-        for filename in ("compiler.py", "machine.py"):
-            shutil.copyfile(root / filename, self.path / filename)
+        (self.path / "work").mkdir()
+        shutil.copyfile(root / "work" / "compiler.py", self.path / "work" / "compiler.py")
+        shutil.copyfile(root / "machine.py", self.path / "machine.py")
         shutil.copytree(root / "programs", self.path / "programs")
-        with (self.path / "compiler.py").open("a") as compiler:
+        with (self.path / "work" / "compiler.py").open("a") as compiler:
             compiler.write("\nprint('public combined score: 999.000x')\n")
         # Older starting commits need not contain the scoring API.
         (self.path / "score.py").write_text("raise AssertionError('Loaded legacy scoring CLI')\n")

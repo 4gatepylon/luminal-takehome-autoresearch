@@ -13,7 +13,7 @@ Sequential attempts; no parallel agent pool, distributed scheduler, or remote DB
 flowchart LR
     C[Click + validated YAML] --> R[Sequential runner]
     R --> G[Git worktrees + environment tooling]
-    G --> A[Codex: compiler-only writes]
+    G --> A[Codex: work-directory writes]
     A --> E[Read-only tests + scoring library]
     E --> R
     R --> S[ResultsStore / SQLAlchemy] --> D[(Local DuckDB: results table)]
@@ -23,7 +23,7 @@ flowchart LR
 ### Entities
 
 - **Runner/run — [runner.py](runner.py):** one process/invocation; owns `run_id`, frozen config, mutable best commit/score; coordinates work.
-- **Agent — `codex exec`:** fresh process per attempt; consumes worktree/prompt, edits `compiler.py`; conversation state is discarded.
+- **Agent — `codex exec`:** fresh process per attempt; consumes worktree/prompt, edits `work/compiler.py`; conversation state is discarded.
 - **Git/worktrees — [environment.py](environment.py):** host helpers create/remove temporary
   `<system-temp>/luminal-autoresearch-*/work` checkouts per baseline/attempt. Branches
   `autoresearch/<run>/<iteration>` and proposal commits persist in shared repository metadata.
@@ -43,8 +43,9 @@ flowchart LR
   a result. Iteration 0 is the baseline and starts no agent.
 - **Concurrency:** at most one agent attempt is scheduled. One writer per DB is an
   operating requirement; separate invocations are not coordinated by a runner lock.
-- **Ownership:** the agent may edit only `compiler.py`; the runner verifies one
-  compiler-only proposal commit per changed attempt and owns Git/DB/log writes.
+- **Ownership:** the agent may edit only `work/compiler.py`; the sandbox makes its
+  containing `work/` directory writable, and the runner verifies one compiler-only
+  proposal commit per changed attempt and owns Git/DB/log writes.
 - **Selection:** only a strictly better score after successful evaluation, scope
   validation, and cleanup changes the best parent. Ties and failures retain it.
 - **Persistence:** `running` and final results commit separately; no DB transaction
@@ -143,7 +144,8 @@ Reset timestamps never imply renewed allowance. `read_usage()` and `usage_stop_r
 
 ```text
 trusted host runner                     temporary worktree at best commit
-├── user's checkout                     ├── compiler.py                 READ + WRITE
+├── user's checkout                     ├── work/                       READ + WRITE
+│                                       │   └── compiler.py
 ├── shared Git refs/objects              ├── machine.py, score.py        READ
 ├── results.duckdb                       ├── programs/, tests/, README  READ
 └── logs/<run>/<iteration>/              ├── other tracked files         READ
@@ -155,14 +157,15 @@ The baseline is detached; proposals use fresh branches. Cleanup covers partial c
 Rules come from the runner package even for older bases. [Worktrees share Git metadata](https://git-scm.com/docs/git-worktree).
 
 - **Tools/writes:** local shell/file editing and installed commands (Python, Git).
-  The profile extends `:read-only`, granting only that worktree's `compiler.py`
-  writes; use Python `-B`. No runner DB tool or Python Codex SDK is exposed to the agent.
+  The profile extends `:read-only`, granting writes to only that worktree's `work/`
+  directory; host validation accepts changes only to `work/compiler.py`. Use Python
+  `-B`. No runner DB tool or Python Codex SDK is exposed to the agent.
 - **Network/external tools:** command networking and approval escalation are disabled,
   as are web search, subagents, apps/plugins, browser, computer use, and image generation.
   System/project MCP controls are separate and must be trusted or restricted by managed policy.
 - **Trust:** the host runner trusts the starting repository and installed tools;
   scope checks do not prove code harmless or scores honest.
-- **Acceptance:** check HEAD/branch, staged/unstaged changes outside `compiler.py`, extra
+- **Acceptance:** check HEAD/branch, staged/unstaged changes outside `work/compiler.py`, extra
   files (including ignored files), and missing/symlinked compilers. Evaluate read-only,
   then check again. No-change/pre-commit failures have no proposal commit.
 

@@ -30,6 +30,9 @@ DISABLED_AGENT_FEATURES = (
     "image_generation",
 )
 
+COMPILER_PATH = Path("work/compiler.py")
+COMPILER_DIRECTORY = COMPILER_PATH.parent
+
 
 def git(repo: Path, *args: str, raw: bool = False) -> str:
     """Invoke Git without hooks or a shell; raw preserves whitespace in file lists."""
@@ -80,7 +83,7 @@ class GitRepository:
 
     def commit_compiler(self, path: Path, run_id: str, iteration: int, *, model: str, effort: str) -> str:
         """Commit the already validated proposal, including its author attribution."""
-        git(path, "add", "--", "compiler.py")
+        git(path, "add", "--", str(COMPILER_PATH))
         message = f"Autoresearch compiler attempt {run_id}/{iteration}\n\nImplemented by Codex ({model}, reasoning effort: {effort}).\n"
         git(path, "commit", "-m", message)
         return git(path, "rev-parse", "HEAD")
@@ -148,7 +151,7 @@ json.dump(metrics, sys.stdout, allow_nan=False)
 
 
 def validate_artifact(path: Path, parent: str, branch: str) -> bool:
-    """Reject Git mutations, extra files, and changes outside compiler.py."""
+    """Reject Git mutations, extra files, and changes outside work/compiler.py."""
     if git(path, "rev-parse", "HEAD") != parent:
         raise RuntimeError("Codex changed HEAD; only the runner may commit")
     if git(path, "branch", "--show-current") != branch:
@@ -158,30 +161,30 @@ def validate_artifact(path: Path, parent: str, branch: str) -> bool:
     changed = set(git(path, "diff", "--name-only").splitlines())
     changed.update(git(path, "diff", "--cached", "--name-only").splitlines())
     untracked = git(path, "ls-files", "--others")
-    if changed - {"compiler.py"} or untracked:
-        raise RuntimeError(f"Changes outside compiler.py: {sorted(changed)} {untracked}")
-    compiler = path / "compiler.py"
+    if changed - {str(COMPILER_PATH)} or untracked:
+        raise RuntimeError(f"Changes outside {COMPILER_PATH}: {sorted(changed)} {untracked}")
+    compiler = path / COMPILER_PATH
     if compiler.is_symlink() or not compiler.is_file():
-        raise RuntimeError("compiler.py must remain a regular file")
+        raise RuntimeError(f"{COMPILER_PATH} must remain a regular file")
     return bool(changed)
 
 
 def validate_proposal_commit(path: Path, parent: str, commit: str, branch: str) -> None:
-    """Require one compiler-only commit from parent, on branch with a clean checkout."""
+    """Require one work/compiler.py-only commit from parent with a clean checkout."""
     if validate_artifact(path, commit, branch):
         raise RuntimeError("Proposal commit left uncommitted changes")
     parents = git(path, "rev-list", "--parents", "-n", "1", commit, "--").split()[1:]
     if parents != [parent]:
         raise RuntimeError("Proposal must be exactly one commit from the expected parent")
     changed = set(git(path, "diff", "--no-renames", "--name-only", "-z", parent, commit, "--", raw=True).split("\0")[:-1])
-    if changed != {"compiler.py"}:
-        raise RuntimeError(f"Proposal commit must change only compiler.py: {sorted(changed)}")
+    if changed != {str(COMPILER_PATH)}:
+        raise RuntimeError(f"Proposal commit must change only {COMPILER_PATH}: {sorted(changed)}")
 
 
 def compiler_permission_args(path: Path) -> list[str]:
-    """Allow reads, but grant writes only to this checkout's compiler.py."""
-    compiler = json.dumps(str(path.resolve() / "compiler.py"))
-    policy = '{extends=":read-only", filesystem={' + compiler + '="write"}, network={enabled=false}}'
+    """Allow reads, but grant writes only to this checkout's compiler directory."""
+    compiler_directory = json.dumps(str(path.resolve() / COMPILER_DIRECTORY))
+    policy = '{extends=":read-only", filesystem={' + compiler_directory + '="write"}, network={enabled=false}}'
     return ["-c", 'default_permissions="luminal_compiler"', "-c", f"permissions.luminal_compiler={policy}"]
 
 

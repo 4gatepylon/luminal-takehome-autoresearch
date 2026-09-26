@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-import compiler
 import machine
+from work import compiler
 
 
 PROGRAM_DIR = Path(__file__).parents[1] / "programs"

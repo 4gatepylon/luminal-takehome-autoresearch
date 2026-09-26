@@ -19,7 +19,8 @@ class SandboxTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.path = Path(self.directory.name).resolve()
-        (self.path / "compiler.py").write_text("# compiler\n")
+        (self.path / "work").mkdir()
+        (self.path / "work" / "compiler.py").write_text("# compiler\n")
         (self.path / "machine.py").write_text("# evaluator\n")
 
     def run_probe(self, code, *, writable_compiler=True):
@@ -47,10 +48,11 @@ class SandboxTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_only_compiler_is_writable(self):
+    def test_only_work_directory_is_writable(self):
         self.run_probe("""from pathlib import Path
 assert Path('machine.py').read_text() == '# evaluator\\n'
-Path('compiler.py').write_text('# changed\\n')
+Path('work/compiler.py').write_text('# changed\\n')
+Path('work/temporary.txt').write_text('allowed')
 for target in ('machine.py', 'extra.txt'):
     try:
         Path(target).write_text('forbidden')
@@ -64,11 +66,11 @@ for target in ('machine.py', 'extra.txt'):
         self.run_probe(
             """from pathlib import Path
 try:
-    Path('compiler.py').write_text('forbidden')
+    Path('work/compiler.py').write_text('forbidden')
 except PermissionError:
     pass
 else:
-    raise AssertionError('Read-only evaluation wrote compiler.py')
+    raise AssertionError('Read-only evaluation wrote work/compiler.py')
 """,
             writable_compiler=False,
         )
