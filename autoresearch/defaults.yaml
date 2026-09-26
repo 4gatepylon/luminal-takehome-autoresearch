@@ -1,0 +1,9 @@
+# Override any subset in your own file; CLI options take final precedence.
+iterations: 10
+base: main
+# Relative to the repository root, regardless of the YAML file's location.
+db: .autoresearch/results.duckdb
+model: gpt-6-astra
+effort: xhigh
+codex_timeout: 900
+eval_timeout: 180

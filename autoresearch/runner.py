@@ -18,6 +18,7 @@ import tempfile
 import time
 import uuid
 
+from .config import ResearchConfig, load_config
 from .database import ResultsStore
 
 
@@ -127,13 +128,13 @@ def codex_command(path: Path, model: str, effort: str) -> list[str]:
     ]
 
 
-def research(args: argparse.Namespace, repo: Path) -> None:
+def research(args: ResearchConfig, repo: Path) -> None:
     base = git(repo, "rev-parse", f"{args.base}^{{commit}}")
     # Read the runner's rules even when the experiment starts from an older
     # commit (such as main) that does not contain agent_instructions.md.
     rules = Path(__file__).with_name("agent_instructions.md").read_text()
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ-") + uuid.uuid4().hex[:8]
-    db_path = args.db.resolve()
+    db_path = (repo / args.db).resolve()
     logs_root = db_path.parent / "logs" / run_id
     best_commit, best_branch, best_score = base, args.base, 0.0
     with ResultsStore(db_path) as store:
@@ -218,17 +219,20 @@ of your hypothesis, change, and measured result. Only compiler.py may change.
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--iterations", type=int, default=10, help="Codex attempts; 0 evaluates the baseline only")
-    parser.add_argument("--base", default="main", help="Starting branch or commit (use a previous winner to resume)")
-    parser.add_argument("--db", type=Path, default=Path(".autoresearch/results.duckdb"))
-    parser.add_argument("--model", default="gpt-6-astra")
-    parser.add_argument("--effort", choices=["low", "medium", "high", "xhigh"], default="xhigh")
-    parser.add_argument("--codex-timeout", type=float, default=900, help="Seconds allowed per Codex attempt")
-    parser.add_argument("--eval-timeout", type=float, default=180, help="Seconds allowed per evaluation command")
-    args = parser.parse_args()
-    if args.iterations < 0 or min(args.codex_timeout, args.eval_timeout) <= 0:
-        parser.error("iterations must be nonnegative and timeouts must be positive")
+    parser = argparse.ArgumentParser(description=__doc__, argument_default=argparse.SUPPRESS)
+    parser.add_argument("--config", type=Path, help="YAML overrides for packaged defaults")
+    parser.add_argument("--iterations", type=int, help="Codex attempts; 0 evaluates the baseline only")
+    parser.add_argument("--base", help="Starting branch or commit")
+    parser.add_argument("--db", type=Path, help="Database path relative to repository root")
+    parser.add_argument("--model")
+    parser.add_argument("--effort", choices=["low", "medium", "high", "xhigh"])
+    parser.add_argument("--codex-timeout", type=float)
+    parser.add_argument("--eval-timeout", type=float)
+    values = vars(parser.parse_args())
+    try:
+        args = load_config(values.pop("config", None), overrides=values)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
     if not shutil.which("codex"):
         parser.error("Install the Codex CLI and run codex login first (see autoresearch/README.md)")
     repo = Path(git(Path.cwd(), "rev-parse", "--show-toplevel"))

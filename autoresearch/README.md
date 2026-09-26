@@ -17,6 +17,17 @@ codex login
 ```
 
 Python invokes the installed CLI directly; no Python Codex SDK is needed.
+Defaults live in `autoresearch/defaults.yaml`. A partial YAML file passed with
+`--config experiment.yaml` overrides those defaults; explicit CLI options win.
+`config.py` validates the merged values with a frozen Pydantic dataclass and
+rejects unknown keys. Relative database paths resolve from the repository root.
+
+```yaml
+# experiment.yaml: all omitted fields inherit defaults.yaml
+iterations: 3
+effort: high
+```
+
 The default model is `gpt-6-astra` with `xhigh` reasoning. Override with `--model`
 and `--effort`. `--codex-timeout` defaults to 900 seconds per attempt and
 `--eval-timeout` to 180 seconds per evaluation command. Use `--iterations 0` to
