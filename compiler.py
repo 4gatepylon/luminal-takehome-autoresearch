@@ -9,7 +9,9 @@ import sys
 import machine
 
 
-def _dependency_graph(program: dict) -> tuple[list[dict[int, int]], list[dict[int, int]]]:
+def _dependency_graph(
+    program: dict,
+) -> tuple[list[dict[int, int]], list[dict[int, int]]]:
     """Build edges carrying the minimum separation between issue cycles."""
     operations = program["operations"]
     producers = machine.producer_map(program)
@@ -30,8 +32,9 @@ def _dependency_graph(program: dict) -> tuple[list[dict[int, int]], list[dict[in
     return predecessors, successors
 
 
-def _schedule(operations: list[dict], edges: list[dict[int, int]],
-              backwards: bool) -> list[dict[str, list[int]]]:
+def _schedule(
+    operations: list[dict], edges: list[dict[int, int]], backwards: bool
+) -> list[dict[str, list[int]]]:
     """List-schedule in either direction, prioritizing the longest remaining path.
 
     Reverse scheduling places producers near their consumers, often shortening
@@ -81,10 +84,16 @@ def _schedule(operations: list[dict], edges: list[dict[int, int]],
     return bundles
 
 
-def _allocate(operations: list[dict], bundles: list[dict[str, list[int]]]) -> dict[str, int]:
+def _allocate(
+    operations: list[dict], bundles: list[dict[str, list[int]]]
+) -> dict[str, int]:
     """Pack inclusive write-to-last-read intervals into aligned scratch ranges."""
-    issue = {op_id: cycle for cycle, bundle in enumerate(bundles)
-             for op_ids in bundle.values() for op_id in op_ids}
+    issue = {
+        op_id: cycle
+        for cycle, bundle in enumerate(bundles)
+        for op_ids in bundle.values()
+        for op_id in op_ids
+    }
     starts: dict[str, int] = {}
     widths: dict[str, int] = {}
     for operation in operations:
