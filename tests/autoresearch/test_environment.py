@@ -187,6 +187,46 @@ class ProcessTests(unittest.TestCase):
         time.sleep(2)
         self.assertFalse(marker.exists(), "Timed-out command left its child running")
 
+    def test_success_and_failure_stop_background_children(self):
+        for exit_code in (0, 7):
+            with self.subTest(exit_code=exit_code):
+                marker = self.path / f"surviving-child-{exit_code}.txt"
+                child_script = f"import time; from pathlib import Path; print('ready', flush=True); time.sleep(1); Path({str(marker)!r}).write_text('alive')"
+                script = (
+                    f"import subprocess, sys; child = subprocess.Popen([sys.executable, '-B', '-c', {child_script!r}], "
+                    f"stdout=subprocess.PIPE, text=True); print(child.stdout.readline(), end='', flush=True); sys.exit({exit_code})"
+                )
+                command = [sys.executable, "-B", "-c", script]
+                if exit_code:
+                    with self.assertRaisesRegex(RuntimeError, "exited 7"):
+                        execute(command, self.path, self.log, 10)
+                else:
+                    execute(command, self.path, self.log, 10)
+                self.assertIn("ready", self.log.read_text())
+                time.sleep(1.2)
+                self.assertFalse(marker.exists(), "Completed command left its child running")
+
+    def test_interruption_stops_process_group_and_propagates(self):
+        marker = self.path / "surviving-interrupted-child.txt"
+        child_script = f"import time; from pathlib import Path; print('ready', flush=True); time.sleep(1); Path({str(marker)!r}).write_text('alive')"
+        script = f"import subprocess, sys, time; subprocess.Popen([sys.executable, '-B', '-c', {child_script!r}]); time.sleep(60)"
+        interruption = KeyboardInterrupt()
+
+        def interrupt_when_child_is_ready(*args, **kwargs):
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                if "ready" in self.log.read_text():
+                    raise interruption
+                time.sleep(0.01)
+            self.fail("Child failed to start")
+
+        with patch("autoresearch.environment.subprocess.Popen.communicate", side_effect=interrupt_when_child_is_ready):
+            with self.assertRaises(KeyboardInterrupt) as caught:
+                execute([sys.executable, "-B", "-c", script], self.path, self.log, 10)
+        self.assertIs(caught.exception, interruption)
+        time.sleep(1.2)
+        self.assertFalse(marker.exists(), "Interrupted command left its child running")
+
     def test_agent_command_keeps_sandbox_and_disables_parallel_agents(self):
         command = codex_command(self.path, "model", "high")
         self.assertEqual(command[command.index("--ask-for-approval") + 1], "never")

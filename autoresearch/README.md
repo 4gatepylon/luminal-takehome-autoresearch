@@ -168,7 +168,7 @@ Rules come from the runner package even for older bases. [Worktrees share Git me
 
 Invocation uses `--ignore-user-config`, `--ignore-rules`, `--strict-config`, and
 `--no-daemon`; managed restrictions still apply. System/project legacy sandbox settings
-can override profiles. Process-group timeouts stop ordinary children; this is not VM isolation.
+can override profiles. Every command exit kills remaining process-group children; this is not VM isolation.
 [Permissions](https://learn.chatgpt.com/docs/permissions),
 [CLI flags](https://learn.chatgpt.com/docs/developer-commands),
 [non-interactive execution](https://learn.chatgpt.com/docs/non-interactive-mode).

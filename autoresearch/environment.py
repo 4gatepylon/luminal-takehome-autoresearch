@@ -75,7 +75,7 @@ class GitRepository:
 
 
 def execute(command: list[str], cwd: Path, log: Path, timeout: float, prompt: str | None = None, *, capture_result: bool = False) -> str | None:
-    """Bound a command; optionally capture its result separately from diagnostic logs."""
+    """Bound a command and stop its process group on every exit; optionally capture stdout."""
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     with log.open("a") as output:
         with subprocess.Popen(
@@ -90,13 +90,12 @@ def execute(command: list[str], cwd: Path, log: Path, timeout: float, prompt: st
         ) as process:
             try:
                 result, _ = process.communicate(prompt, timeout=timeout)
-            except (subprocess.TimeoutExpired, KeyboardInterrupt):
+            finally:
                 try:
                     os.killpg(process.pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
                 process.wait()
-                raise
             if process.returncode:
                 raise RuntimeError(f"{command[0]} exited {process.returncode}; see {log}")
             return result
