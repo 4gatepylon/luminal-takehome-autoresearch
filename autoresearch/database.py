@@ -31,7 +31,7 @@ class Result(Base):
     elapsed_seconds: Wall-clock duration from attempt start through cleanup.
     model: Requested Codex model (also recorded on the baseline, which uses none).
     effort: Requested reasoning effort: low, medium, high, or xhigh.
-    logs: Absolute directory path containing prompt.txt, codex.log, and eval.log as available.
+    logs: Absolute directory path containing prompt.txt, codex.log, tests.log, and score.log as available.
     error: Failure/interruption description, or null; full output is in the logs.
     """
 

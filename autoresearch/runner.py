@@ -62,27 +62,27 @@ def research(args: ResearchConfig, repo: Path) -> None:
                             continue
                         # Keep even incorrect/non-improving compiler proposals so
                         # every evaluated change can be reproduced from its branch.
-                        commit = repository.commit_compiler(path, run_id, iteration, logs)
+                        commit = repository.commit_compiler(path, run_id, iteration, model=args.model, effort=args.effort)
                     else:
                         commit = parent
-                    metrics = evaluate(path, logs / "eval.log", args.eval_timeout)
+                    metrics = evaluate(path, logs, args.eval_timeout)
                     # Evaluation must not leave source or test changes behind.
                     if validate_artifact(path, commit, branch if iteration else ""):
                         raise RuntimeError("Evaluation modified compiler.py")
-                    if metrics["combined_score"] > best_score:
-                        best_commit, best_branch, best_score = commit, branch, metrics["combined_score"]
-                        status = "improved" if iteration else "baseline"
-                    else:
-                        status = "rejected"
+                # Select the next parent only after validation and worktree cleanup succeed.
+                if metrics["combined_score"] > best_score:
+                    best_commit, best_branch, best_score = commit, branch, metrics["combined_score"]
+                    status = "improved" if iteration else "baseline"
+                else:
+                    status = "rejected"
             except KeyboardInterrupt:
                 status, error = "interrupted", "Interrupted by user"
                 raise
             except Exception as exc:
+                status = "timeout" if isinstance(exc, subprocess.TimeoutExpired) else "failed"
                 error = str(exc)
                 if isinstance(exc, subprocess.CalledProcessError):
                     error += "\n" + (exc.stderr or "")
-                if isinstance(exc, subprocess.TimeoutExpired):
-                    status = "timeout"
                 if iteration == 0:
                     raise RuntimeError(f"Baseline evaluation failed: {error}") from exc
             finally:

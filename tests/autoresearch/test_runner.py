@@ -2,7 +2,7 @@
 
 Lifecycle integration: real Git and DuckDB; agent and evaluator are scripted."""
 
-from contextlib import redirect_stdout
+from contextlib import contextmanager, redirect_stdout
 from io import StringIO
 from pathlib import Path
 import subprocess
@@ -13,7 +13,7 @@ from unittest.mock import patch
 import duckdb
 
 from autoresearch.config import load_config
-from autoresearch.environment import git
+from autoresearch.environment import GitRepository, git
 from autoresearch.runner import research
 from tests.autoresearch.support import create_repository
 
@@ -148,4 +148,34 @@ class RunnerTests(unittest.TestCase):
         ):
             research(self.config(0), self.repo.root)
         self.assertEqual(self.rows()[0][1], "failed")
+        self.assert_cleaned_up()
+
+    def test_cleanup_failure_does_not_promote_proposal_or_record_success(self):
+        original_worktree = GitRepository.worktree
+
+        @contextmanager
+        def failing_cleanup(repository, commit, branch=None):
+            with original_worktree(repository, commit, branch) as path:
+                yield path
+            if branch and branch.endswith(("/0001", "/0002")):
+                raise RuntimeError("cleanup failed")
+
+        attempts = iter(("# first candidate\n", None, "# third candidate\n"))
+
+        def agent(command, path, *args):
+            contents = next(attempts)
+            if contents is not None:
+                (path / "compiler.py").write_text(contents)
+
+        with (
+            patch.object(GitRepository, "worktree", failing_cleanup),
+            patch("autoresearch.runner.execute", side_effect=agent),
+            patch("autoresearch.runner.evaluate", side_effect=[metrics(s) for s in (1, 2, 1.5)]),
+            redirect_stdout(StringIO()),
+        ):
+            research(self.config(3), self.repo.root)
+        rows = self.rows()
+        self.assertEqual([row[1] for row in rows], ["baseline", "failed", "failed", "improved"])
+        self.assertEqual([row[2] for row in rows[1:]], [self.base] * 3)
+        self.assertEqual([row[5] for row in rows[1:3]], ["cleanup failed"] * 2)
         self.assert_cleaned_up()

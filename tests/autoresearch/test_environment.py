@@ -11,7 +11,6 @@ import unittest
 from unittest.mock import patch
 
 from autoresearch.environment import (
-    ATTRIBUTION,
     codex_command,
     evaluate,
     execute,
@@ -38,12 +37,12 @@ class GitEnvironmentTests(unittest.TestCase):
             self.assertFalse(validate_artifact(path, self.base, "proposal"))
             (path / "compiler.py").write_text("# proposed compiler\n")
             self.assertTrue(validate_artifact(path, self.base, "proposal"))
-            commit = self.repository.commit_compiler(path, "run", 1, self.root)
+            commit = self.repository.commit_compiler(path, "run", 1, model="test-model", effort="low")
             self.assertFalse(validate_artifact(path, commit, "proposal"))
         self.assertFalse(path.exists())
         self.assertEqual(self.repository.resolve("proposal"), commit)
         self.assertEqual(compiler.read_text(), "# user's uncommitted work\n")
-        self.assertIn(ATTRIBUTION, git(self.repository.root, "show", "-s", "--format=%B", commit))
+        self.assertIn("Implemented by Codex (test-model, reasoning effort: low).", git(self.repository.root, "show", "-s", "--format=%B", commit))
 
     def test_worktree_cleanup_on_exception_and_interruption(self):
         for error in (RuntimeError("failure"), KeyboardInterrupt()):
@@ -132,9 +131,13 @@ class ProcessTests(unittest.TestCase):
 
     def test_evaluation_only_runs_compiler_tests_in_read_only_sandbox(self):
         output = "public geometric-mean speedup: 1.500x\npublic geometric-mean scratch reduction: 1.200x\npublic combined score: 1.342x\n"
-        self.log.write_text(output)
-        with patch("autoresearch.environment.execute") as run:
-            metrics = evaluate(self.path, self.log, 10)
+
+        def command_output(command, cwd, log, timeout):
+            # Test diagnostics must never supply the benchmark's recorded metrics.
+            log.write_text(output if command[-1] == "score.py" else output.replace("1.342x", "9.000x"))
+
+        with patch("autoresearch.environment.execute", side_effect=command_output) as run:
+            metrics = evaluate(self.path, self.path, 10)
         self.assertEqual(metrics["combined_score"], 1.342)
         self.assertEqual(len(run.call_args_list), 2)
         for call in run.call_args_list:
@@ -144,8 +147,15 @@ class ProcessTests(unittest.TestCase):
         tests = run.call_args_list[0].args[0]
         self.assertEqual(tests[-2:], ["tests.test_machine", "tests.test_public_programs"])
         self.assertNotIn("discover", tests)
-        for invalid in ("", output.replace("1.342x", "0.000x"), output.replace("1.342x", "nanx")):
-            with self.subTest(invalid=invalid), patch("autoresearch.environment.execute"):
-                self.log.write_text(invalid)
-                with self.assertRaisesRegex(RuntimeError, "Missing or invalid"):
-                    evaluate(self.path, self.log, 10)
+        self.assertIn("9.000x", (self.path / "tests.log").read_text())
+        self.assertEqual((self.path / "score.log").read_text(), output)
+
+    def test_evaluation_rejects_missing_duplicate_and_nonfinite_metrics(self):
+        output = "public geometric-mean speedup: 1.500x\npublic geometric-mean scratch reduction: 1.200x\npublic combined score: 1.342x\n"
+        for invalid in ("", output * 2, output.replace("1.342x", "0.000x"), output.replace("1.342x", "nanx"), output.replace("1.342", "9" * 400 + ".000")):
+            with self.subTest(invalid=invalid):
+                def command_output(command, cwd, log, timeout):
+                    log.write_text(invalid if command[-1] == "score.py" else output)
+
+                with patch("autoresearch.environment.execute", side_effect=command_output), self.assertRaisesRegex(RuntimeError, "Missing or invalid"):
+                    evaluate(self.path, self.path, 10)

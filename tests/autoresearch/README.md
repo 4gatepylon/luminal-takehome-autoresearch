@@ -11,8 +11,8 @@ python -B -m unittest discover -s tests/autoresearch -t . -v
 | `test_config.py` | YAML defaults/overrides, validation, round-trip, unsafe-tag rejection | No Git, DB, or model |
 | `test_cli.py` | Click options, help/config output, validation and missing-Codex errors | Git discovery and runner mocked |
 | `test_database.py` | SQLAlchemy + temporary DuckDB, durable lifecycle writes, duplicates, history, original schema | No agent; no remote databases |
-| `test_environment.py` | Temporary Git repos/worktrees, one-commit proposals, scope checks, process logs/timeouts/child cleanup | Evaluation output and agent command execution mocked |
-| `test_runner.py` | Real Git + DuckDB across baseline/improvement/rejection/no-change/failure/timeout/interruption; one commit per proposal | Codex and benchmark execution scripted |
+| `test_environment.py` | Temporary Git repos/worktrees, attributed single commits, scope checks, process cleanup, isolated score parsing and invalid/duplicate metric rejection | Evaluation output and agent command execution mocked |
+| `test_runner.py` | Real Git + DuckDB across baseline/improvement/rejection/no-change/failure/timeout/interruption; cleanup failures cannot promote proposals | Codex, benchmark execution, and cleanup failure scripted |
 | `test_sandbox.py` | Actual Codex OS sandbox: compiler-only writes, read-only evaluation, blocked loopback networking | Opt-in; no model call |
 
 The original `tests/test_machine.py` and `tests/test_public_programs.py` are

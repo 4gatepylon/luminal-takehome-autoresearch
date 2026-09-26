@@ -63,7 +63,7 @@ No-change attempts and failures before committing have no proposal commit.
 Failed evaluations and slower proposals retain their commits for inspection.
 Only a passing, strictly better score becomes the next attempt's parent; ties
 are rejected. Scores use the benchmark's printed precision. Proposals carry an
-authorship footer. Nothing is merged or pushed.
+authorship footer recording the configured model and effort. Nothing is merged or pushed.
 
 Default storage: `.autoresearch/results.duckdb` and `.autoresearch/logs/<run>/<iteration>/`.
 The `results` table records lineage, status, metrics, elapsed time, and paths;
@@ -91,7 +91,8 @@ trusted host runner                     temporary worktree at current best commi
 └── logs/<run>/<iteration>/              ├── tests/, other tracked files READ
     ├── prompt.txt                      └── .git → shared metadata   READ
     ├── codex.log
-    └── eval.log
+    ├── tests.log
+    └── score.log
 ```
 
 The baseline uses a detached worktree and no agent. Each proposal uses a fresh

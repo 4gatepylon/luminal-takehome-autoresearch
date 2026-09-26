@@ -7,6 +7,7 @@ The parent runner is trusted. Only disposable worktrees are forcibly removed.
 
 from contextlib import contextmanager
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -66,17 +67,14 @@ class GitRepository:
             finally:
                 git(self.root, "worktree", "remove", "--force", str(path))
 
-    def commit_compiler(self, path: Path, run_id: str, iteration: int, logs: Path) -> str:
+    def commit_compiler(self, path: Path, run_id: str, iteration: int, *, model: str, effort: str) -> str:
         """Commit the already validated proposal, including its author attribution."""
         git(path, "add", "--", "compiler.py")
-        message = f"Autoresearch compiler attempt {run_id}/{iteration}\n\n{ATTRIBUTION}\n"
-        message_path = logs / "commit-message.txt"
-        message_path.write_text(message)
-        git(path, "commit", "--file", str(message_path))
+        message = f"Autoresearch compiler attempt {run_id}/{iteration}\n\nImplemented by Codex ({model}, reasoning effort: {effort}).\n"
+        git(path, "commit", "-m", message)
         return git(path, "rev-parse", "HEAD")
 
 
-ATTRIBUTION = "Implemented by codex astra 6 xhigh."
 METRICS = {
     "cycle_speedup": "public geometric-mean speedup",
     "scratch_reduction": "public geometric-mean scratch reduction",
@@ -111,19 +109,21 @@ def execute(command: list[str], cwd: Path, log: Path, timeout: float, prompt: st
                 raise RuntimeError(f"{command[0]} exited {process.returncode}; see {log}")
 
 
-def evaluate(path: Path, log: Path, timeout: float) -> dict[str, float]:
+def evaluate(path: Path, logs: Path, timeout: float) -> dict[str, float]:
+    """Log tests and scoring separately; accept one finite positive value per metric."""
     # The proposed compiler executes here too. Keep the evaluator's filesystem
     # read-only; the parent runner, outside the sandbox, owns logs and Git writes.
     sandbox = ["codex", "sandbox", "--include-managed-config", "--permission-profile", ":read-only", "--cd", str(path), "--"]
-    execute([*sandbox, sys.executable, "-B", "-m", "unittest", "-v", "tests.test_machine", "tests.test_public_programs"], path, log, timeout)
-    execute([*sandbox, sys.executable, "-B", "score.py"], path, log, timeout)
-    output = log.read_text()
+    execute([*sandbox, sys.executable, "-B", "-m", "unittest", "-v", "tests.test_machine", "tests.test_public_programs"], path, logs / "tests.log", timeout)
+    score_log = logs / "score.log"
+    execute([*sandbox, sys.executable, "-B", "score.py"], path, score_log, timeout)
+    output = score_log.read_text()
     metrics = {}
     for name, label in METRICS.items():
-        match = re.search(rf"^{re.escape(label)}: ([0-9]+\.[0-9]+)x$", output, re.M)
-        if not match or float(match[1]) <= 0:
-            raise RuntimeError(f"Missing or invalid {name}; see {log}")
-        metrics[name] = float(match[1])
+        matches = re.findall(rf"^{re.escape(label)}: ([0-9]+\.[0-9]+)x$", output, re.M)
+        if len(matches) != 1 or not math.isfinite(value := float(matches[0])) or value <= 0:
+            raise RuntimeError(f"Missing or invalid {name}; see {score_log}")
+        metrics[name] = value
     return metrics
 
 
