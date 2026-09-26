@@ -9,6 +9,7 @@ from pydantic_yaml import parse_yaml_raw_as
 
 from autoresearch.cli import main
 from autoresearch.config import ResearchConfig
+from autoresearch.environment import GitRepository
 
 
 class CliTests(unittest.TestCase):
@@ -28,7 +29,8 @@ class CliTests(unittest.TestCase):
     def test_yaml_and_cli_precedence_reaches_runner(self):
         with self.cli.isolated_filesystem(), \
                 patch("autoresearch.cli.shutil.which", return_value="codex"), \
-                patch("autoresearch.runner.git", return_value="/repo"), \
+                patch("autoresearch.environment.GitRepository.discover",
+                      return_value=GitRepository(Path("/repo"))), \
                 patch("autoresearch.runner.research") as research:
             Path("run.yaml").write_text("iterations: 4\neffort: high\n")
             result = self.cli.invoke(main, ["--config", "run.yaml", "--iterations", "0"])

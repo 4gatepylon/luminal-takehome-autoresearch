@@ -1,107 +1,133 @@
 # Compiler autoresearch
 
-A small Python loop: ask Codex to improve `compiler.py`, run the existing tests
-and benchmark, record the result in DuckDB, and start the next attempt from the
-best compiler so far. By default, each run starts from `main`.
+One synchronous Python runner, one Codex agent at a time, one local DuckDB file.
 
-## Run
+```text
+autoresearch/
+├── __main__.py          python -m autoresearch
+├── cli.py               Click options and startup errors
+├── config.py            frozen Pydantic dataclass; YAML hydration/validation
+├── defaults.yaml        single source of default settings
+├── runner.py            baseline → propose → validate → commit → evaluate → record
+├── database.py          SQLAlchemy Result schema + ResultsStore read/write interface
+├── environment.py       Git worktrees, subprocesses, permissions, artifact checks
+├── agent_instructions.md rules injected from the runner's checkout
+└── agent_prompt.md       task template + recent results + current best score
+```
 
-Use Python 3.10+ on macOS or Linux, Git, and an authenticated Codex CLI:
+## Run and configure
+
+Python 3.10+, Git, and a current authenticated Codex CLI are required on macOS/Linux.
+The permission-profile flags were checked against Codex 0.157.0.
 
 ```sh
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-npm install -g @openai/codex  # skip if codex is already installed
-codex login
-.venv/bin/python -m autoresearch --iterations 10
-.venv/bin/python -m autoresearch --config experiment.yaml --show-config
+# Install Codex if needed; then authenticate with codex login.
+.venv/bin/python -m autoresearch --show-config
+.venv/bin/python -m autoresearch --config experiment.yaml --iterations 3
+.venv/bin/python -m autoresearch --iterations 0  # baseline only; still needs Codex sandbox
 ```
 
-Python invokes the installed CLI directly; no Python Codex SDK is needed.
-Defaults live in `autoresearch/defaults.yaml`. A partial YAML file passed with
-`--config experiment.yaml` overrides those defaults; explicit CLI options win.
-`config.py` validates the merged values with a frozen Pydantic dataclass and
-rejects unknown keys. Relative database paths resolve from the repository root.
-The Click CLI's `--show-config` prints all hydrated settings as reusable YAML
-without opening a database, invoking Git, or launching Codex. `--help` lists
-the available overrides.
+A user YAML can contain only `iterations: 3`; omitted fields inherit
+[defaults.yaml](defaults.yaml). Precedence: defaults < user YAML < explicit CLI
+options. Unknown keys and invalid values fail before execution. `--show-config`
+prints complete reusable YAML without opening Git, a database, or Codex.
+Relative `db` paths start at the repository root; `--config` is relative to the
+calling directory. Logs are beside the selected database.
 
-```yaml
-# experiment.yaml: all omitted fields inherit defaults.yaml
-iterations: 3
-effort: high
+## System and concurrency
+
+```mermaid
+flowchart LR
+    C[Click + validated YAML] --> R[Single sequential runner]
+    R --> G[Git and environment tooling]
+    G --> A[One Codex process: compiler-only writes]
+    A --> E[Read-only tests + score.py]
+    E --> R
+    R --> S[ResultsStore / SQLAlchemy]
+    S --> D[(DuckDB: results table)]
+    R --> L[Local prompt, agent, evaluation logs]
 ```
 
-The default model is `gpt-6-astra` with `xhigh` reasoning. Override with `--model`
-and `--effort`. `--codex-timeout` defaults to 900 seconds per attempt and
-`--eval-timeout` to 180 seconds per evaluation command. Use `--iterations 0` to
-check the baseline and database without making a model call.
+Each invocation has a unique `run_id`; iteration 0 evaluates the starting commit.
+Each changed proposal is **exactly one runner-created commit**, not a commit chain.
+No-change attempts and failures before committing have no proposal commit.
+Failed evaluations and slower proposals retain their commits for inspection.
+Only a passing, strictly better score becomes the next attempt's parent; ties
+are rejected. Scores use the benchmark's printed precision. Proposals carry an
+authorship footer. Nothing is merged or pushed.
 
-Each invocation evaluates `--base main` first, then creates branches named
-`autoresearch/<run-id>/<iteration>` in temporary worktrees. Your current checkout
-is untouched. Each compiler proposal is committed, including failed or slower
-ones; only a correct, strictly better combined score becomes the next parent.
-Comparisons use the benchmark's printed precision (three decimal places).
-Every generated commit includes `Implemented by codex astra 6 xhigh.`
+Default storage: `.autoresearch/results.duckdb` and `.autoresearch/logs/<run>/<iteration>/`.
+The `results` table records lineage, status, metrics, elapsed time, and paths;
+[Result's docstring](database.py) defines every field. `logs` is a directory path,
+not embedded log content. `start_attempt()` and `finish_attempt()` commit
+separately; no transaction stays open during an experiment. Abrupt termination
+can leave `running` rows; there is no automatic recovery or job claiming.
 
-## Permissions
+**One runner writes a given DB at a time.** This implementation has no worker
+threads, remote DB service, shared job queue, or cross-machine coordination.
+SQLAlchemy uses `duckdb-engine`; it does not change DuckDB's concurrency rules.
+The original schema remains compatible; `create_all()` creates missing tables,
+not migrations. [DuckDB concurrency](https://duckdb.org/docs/current/connect/concurrency),
+[SQLAlchemy schema lifecycle](https://docs.sqlalchemy.org/en/20/core/metadata.html#creating-and-dropping-database-tables).
 
-Every attempt receives the contents of `autoresearch/agent_instructions.md` from the runner's
-checkout, even when its starting commit does not contain that file. The runner
-also configures a [Codex permission profile](https://learn.chatgpt.com/docs/permissions)
-that extends `:read-only` and grants write access to the absolute path of just
-that attempt's `compiler.py`:
+Resume from a retained branch with `--base autoresearch/<run-id>/<iteration>`.
 
-| Capability | Research agent |
-| --- | --- |
-| Read repository and local files | Allowed, subject to OS and managed policy |
-| Modify `compiler.py` in the attempt's worktree | Allowed |
-| Modify `programs/`, `tests/`, `machine.py`, `score.py`, or other files | Blocked by the filesystem sandbox |
-| Create files, including temporary files and bytecode caches | Blocked |
-| Change Git metadata, logs, or the results database | Blocked |
-| Run existing tests and benchmark | Allowed; use Python `-B` |
-| Network access from shell commands | Blocked |
-| Request broader permissions | Disabled (`approval_policy=never`) |
+## What each agent sees
 
-The runner performs its own tests and scoring under `codex sandbox` with the
-`:read-only` profile, so even proposed compiler code cannot write files during
-evaluation. The parent Python runner retains permission to create worktrees,
-commit compiler changes, and write DuckDB records and logs. Codex's own model
-and authentication traffic is separate from sandboxed command network access.
+```text
+trusted host runner                     temporary worktree at current best commit
+├── user's checkout (not edited)         ├── compiler.py              READ + WRITE
+├── shared Git refs/objects              ├── README.md, machine.py    READ
+├── results.duckdb                       ├── score.py, programs/      READ
+└── logs/<run>/<iteration>/              ├── tests/, other tracked files READ
+    ├── prompt.txt                      └── .git → shared metadata   READ
+    ├── codex.log
+    └── eval.log
+```
 
-Use a current Codex CLI with permission-profile support (tested with 0.157.0).
-The CLI starts with `--ignore-user-config` to avoid inheriting legacy
-`sandbox_mode` settings that override permission profiles; saved authentication
-still loads. Managed requirements remain in effect. System/project configuration
-must also avoid mixing legacy sandbox settings with permission profiles.
-`--strict-config` rejects unknown settings; there is no workspace-write fallback.
-`--no-daemon` keeps each attempt in its own process group so timeouts can stop it.
+The baseline uses a detached worktree and no agent. Each proposal uses a fresh
+worktree/branch; the checkout is removed on success, error, or Ctrl-C. Branches
+and logs remain. Rules and task text come from the runner package even when the
+starting commit predates it. [Git worktrees share repository metadata](https://git-scm.com/docs/git-worktree).
 
-The Git checks remain as a second check before accepting a proposal. Temporary
-worktrees are removed; proposal branches, logs, and database records remain.
+- **Local tools:** Codex shell/file editing and installed commands, including
+  Python and Git. No Python Codex SDK or runner DB tool is exposed to the agent.
+- **Writes:** the requested Codex profile extends `:read-only` and grants only
+  that worktree's `compiler.py` write access. Other files, temp files, Git metadata,
+  and runner logs/DB are not writable by sandboxed commands. Use Python `-B`.
+- **Network/tools:** command networking and approval escalation are disabled.
+  Web search, subagents, apps, plugins, browser, computer use, and image generation
+  are explicitly disabled. System/project MCP configuration has separate controls;
+  it must be trusted or restricted with managed policy.
+- **Reads:** broad local reads remain allowed, subject to OS/managed restrictions.
+  This is not a container, secret-hiding boundary, or guarantee against malicious
+  compiler behavior. Codex model/authentication traffic is outside command networking.
+- **Acceptance:** reject changed HEAD/branch, staged/unstaged edits outside
+  `compiler.py`, extra files (including ignored files), and missing/symlinked
+  compiler artifacts. Evaluate under Codex's read-only sandbox, then check again.
+  These checks enforce scope; they do not prove code harmless or scores honest.
 
-## Results and continuing a run
+The host runner owns Git/DB/log writes and trusts the starting repository and
+installed tools. `--ignore-user-config`, `--ignore-rules`, `--strict-config`, and
+`--no-daemon` make CLI invocation explicit; managed restrictions still apply.
+System/project configuration must not select legacy sandbox settings, which
+can override profiles. Process-group timeouts stop ordinary child processes;
+this is not a VM or a hostile-process containment system.
 
-The single `results` table in `.autoresearch/results.duckdb` contains run/iteration,
-timestamp, branch, parent and proposal commits, status, cycle speedup, scratch
-reduction, combined score, duration, model/effort, log directory, and error.
-Iteration 0 is the baseline. Status is `baseline`, `improved`, `rejected`,
-`no_change`, `failed`, `timeout`, or `interrupted`; an abruptly killed runner may
-leave a `running` row. Logs beside the DB contain prompts, Codex output, and eval
-output. Only one runner should write a given DB at a time.
+Sources: [permission profiles and enforcement](https://learn.chatgpt.com/docs/permissions),
+[CLI flags](https://learn.chatgpt.com/docs/developer-commands),
+[non-interactive execution](https://learn.chatgpt.com/docs/non-interactive-mode).
+
+## Tests
 
 ```sh
-.venv/bin/python - <<'PY'
-import duckdb
-with duckdb.connect('.autoresearch/results.duckdb', read_only=True) as db:
-    print(db.sql('''SELECT branch, commit_sha, status, combined_score
-                   FROM results ORDER BY started_at, iteration'''))
-PY
-
-# Continue from a winning branch printed by the runner:
-.venv/bin/python -m autoresearch --base autoresearch/<run-id>/<iteration> --iterations 10
+.venv/bin/python -B -m unittest discover -s tests/autoresearch -t . -v
+.venv/bin/python -B -m unittest -v tests.test_machine tests.test_public_programs
+.venv/bin/python -B score.py
 ```
 
-`--db PATH` chooses another database. No branch is merged or pushed automatically.
-Ctrl-C kills the current subprocess group, records the interrupted attempt, and
-cleans up its worktree.
+[tests/autoresearch/README.md](../tests/autoresearch/README.md) lists real versus
+mocked boundaries and the opt-in OS sandbox probes. Compiler evaluation selects
+only the two original test modules above plus `score.py`, never infrastructure tests.

@@ -47,10 +47,11 @@ def main(config_path: Path | None, show_config: bool, **overrides) -> None:
 
     # Help and config inspection need neither a Git checkout nor database imports.
     from sqlalchemy.exc import SQLAlchemyError
-    from .runner import git, research
+    from .environment import GitRepository
+    from .runner import research
 
     try:
-        repo = Path(git(Path.cwd(), "rev-parse", "--show-toplevel"))
+        repo = GitRepository.discover(Path.cwd()).root
         research(config, repo)
     except subprocess.CalledProcessError as exc:
         raise click.ClickException((exc.stderr or str(exc)).strip()) from exc

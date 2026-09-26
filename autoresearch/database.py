@@ -14,7 +14,24 @@ class Base(DeclarativeBase):
 
 
 class Result(Base):
-    """Preserve the original results table, including its composite primary key."""
+    """One baseline or attempt; (run_id, iteration) identifies its record.
+
+    run_id: Unique invocation ID shared by the baseline and all its attempts.
+    iteration: Zero for the baseline, then the sequential attempt number.
+    started_at: Database timestamp when the attempt's running row was inserted.
+    branch: Proposal branch; the baseline stores the configured starting ref.
+    parent_commit: Commit from which this attempt's worktree was created.
+    commit_sha: One proposal commit, baseline SHA, or null if none was committed.
+    status: running/baseline/improved/rejected/no_change/failed/timeout/interrupted.
+    cycle_speedup: Public geometric-mean cycle speedup multiplier, or null.
+    scratch_reduction: Public geometric-mean scratch reduction multiplier, or null.
+    combined_score: Public combined-score multiplier used to select the next parent.
+    elapsed_seconds: Wall-clock duration from attempt start through cleanup.
+    model: Requested Codex model (also recorded on the baseline, which uses none).
+    effort: Requested reasoning effort: low, medium, high, or xhigh.
+    logs: Absolute directory path containing prompt.txt, codex.log, and eval.log as available.
+    error: Failure/interruption description, or null; full output is in the logs.
+    """
 
     __tablename__ = "results"
 
