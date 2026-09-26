@@ -7,6 +7,7 @@ The parent runner is trusted. Only disposable worktrees are forcibly removed.
 
 from contextlib import contextmanager
 import json
+import logging
 import math
 import os
 from pathlib import Path
@@ -56,15 +57,26 @@ class GitRepository:
 
     @contextmanager
     def worktree(self, commit: str, branch: str | None = None):
-        """Remove the checkout on success, failure, or interruption; retain branches."""
+        """Clean up even partial creation; preserve primary errors and retain branches."""
         with tempfile.TemporaryDirectory(prefix="luminal-autoresearch-") as directory:
-            path = Path(directory) / "work"
+            path = (Path(directory) / "work").resolve()
             options = ["-b", branch] if branch else ["--detach"]
-            git(self.root, "worktree", "add", *options, str(path), commit)
+            failed = False
             try:
+                git(self.root, "worktree", "add", *options, str(path), commit)
                 yield path
+            except BaseException:
+                failed = True
+                raise
             finally:
-                git(self.root, "worktree", "remove", "--force", str(path))
+                try:
+                    registrations = git(self.root, "worktree", "list", "--porcelain", "-z", raw=True).split("\0")
+                    if f"worktree {path}" in registrations:
+                        git(self.root, "worktree", "remove", "--force", str(path))
+                except Exception:
+                    if not failed:
+                        raise
+                    logging.getLogger(__name__).exception("Cleanup also failed for temporary worktree %s", path)
 
     def commit_compiler(self, path: Path, run_id: str, iteration: int, *, model: str, effort: str) -> str:
         """Commit the already validated proposal, including its author attribution."""

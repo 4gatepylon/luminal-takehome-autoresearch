@@ -263,3 +263,28 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual([row[2] for row in rows[1:]], [self.base] * 3)
         self.assertEqual([row[5] for row in rows[1:3]], ["cleanup failed"] * 2)
         self.assert_cleaned_up()
+
+    def test_partial_worktree_creation_failure_is_recorded_and_next_attempt_runs(self):
+        def fail_after_registration(repo, *args, **kwargs):
+            result = git(repo, *args, **kwargs)
+            if args[:2] == ("worktree", "add") and "-b" in args and args[args.index("-b") + 1].endswith("/0001"):
+                raise subprocess.CalledProcessError(1, ["git", *args], stderr="partial creation failed")
+            return result
+
+        def agent(command, path, *args):
+            (path / "compiler.py").write_text("# proposed compiler\n")
+
+        with (
+            patch("autoresearch.environment.git", side_effect=fail_after_registration),
+            patch("autoresearch.runner.execute", side_effect=agent) as execute,
+            patch("autoresearch.runner.evaluate", side_effect=[metrics(1), metrics(2)]),
+            redirect_stdout(StringIO()),
+        ):
+            research(self.config(2), self.repo.root)
+        rows = self.rows()
+        self.assertEqual([row[1] for row in rows], ["baseline", "failed", "improved"])
+        self.assertEqual([row[2] for row in rows[1:]], [self.base, self.base])
+        self.assertIsNone(rows[1][3])
+        self.assertIn("partial creation failed", rows[1][5])
+        execute.assert_called_once()
+        self.assert_cleaned_up()

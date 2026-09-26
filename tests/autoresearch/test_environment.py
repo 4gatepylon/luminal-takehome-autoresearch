@@ -114,6 +114,70 @@ class GitEnvironmentTests(unittest.TestCase):
             self.assertFalse(path.exists())
             self.assertEqual(git(self.repository.root, "worktree", "list", "--porcelain").count("worktree "), 1)
 
+    def test_worktree_creation_failures_clean_only_the_attempt_registration(self):
+        with self.repository.worktree(self.base, "unrelated") as unrelated:
+            for stage in ("before-registration", "after-registration", "missing-directory"):
+                with self.subTest(stage=stage):
+                    paths = []
+                    creation_error = subprocess.CalledProcessError(1, ["git", "worktree", "add"], stderr="creation failed")
+
+                    def fail_creation(repo, *args, **kwargs):
+                        if args[:2] == ("worktree", "add"):
+                            paths.append(Path(args[-2]))
+                            if stage != "before-registration":
+                                git(repo, *args, **kwargs)
+                            if stage == "missing-directory":
+                                shutil.rmtree(paths[-1])
+                            raise creation_error
+                        return git(repo, *args, **kwargs)
+
+                    with patch("autoresearch.environment.git", side_effect=fail_creation) as commands:
+                        with self.assertRaises(subprocess.CalledProcessError) as caught:
+                            with self.repository.worktree(self.base, stage):
+                                self.fail("Failed creation must not yield a checkout")
+                    self.assertIs(caught.exception, creation_error)
+                    self.assertFalse(paths[0].exists())
+                    removals = [call.args[-1] for call in commands.call_args_list if call.args[1:3] == ("worktree", "remove")]
+                    self.assertEqual(removals, [] if stage == "before-registration" else [str(paths[0])])
+                    self.assertEqual(git(self.repository.root, "worktree", "list", "--porcelain").count("worktree "), 2)
+                    self.assertEqual(git(unrelated, "rev-parse", "HEAD"), self.base)
+
+    def test_worktree_cleanup_failure_preserves_primary_error_and_reports_both(self):
+        errors = (RuntimeError("body failed"), subprocess.TimeoutExpired("codex", 10), KeyboardInterrupt())
+        for original in errors:
+            with self.subTest(error=type(original)):
+                def fail_removal(repo, *args, **kwargs):
+                    if args[:2] == ("worktree", "remove"):
+                        raise RuntimeError("simulated cleanup failure")
+                    return git(repo, *args, **kwargs)
+
+                with patch("autoresearch.environment.git", side_effect=fail_removal):
+                    with self.assertLogs("autoresearch.environment", level="ERROR") as logs:
+                        with self.assertRaises(type(original)) as caught:
+                            with self.repository.worktree(self.base) as path:
+                                raise original
+                self.assertIs(caught.exception, original)
+                self.assertIn("simulated cleanup failure", "\n".join(logs.output))
+                self.assertIn(str(path), "\n".join(logs.output))
+                self.assertFalse(path.exists())
+                # The injected removal failure left metadata; clean up that fixture.
+                git(self.repository.root, "worktree", "remove", "--force", str(path))
+
+    def test_worktree_cleanup_error_propagates_when_body_succeeds(self):
+        cleanup_error = RuntimeError("cleanup failed")
+
+        def fail_removal(repo, *args, **kwargs):
+            if args[:2] == ("worktree", "remove"):
+                raise cleanup_error
+            return git(repo, *args, **kwargs)
+
+        with patch("autoresearch.environment.git", side_effect=fail_removal):
+            with self.assertRaises(RuntimeError) as caught:
+                with self.repository.worktree(self.base) as path:
+                    pass
+        self.assertIs(caught.exception, cleanup_error)
+        git(self.repository.root, "worktree", "remove", "--force", str(path))
+
     def test_rejects_staged_change_hidden_by_restoring_working_copy(self):
         with self.repository.worktree(self.base) as path:
             original = (path / "machine.py").read_text()

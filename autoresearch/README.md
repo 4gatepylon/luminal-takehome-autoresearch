@@ -151,7 +151,7 @@ trusted host runner                     temporary worktree at best commit
     └── tests.log, score.log
 ```
 
-The baseline is detached; proposals use fresh branches. Cleanup is attempted on completion, errors, or Ctrl-C.
+The baseline is detached; proposals use fresh branches. Cleanup covers partial creation, completion, errors, and Ctrl-C.
 Rules come from the runner package even for older bases. [Worktrees share Git metadata](https://git-scm.com/docs/git-worktree).
 
 - **Tools/writes:** local shell/file editing and installed commands (Python, Git).
