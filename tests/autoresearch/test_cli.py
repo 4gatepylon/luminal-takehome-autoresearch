@@ -29,11 +29,12 @@ class CliTests(unittest.TestCase):
             which.assert_not_called()
 
     def test_yaml_and_cli_precedence_reaches_runner(self):
-        with self.cli.isolated_filesystem(), \
-                patch("autoresearch.cli.shutil.which", return_value="codex"), \
-                patch("autoresearch.environment.GitRepository.discover",
-                      return_value=GitRepository(Path("/repo"))), \
-                patch("autoresearch.runner.research") as research:
+        with (
+            self.cli.isolated_filesystem(),
+            patch("autoresearch.cli.shutil.which", return_value="codex"),
+            patch("autoresearch.environment.GitRepository.discover", return_value=GitRepository(Path("/repo"))),
+            patch("autoresearch.runner.research") as research,
+        ):
             Path("run.yaml").write_text("iterations: 4\neffort: high\n")
             result = self.cli.invoke(main, ["--config", "run.yaml", "--iterations", "0"])
             self.assertEqual(result.exit_code, 0, result.output)
@@ -51,8 +52,7 @@ class CliTests(unittest.TestCase):
             which.assert_not_called()
 
     def test_bad_cli_values_and_missing_yaml(self):
-        for args in (["--iterations", "-1"], ["--eval-timeout", "0"],
-                     ["--effort", "extreme"], ["--config", "/missing/config.yaml"]):
+        for args in (["--iterations", "-1"], ["--eval-timeout", "0"], ["--effort", "extreme"], ["--config", "/missing/config.yaml"]):
             with self.subTest(args=args):
                 result = self.cli.invoke(main, args)
                 self.assertEqual(result.exit_code, 2, result.output)

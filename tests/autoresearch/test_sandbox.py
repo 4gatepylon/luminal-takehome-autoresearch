@@ -13,8 +13,7 @@ import unittest
 from autoresearch.environment import compiler_permission_args
 
 
-@unittest.skipUnless(os.environ.get("AUTORESEARCH_SANDBOX_TESTS") == "1",
-                     "Set AUTORESEARCH_SANDBOX_TESTS=1 for real OS sandbox probes")
+@unittest.skipUnless(os.environ.get("AUTORESEARCH_SANDBOX_TESTS") == "1", "Set AUTORESEARCH_SANDBOX_TESTS=1 for real OS sandbox probes")
 class SandboxTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -27,10 +26,24 @@ class SandboxTests(unittest.TestCase):
         policy = compiler_permission_args(self.path) if writable_compiler else []
         profile = "luminal_compiler" if writable_compiler else ":read-only"
         result = subprocess.run(
-            ["codex", "sandbox", "--include-managed-config", *policy,
-             "--permission-profile", profile, "--cd", str(self.path), "--",
-             sys.executable, "-B", "-c", code],
-            text=True, capture_output=True, timeout=30,
+            [
+                "codex",
+                "sandbox",
+                "--include-managed-config",
+                *policy,
+                "--permission-profile",
+                profile,
+                "--cd",
+                str(self.path),
+                "--",
+                sys.executable,
+                "-B",
+                "-c",
+                code,
+            ],
+            text=True,
+            capture_output=True,
+            timeout=30,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
@@ -48,14 +61,17 @@ for target in ('machine.py', 'extra.txt'):
 """)
 
     def test_evaluation_cannot_write_compiler(self):
-        self.run_probe("""from pathlib import Path
+        self.run_probe(
+            """from pathlib import Path
 try:
     Path('compiler.py').write_text('forbidden')
 except PermissionError:
     pass
 else:
     raise AssertionError('Read-only evaluation wrote compiler.py')
-""", writable_compiler=False)
+""",
+            writable_compiler=False,
+        )
 
     def test_shell_network_is_blocked(self):
         with socket.socket() as listener:

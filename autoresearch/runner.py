@@ -33,8 +33,13 @@ def research(args: ResearchConfig, repo: Path) -> None:
             logs = logs_root / f"{iteration:04d}"
             logs.mkdir(parents=True)
             store.start_attempt(
-                run_id, iteration, branch=branch, parent_commit=parent,
-                model=args.model, effort=args.effort, logs=logs,
+                run_id,
+                iteration,
+                branch=branch,
+                parent_commit=parent,
+                model=args.model,
+                effort=args.effort,
+                logs=logs,
             )
             start = time.monotonic()
             status, error, commit, metrics = "failed", None, None, {}
@@ -44,12 +49,14 @@ def research(args: ResearchConfig, repo: Path) -> None:
                     if iteration:
                         recent = store.recent_attempts(run_id, iteration)
                         prompt = prompt_template.format(
-                            rules=rules, python=sys.executable, best_score=best_score,
-                            recent=recent, codex_timeout=args.codex_timeout,
+                            rules=rules,
+                            python=sys.executable,
+                            best_score=best_score,
+                            recent=recent,
+                            codex_timeout=args.codex_timeout,
                         )
                         (logs / "prompt.txt").write_text(prompt)
-                        execute(codex_command(path, args.model, args.effort), path,
-                                logs / "codex.log", args.codex_timeout, prompt)
+                        execute(codex_command(path, args.model, args.effort), path, logs / "codex.log", args.codex_timeout, prompt)
                         if not validate_artifact(path, parent, branch):
                             status = "no_change"
                             continue
@@ -80,8 +87,13 @@ def research(args: ResearchConfig, repo: Path) -> None:
                     raise RuntimeError(f"Baseline evaluation failed: {error}") from exc
             finally:
                 store.finish_attempt(
-                    run_id, iteration, commit_sha=commit, status=status, metrics=metrics,
-                    elapsed_seconds=time.monotonic() - start, error=error,
+                    run_id,
+                    iteration,
+                    commit_sha=commit,
+                    status=status,
+                    metrics=metrics,
+                    elapsed_seconds=time.monotonic() - start,
+                    error=error,
                 )
                 print(f"  {status}: score={metrics.get('combined_score')} {error or ''}", flush=True)
         print(f"Best: {best_branch} ({best_commit}), score={best_score:.3f}x\nResults: {db_path}")

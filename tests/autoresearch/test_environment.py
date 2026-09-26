@@ -11,7 +11,12 @@ import unittest
 from unittest.mock import patch
 
 from autoresearch.environment import (
-    ATTRIBUTION, codex_command, evaluate, execute, git, validate_artifact,
+    ATTRIBUTION,
+    codex_command,
+    evaluate,
+    execute,
+    git,
+    validate_artifact,
 )
 from tests.autoresearch.support import create_repository
 
@@ -47,8 +52,7 @@ class GitEnvironmentTests(unittest.TestCase):
                     (path / "compiler.py").write_text("# dirty\n")
                     raise error
             self.assertFalse(path.exists())
-            self.assertEqual(git(self.repository.root, "worktree", "list", "--porcelain")
-                             .count("worktree "), 1)
+            self.assertEqual(git(self.repository.root, "worktree", "list", "--porcelain").count("worktree "), 1)
 
     def test_rejects_staged_change_hidden_by_restoring_working_copy(self):
         with self.repository.worktree(self.base) as path:
@@ -94,21 +98,18 @@ class ProcessTests(unittest.TestCase):
         self.log = self.path / "command.log"
 
     def test_stdin_output_and_failure_log(self):
-        execute([sys.executable, "-B", "-c", "import sys; print(sys.stdin.read())"],
-                self.path, self.log, 10, "prompt text")
+        execute([sys.executable, "-B", "-c", "import sys; print(sys.stdin.read())"], self.path, self.log, 10, "prompt text")
         self.assertIn("prompt text", self.log.read_text())
         with self.assertRaisesRegex(RuntimeError, "exited 7"):
-            execute([sys.executable, "-B", "-c", "print('diagnostic'); raise SystemExit(7)"],
-                    self.path, self.log, 10)
+            execute([sys.executable, "-B", "-c", "print('diagnostic'); raise SystemExit(7)"], self.path, self.log, 10)
         self.assertIn("diagnostic", self.log.read_text())
 
     def test_timeout_stops_process_group(self):
         marker = self.path / "surviving-child.txt"
-        child_script = ("import time; from pathlib import Path; print('ready', flush=True); "
-                        f"time.sleep(3); Path({str(marker)!r}).write_text('still alive')")
-        script = ("import subprocess, sys, time; "
-                  f"subprocess.Popen([sys.executable, '-B', '-c', {child_script!r}]); "
-                  "time.sleep(60)")
+        child_script = (
+            f"import time; from pathlib import Path; print('ready', flush=True); time.sleep(3); Path({str(marker)!r}).write_text('still alive')"
+        )
+        script = f"import subprocess, sys, time; subprocess.Popen([sys.executable, '-B', '-c', {child_script!r}]); time.sleep(60)"
         with self.assertRaises(subprocess.TimeoutExpired):
             execute([sys.executable, "-B", "-c", script], self.path, self.log, 2)
         self.assertIn("ready", self.log.read_text())
@@ -122,8 +123,7 @@ class ProcessTests(unittest.TestCase):
         self.assertIn("--ignore-user-config", command)
         self.assertIn("--ignore-rules", command)
         self.assertIn('web_search="disabled"', command)
-        for feature in ("multi_agent", "multi_agent_v2", "apps", "plugins",
-                        "browser_use", "computer_use"):
+        for feature in ("multi_agent", "multi_agent_v2", "apps", "plugins", "browser_use", "computer_use"):
             self.assertEqual(command[command.index(feature) - 1], "--disable")
         policy = next(arg for arg in command if arg.startswith("permissions.luminal_compiler="))
         self.assertIn(str(self.path.resolve() / "compiler.py"), policy)
@@ -131,9 +131,7 @@ class ProcessTests(unittest.TestCase):
         self.assertIn("network={enabled=false}", policy)
 
     def test_evaluation_only_runs_compiler_tests_in_read_only_sandbox(self):
-        output = ("public geometric-mean speedup: 1.500x\n"
-                  "public geometric-mean scratch reduction: 1.200x\n"
-                  "public combined score: 1.342x\n")
+        output = "public geometric-mean speedup: 1.500x\npublic geometric-mean scratch reduction: 1.200x\npublic combined score: 1.342x\n"
         self.log.write_text(output)
         with patch("autoresearch.environment.execute") as run:
             metrics = evaluate(self.path, self.log, 10)

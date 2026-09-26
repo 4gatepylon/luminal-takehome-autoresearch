@@ -36,10 +36,20 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(load_config(self.path), config)
 
     def test_invalid_values_and_unknown_fields_are_rejected(self):
-        for contents in ("iterations: -1", "iterations: true", "iterations: 1.5",
-                         "eval_timeout: 0", "codex_timeout: .inf", "eval_timeout: .nan",
-                         "effort: extreme", "model: ''", "base: ' '",
-                         "iteratons: 10", "iterations: null", "- not\n- a mapping"):
+        for contents in (
+            "iterations: -1",
+            "iterations: true",
+            "iterations: 1.5",
+            "eval_timeout: 0",
+            "codex_timeout: .inf",
+            "eval_timeout: .nan",
+            "effort: extreme",
+            "model: ''",
+            "base: ' '",
+            "iteratons: 10",
+            "iterations: null",
+            "- not\n- a mapping",
+        ):
             with self.subTest(contents=contents):
                 self.path.write_text(contents)
                 with self.assertRaises(ValidationError):

@@ -40,7 +40,8 @@ class Result(Base):
     run_id: Mapped[str] = mapped_column(String, primary_key=True)
     iteration: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
     started_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), server_default=func.current_timestamp(),
+        DateTime(timezone=True),
+        server_default=func.current_timestamp(),
     )
     branch: Mapped[str | None] = mapped_column(String)
     parent_commit: Mapped[str | None] = mapped_column(String)
@@ -64,8 +65,7 @@ class ResultsStore:
 
     def __enter__(self) -> "ResultsStore":
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._engine = create_engine(URL.create("duckdb", database=str(self.path)),
-                                     poolclass=NullPool)
+        self._engine = create_engine(URL.create("duckdb", database=str(self.path)), poolclass=NullPool)
         try:
             Base.metadata.create_all(self._engine)
         except BaseException:
@@ -74,20 +74,35 @@ class ResultsStore:
         self._sessions = sessionmaker(self._engine)
         return self
 
-    def __exit__(self, exc_type: type[BaseException] | None,
-                 exc: BaseException | None, traceback: TracebackType | None) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, traceback: TracebackType | None) -> None:
         self._engine.dispose()
 
-    def start_attempt(self, run_id: str, iteration: int, *, branch: str,
-                      parent_commit: str, model: str, effort: str, logs: Path) -> None:
+    def start_attempt(self, run_id: str, iteration: int, *, branch: str, parent_commit: str, model: str, effort: str, logs: Path) -> None:
         with self._sessions.begin() as session:
-            session.add(Result(run_id=run_id, iteration=iteration, branch=branch,
-                               parent_commit=parent_commit, status="running",
-                               model=model, effort=effort, logs=str(logs)))
+            session.add(
+                Result(
+                    run_id=run_id,
+                    iteration=iteration,
+                    branch=branch,
+                    parent_commit=parent_commit,
+                    status="running",
+                    model=model,
+                    effort=effort,
+                    logs=str(logs),
+                )
+            )
 
-    def finish_attempt(self, run_id: str, iteration: int, *, commit_sha: str | None,
-                       status: str, metrics: dict[str, float], elapsed_seconds: float,
-                       error: str | None) -> None:
+    def finish_attempt(
+        self,
+        run_id: str,
+        iteration: int,
+        *,
+        commit_sha: str | None,
+        status: str,
+        metrics: dict[str, float],
+        elapsed_seconds: float,
+        error: str | None,
+    ) -> None:
         with self._sessions.begin() as session:
             result = session.get(Result, (run_id, iteration))
             if result is None:
@@ -100,12 +115,12 @@ class ResultsStore:
             result.elapsed_seconds = elapsed_seconds
             result.error = error
 
-    def recent_attempts(self, run_id: str, before_iteration: int,
-                        limit: int = 5) -> list[tuple[int, str | None, float | None, str | None]]:
+    def recent_attempts(self, run_id: str, before_iteration: int, limit: int = 5) -> list[tuple[int, str | None, float | None, str | None]]:
         query = (
             select(Result.iteration, Result.status, Result.combined_score, Result.error)
             .where(Result.run_id == run_id, Result.iteration < before_iteration)
-            .order_by(Result.iteration.desc()).limit(limit)
+            .order_by(Result.iteration.desc())
+            .limit(limit)
         )
         with self._sessions() as session:
             return [tuple(row) for row in session.execute(query)]

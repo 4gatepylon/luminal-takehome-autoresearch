@@ -18,15 +18,25 @@ import tempfile
 
 # These surfaces have separate controls from the local command sandbox.
 DISABLED_AGENT_FEATURES = (
-    "multi_agent", "multi_agent_v2", "apps", "plugins", "browser_use",
-    "browser_use_external", "in_app_browser", "computer_use", "image_generation",
+    "multi_agent",
+    "multi_agent_v2",
+    "apps",
+    "plugins",
+    "browser_use",
+    "browser_use_external",
+    "in_app_browser",
+    "computer_use",
+    "image_generation",
 )
 
 
 def git(repo: Path, *args: str) -> str:
     """Invoke Git without a shell; return stdout or raise with captured stderr."""
     result = subprocess.run(
-        ["git", "-C", str(repo), *args], text=True, capture_output=True, check=True,
+        ["git", "-C", str(repo), *args],
+        text=True,
+        capture_output=True,
+        check=True,
     )
     return result.stdout.strip()
 
@@ -74,14 +84,19 @@ METRICS = {
 }
 
 
-def execute(command: list[str], cwd: Path, log: Path, timeout: float,
-            prompt: str | None = None) -> None:
+def execute(command: list[str], cwd: Path, log: Path, timeout: float, prompt: str | None = None) -> None:
     """Bound each command and kill its children too on timeout or Ctrl-C."""
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     with log.open("a") as output:
         with subprocess.Popen(
-            command, cwd=cwd, env=env, text=True, stdin=subprocess.PIPE,
-            stdout=output, stderr=subprocess.STDOUT, start_new_session=True,
+            command,
+            cwd=cwd,
+            env=env,
+            text=True,
+            stdin=subprocess.PIPE,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
         ) as process:
             try:
                 process.communicate(prompt, timeout=timeout)
@@ -99,10 +114,8 @@ def execute(command: list[str], cwd: Path, log: Path, timeout: float,
 def evaluate(path: Path, log: Path, timeout: float) -> dict[str, float]:
     # The proposed compiler executes here too. Keep the evaluator's filesystem
     # read-only; the parent runner, outside the sandbox, owns logs and Git writes.
-    sandbox = ["codex", "sandbox", "--include-managed-config",
-               "--permission-profile", ":read-only", "--cd", str(path), "--"]
-    execute([*sandbox, sys.executable, "-B", "-m", "unittest", "-v",
-             "tests.test_machine", "tests.test_public_programs"], path, log, timeout)
+    sandbox = ["codex", "sandbox", "--include-managed-config", "--permission-profile", ":read-only", "--cd", str(path), "--"]
+    execute([*sandbox, sys.executable, "-B", "-m", "unittest", "-v", "tests.test_machine", "tests.test_public_programs"], path, log, timeout)
     execute([*sandbox, sys.executable, "-B", "score.py"], path, log, timeout)
     output = log.read_text()
     metrics = {}
@@ -136,21 +149,34 @@ def validate_artifact(path: Path, parent: str, branch: str) -> bool:
 def compiler_permission_args(path: Path) -> list[str]:
     """Allow reads, but grant writes only to this checkout's compiler.py."""
     compiler = json.dumps(str(path.resolve() / "compiler.py"))
-    policy = ('{extends=":read-only", filesystem={' + compiler + '="write"}, '
-              'network={enabled=false}}')
-    return ["-c", 'default_permissions="luminal_compiler"',
-            "-c", f"permissions.luminal_compiler={policy}"]
+    policy = '{extends=":read-only", filesystem={' + compiler + '="write"}, network={enabled=false}}'
+    return ["-c", 'default_permissions="luminal_compiler"', "-c", f"permissions.luminal_compiler={policy}"]
 
 
 def codex_command(path: Path, model: str, effort: str) -> list[str]:
     return [
-        "codex", "--no-daemon", "--ask-for-approval", "never", "exec",
+        "codex",
+        "--no-daemon",
+        "--ask-for-approval",
+        "never",
+        "exec",
         # Legacy sandbox settings override permission profiles. Ignore personal
         # config instead of inheriting workspace-write; saved auth still loads.
-        "--ignore-user-config", "--ignore-rules", "--strict-config", "--ephemeral", "--color", "never",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "--strict-config",
+        "--ephemeral",
+        "--color",
+        "never",
         *compiler_permission_args(path),
-        "-c", 'web_search="disabled"',
+        "-c",
+        'web_search="disabled"',
         *[arg for feature in DISABLED_AGENT_FEATURES for arg in ("--disable", feature)],
-        "--model", model, "-c", f'model_reasoning_effort="{effort}"',
-        "--cd", str(path), "-",
+        "--model",
+        model,
+        "-c",
+        f'model_reasoning_effort="{effort}"',
+        "--cd",
+        str(path),
+        "-",
     ]

@@ -36,12 +36,12 @@ class RunnerTests(unittest.TestCase):
 
     def rows(self):
         with duckdb.connect(str(self.db), read_only=True) as db:
-            return db.execute("SELECT iteration, status, parent_commit, commit_sha, "
-                              "combined_score, error, logs FROM results ORDER BY iteration").fetchall()
+            return db.execute(
+                "SELECT iteration, status, parent_commit, commit_sha, combined_score, error, logs FROM results ORDER BY iteration"
+            ).fetchall()
 
     def assert_cleaned_up(self):
-        self.assertEqual(git(self.repo.root, "worktree", "list", "--porcelain")
-                         .count("worktree "), 1)
+        self.assertEqual(git(self.repo.root, "worktree", "list", "--porcelain").count("worktree "), 1)
         self.assertEqual(self.repo.resolve("main"), self.base)
         self.assertEqual(git(self.repo.root, "status", "--porcelain"), "")
 
@@ -50,8 +50,7 @@ class RunnerTests(unittest.TestCase):
 
         def agent(command, path, log, timeout, prompt):
             with duckdb.connect(str(self.db), read_only=True) as db:
-                self.assertEqual(db.execute("SELECT status FROM results ORDER BY iteration DESC "
-                                            "LIMIT 1").fetchone(), ("running",))
+                self.assertEqual(db.execute("SELECT status FROM results ORDER BY iteration DESC LIMIT 1").fetchone(), ("running",))
             seen.append(git(path, "rev-parse", "HEAD"))
             with (path / "compiler.py").open("a") as output:
                 output.write(f"# attempt {len(seen)}\n")
@@ -59,9 +58,11 @@ class RunnerTests(unittest.TestCase):
             self.assertIn("Only compiler.py may change", prompt)
             log.write_text("scripted agent\n")
 
-        with patch("autoresearch.runner.execute", side_effect=agent), \
-                patch("autoresearch.runner.evaluate", side_effect=[metrics(s) for s in (1, 2, 1.5, 3)]), \
-                redirect_stdout(StringIO()):
+        with (
+            patch("autoresearch.runner.execute", side_effect=agent),
+            patch("autoresearch.runner.evaluate", side_effect=[metrics(s) for s in (1, 2, 1.5, 3)]),
+            redirect_stdout(StringIO()),
+        ):
             research(self.config(3), self.repo.root)
         rows = self.rows()
         self.assertEqual([row[1] for row in rows], ["baseline", "improved", "rejected", "improved"])
@@ -83,9 +84,11 @@ class RunnerTests(unittest.TestCase):
             elif action == "timeout":
                 raise subprocess.TimeoutExpired("codex", timeout)
 
-        with patch("autoresearch.runner.execute", side_effect=agent), \
-                patch("autoresearch.runner.evaluate", return_value=metrics(1)) as evaluate, \
-                redirect_stdout(StringIO()):
+        with (
+            patch("autoresearch.runner.execute", side_effect=agent),
+            patch("autoresearch.runner.evaluate", return_value=metrics(1)) as evaluate,
+            redirect_stdout(StringIO()),
+        ):
             research(self.config(4), self.repo.root)
         rows = self.rows()
         self.assertEqual([row[1] for row in rows], ["baseline", "no_change", "failed", "failed", "timeout"])
@@ -98,9 +101,11 @@ class RunnerTests(unittest.TestCase):
         def agent(command, path, *args):
             (path / "compiler.py").write_text("# invalid compiler\n")
 
-        with patch("autoresearch.runner.execute", side_effect=agent), \
-                patch("autoresearch.runner.evaluate", side_effect=[metrics(1), RuntimeError("bad code")]), \
-                redirect_stdout(StringIO()):
+        with (
+            patch("autoresearch.runner.execute", side_effect=agent),
+            patch("autoresearch.runner.evaluate", side_effect=[metrics(1), RuntimeError("bad code")]),
+            redirect_stdout(StringIO()),
+        ):
             research(self.config(1), self.repo.root)
         row = self.rows()[1]
         self.assertEqual(row[1], "failed")
@@ -109,18 +114,24 @@ class RunnerTests(unittest.TestCase):
         self.assert_cleaned_up()
 
     def test_baseline_failure_is_recorded_and_stops_before_any_agent(self):
-        with patch("autoresearch.runner.execute") as agent, \
-                patch("autoresearch.runner.evaluate", side_effect=RuntimeError("bad baseline")), \
-                redirect_stdout(StringIO()), self.assertRaisesRegex(RuntimeError, "Baseline evaluation failed"):
+        with (
+            patch("autoresearch.runner.execute") as agent,
+            patch("autoresearch.runner.evaluate", side_effect=RuntimeError("bad baseline")),
+            redirect_stdout(StringIO()),
+            self.assertRaisesRegex(RuntimeError, "Baseline evaluation failed"),
+        ):
             research(self.config(3), self.repo.root)
         agent.assert_not_called()
         self.assertEqual([(row[0], row[1]) for row in self.rows()], [(0, "failed")])
         self.assert_cleaned_up()
 
     def test_interruption_is_durable_and_propagates(self):
-        with patch("autoresearch.runner.execute", side_effect=KeyboardInterrupt), \
-                patch("autoresearch.runner.evaluate", return_value=metrics(1)), \
-                redirect_stdout(StringIO()), self.assertRaises(KeyboardInterrupt):
+        with (
+            patch("autoresearch.runner.execute", side_effect=KeyboardInterrupt),
+            patch("autoresearch.runner.evaluate", return_value=metrics(1)),
+            redirect_stdout(StringIO()),
+            self.assertRaises(KeyboardInterrupt),
+        ):
             research(self.config(2), self.repo.root)
         self.assertEqual(self.rows()[1][1], "interrupted")
         self.assert_cleaned_up()
@@ -130,8 +141,11 @@ class RunnerTests(unittest.TestCase):
             (path / "compiler.py").write_text("# evaluation tampered with compiler\n")
             return metrics(100)
 
-        with patch("autoresearch.runner.evaluate", side_effect=evaluator), \
-                redirect_stdout(StringIO()), self.assertRaisesRegex(RuntimeError, "Evaluation modified"):
+        with (
+            patch("autoresearch.runner.evaluate", side_effect=evaluator),
+            redirect_stdout(StringIO()),
+            self.assertRaisesRegex(RuntimeError, "Evaluation modified"),
+        ):
             research(self.config(0), self.repo.root)
         self.assertEqual(self.rows()[0][1], "failed")
         self.assert_cleaned_up()

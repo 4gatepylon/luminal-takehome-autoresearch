@@ -14,8 +14,7 @@ DEFAULT_CONFIG = Path(__file__).with_name("defaults.yaml")
 Effort = Literal["low", "medium", "high", "xhigh"]
 
 
-@dataclass(frozen=True, config=ConfigDict(extra="forbid", allow_inf_nan=False,
-                                        str_strip_whitespace=True))
+@dataclass(frozen=True, config=ConfigDict(extra="forbid", allow_inf_nan=False, str_strip_whitespace=True))
 class ResearchConfig:
     """Configuration for one sequential run; DB paths are repository-relative."""
 
@@ -28,8 +27,7 @@ class ResearchConfig:
     eval_timeout: Annotated[float, Field(gt=0, strict=True)]
 
 
-def load_config(path: Path | None = None, *,
-                overrides: dict[str, Any] | None = None) -> ResearchConfig:
+def load_config(path: Path | None = None, *, overrides: dict[str, Any] | None = None) -> ResearchConfig:
     """Merge packaged defaults < optional YAML < explicitly supplied CLI values."""
     values = parse_yaml_file_as(dict[str, Any], DEFAULT_CONFIG)
     if path is not None:
