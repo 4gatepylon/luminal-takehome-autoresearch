@@ -13,7 +13,7 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 npm install -g @openai/codex  # skip if codex is already installed
 codex login
-.venv/bin/python autoresearch.py --iterations 10
+.venv/bin/python -m autoresearch --iterations 10
 ```
 
 Python invokes the installed CLI directly; no Python Codex SDK is needed.
@@ -29,15 +29,41 @@ ones; only a correct, strictly better combined score becomes the next parent.
 Comparisons use the benchmark's printed precision (three decimal places).
 Every generated commit includes `Implemented by codex astra 6 xhigh.`
 
-Codex uses [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)
-with `workspace-write` and approval policy `never`, allowing local edits and evals
-without prompts. `--no-daemon` keeps each attempt in its own process group so
-timeouts can stop it. The prompt restricts edits to `compiler.py`; the runner rejects
-other tracked changes, untracked source files, and agent-made commits or branch
-switches before evaluation. This is a checked edit policy, not a per-file OS
-sandbox: Codex can write within its disposable worktree. The supplied evaluator
-and tests are never intentionally modified. Temporary worktrees are removed;
-proposal branches, logs, and database records remain.
+## Permissions
+
+Every attempt receives the contents of `autoresearch/agent_instructions.md` from the runner's
+checkout, even when its starting commit does not contain that file. The runner
+also configures a [Codex permission profile](https://learn.chatgpt.com/docs/permissions)
+that extends `:read-only` and grants write access to the absolute path of just
+that attempt's `compiler.py`:
+
+| Capability | Research agent |
+| --- | --- |
+| Read repository and local files | Allowed, subject to OS and managed policy |
+| Modify `compiler.py` in the attempt's worktree | Allowed |
+| Modify `programs/`, `tests/`, `machine.py`, `score.py`, or other files | Blocked by the filesystem sandbox |
+| Create files, including temporary files and bytecode caches | Blocked |
+| Change Git metadata, logs, or the results database | Blocked |
+| Run existing tests and benchmark | Allowed; use Python `-B` |
+| Network access from shell commands | Blocked |
+| Request broader permissions | Disabled (`approval_policy=never`) |
+
+The runner performs its own tests and scoring under `codex sandbox` with the
+`:read-only` profile, so even proposed compiler code cannot write files during
+evaluation. The parent Python runner retains permission to create worktrees,
+commit compiler changes, and write DuckDB records and logs. Codex's own model
+and authentication traffic is separate from sandboxed command network access.
+
+Use a current Codex CLI with permission-profile support (tested with 0.157.0).
+The CLI starts with `--ignore-user-config` to avoid inheriting legacy
+`sandbox_mode` settings that override permission profiles; saved authentication
+still loads. Managed requirements remain in effect. System/project configuration
+must also avoid mixing legacy sandbox settings with permission profiles.
+`--strict-config` rejects unknown settings; there is no workspace-write fallback.
+`--no-daemon` keeps each attempt in its own process group so timeouts can stop it.
+
+The Git checks remain as a second check before accepting a proposal. Temporary
+worktrees are removed; proposal branches, logs, and database records remain.
 
 ## Results and continuing a run
 
@@ -58,7 +84,7 @@ with duckdb.connect('.autoresearch/results.duckdb', read_only=True) as db:
 PY
 
 # Continue from a winning branch printed by the runner:
-.venv/bin/python autoresearch.py --base autoresearch/<run-id>/<iteration> --iterations 10
+.venv/bin/python -m autoresearch --base autoresearch/<run-id>/<iteration> --iterations 10
 ```
 
 `--db PATH` chooses another database. No branch is merged or pushed automatically.

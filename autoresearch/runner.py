@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from contextlib import contextmanager
 from datetime import datetime, timezone
+import json
 import os
 from pathlib import Path
 import re
@@ -77,8 +78,12 @@ def execute(command: list[str], cwd: Path, log: Path, timeout: float,
 
 
 def evaluate(path: Path, log: Path, timeout: float) -> dict[str, float]:
-    execute([sys.executable, "-B", "-m", "unittest", "-v"], path, log, timeout)
-    execute([sys.executable, "-B", "score.py"], path, log, timeout)
+    # The proposed compiler executes here too. Keep the evaluator's filesystem
+    # read-only; the parent runner, outside the sandbox, owns logs and Git writes.
+    sandbox = ["codex", "sandbox", "--include-managed-config",
+               "--permission-profile", ":read-only", "--cd", str(path), "--"]
+    execute([*sandbox, sys.executable, "-B", "-m", "unittest", "-v"], path, log, timeout)
+    execute([*sandbox, sys.executable, "-B", "score.py"], path, log, timeout)
     output = log.read_text()
     metrics = {}
     for name, label in METRICS.items():
@@ -108,10 +113,22 @@ def check_scope(path: Path, parent: str, branch: str) -> bool:
     return bool(changed)
 
 
+def compiler_permission_args(path: Path) -> list[str]:
+    """Allow reads, but grant writes only to this checkout's compiler.py."""
+    compiler = json.dumps(str(path.resolve() / "compiler.py"))
+    policy = ('{extends=":read-only", filesystem={' + compiler + '="write"}, '
+              'network={enabled=false}}')
+    return ["-c", 'default_permissions="luminal_compiler"',
+            "-c", f"permissions.luminal_compiler={policy}"]
+
+
 def codex_command(path: Path, model: str, effort: str) -> list[str]:
     return [
         "codex", "--no-daemon", "--ask-for-approval", "never", "exec",
-        "--sandbox", "workspace-write", "--ephemeral", "--color", "never",
+        # Legacy sandbox settings override permission profiles. Ignore personal
+        # config instead of inheriting workspace-write; saved auth still loads.
+        "--ignore-user-config", "--strict-config", "--ephemeral", "--color", "never",
+        *compiler_permission_args(path),
         "--model", model, "-c", f'model_reasoning_effort="{effort}"',
         "--cd", str(path), "-",
     ]
@@ -119,6 +136,9 @@ def codex_command(path: Path, model: str, effort: str) -> list[str]:
 
 def research(args: argparse.Namespace, repo: Path) -> None:
     base = git(repo, "rev-parse", f"{args.base}^{{commit}}")
+    # Read the runner's rules even when the experiment starts from an older
+    # commit (such as main) that does not contain agent_instructions.md.
+    rules = Path(__file__).with_name("agent_instructions.md").read_text()
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ-") + uuid.uuid4().hex[:8]
     db_path = args.db.resolve()
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -149,13 +169,18 @@ def research(args: argparse.Namespace, repo: Path) -> None:
                                WHERE run_id = ? AND iteration < ?
                                ORDER BY iteration DESC LIMIT 5""", [run_id, iteration],
                         ).fetchall()
-                        prompt = f"""Improve this repository's compiler performance.
+                        prompt = f"""Follow these instructions from agent_instructions.md:
+{rules}
+
+Improve this repository's compiler performance.
 Read README.md, compiler.py, machine.py, and the supplied tests and programs.
 Make one focused, general improvement to scheduling or scratch allocation.
 Edit ONLY compiler.py. Do not create or modify any other files, including tests,
 benchmarks, programs, machine.py, documentation, or Git configuration/history.
 Do not commit or switch branches; the runner handles Git. Use only the standard
 library. Do not hardcode public programs or alter evaluation behavior.
+The filesystem is read-only except for compiler.py. Edit that file in place;
+do not create temporary files or bytecode caches. Run inline checks with -B.
 Run {sys.executable} -B -m unittest -v and {sys.executable} -B score.py.
 Maximize the public combined score while preserving correctness for arbitrary
 valid inputs. The score equally weights cycle speedup and scratch reduction.
@@ -222,8 +247,8 @@ def main() -> None:
     args = parser.parse_args()
     if args.iterations < 0 or min(args.codex_timeout, args.eval_timeout) <= 0:
         parser.error("iterations must be nonnegative and timeouts must be positive")
-    if args.iterations and not shutil.which("codex"):
-        parser.error("Install the Codex CLI and run codex login first (see AUTORESEARCH.md)")
+    if not shutil.which("codex"):
+        parser.error("Install the Codex CLI and run codex login first (see autoresearch/README.md)")
     repo = Path(git(Path.cwd(), "rev-parse", "--show-toplevel"))
     research(args, repo)
 
