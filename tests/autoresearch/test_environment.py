@@ -152,10 +152,20 @@ class ProcessTests(unittest.TestCase):
 
     def test_evaluation_rejects_missing_duplicate_and_nonfinite_metrics(self):
         output = "public geometric-mean speedup: 1.500x\npublic geometric-mean scratch reduction: 1.200x\npublic combined score: 1.342x\n"
-        for invalid in ("", output * 2, output.replace("1.342x", "0.000x"), output.replace("1.342x", "nanx"), output.replace("1.342", "9" * 400 + ".000")):
+        for invalid in (
+            "",
+            output * 2,
+            output.replace("1.342x", "0.000x"),
+            output.replace("1.342x", "nanx"),
+            output.replace("1.342", "9" * 400 + ".000"),
+        ):
             with self.subTest(invalid=invalid):
+
                 def command_output(command, cwd, log, timeout):
                     log.write_text(invalid if command[-1] == "score.py" else output)
 
-                with patch("autoresearch.environment.execute", side_effect=command_output), self.assertRaisesRegex(RuntimeError, "Missing or invalid"):
+                with (
+                    patch("autoresearch.environment.execute", side_effect=command_output),
+                    self.assertRaisesRegex(RuntimeError, "Missing or invalid"),
+                ):
                     evaluate(self.path, self.path, 10)

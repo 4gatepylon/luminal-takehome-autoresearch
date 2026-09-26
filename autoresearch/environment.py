@@ -114,7 +114,12 @@ def evaluate(path: Path, logs: Path, timeout: float) -> dict[str, float]:
     # The proposed compiler executes here too. Keep the evaluator's filesystem
     # read-only; the parent runner, outside the sandbox, owns logs and Git writes.
     sandbox = ["codex", "sandbox", "--include-managed-config", "--permission-profile", ":read-only", "--cd", str(path), "--"]
-    execute([*sandbox, sys.executable, "-B", "-m", "unittest", "-v", "tests.test_machine", "tests.test_public_programs"], path, logs / "tests.log", timeout)
+    execute(
+        [*sandbox, sys.executable, "-B", "-m", "unittest", "-v", "tests.test_machine", "tests.test_public_programs"],
+        path,
+        logs / "tests.log",
+        timeout,
+    )
     score_log = logs / "score.log"
     execute([*sandbox, sys.executable, "-B", "score.py"], path, score_log, timeout)
     output = score_log.read_text()
