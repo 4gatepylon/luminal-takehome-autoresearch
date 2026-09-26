@@ -26,11 +26,14 @@ class ScoreTests(unittest.TestCase):
         with patch.object(score.compiler, "compile_program", score.machine.serial_compile), redirect_stdout(output):
             self.assertEqual(score.main(), 0)
         self.assertIn("Luminal Compiler Take Home", output.getvalue())
-        self.assertEqual(output.getvalue().splitlines()[-3:], [
-            "public geometric-mean speedup: 1.000x",
-            "public geometric-mean scratch reduction: 1.000x",
-            "public combined score: 1.000x",
-        ])
+        self.assertEqual(
+            output.getvalue().splitlines()[-3:],
+            [
+                "public geometric-mean speedup: 1.000x",
+                "public geometric-mean scratch reduction: 1.000x",
+                "public combined score: 1.000x",
+            ],
+        )
 
     def test_empty_program_directory_fails(self):
         with tempfile.TemporaryDirectory() as directory, self.assertRaisesRegex(ValueError, "No benchmark programs"):

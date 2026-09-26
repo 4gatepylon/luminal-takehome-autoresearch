@@ -189,7 +189,7 @@ class ProcessTests(unittest.TestCase):
 
         def run_without_sandbox(command, cwd, log, timeout, *, capture_result=False):
             if capture_result:
-                return execute(command[command.index("--") + 1:], cwd, log, timeout, capture_result=True)
+                return execute(command[command.index("--") + 1 :], cwd, log, timeout, capture_result=True)
             log.write_text("scripted correctness tests\n")
 
         with patch("autoresearch.environment.execute", side_effect=run_without_sandbox):
