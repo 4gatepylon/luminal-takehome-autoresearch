@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
 
 [project]
 name = "luminal-autoresearch"
@@ -24,11 +24,9 @@ dev = ["ruff>=0.14,<1"]
 [project.scripts]
 autoresearch = "autoresearch.cli:main"
 
-[tool.setuptools.packages.find]
-include = ["autoresearch*"]
-
-[tool.setuptools.package-data]
-autoresearch = ["*.yaml", "*.md"]
+[tool.hatch.build.targets.wheel]
+# Include the package's Python, YAML defaults, and Markdown instruction files.
+packages = ["autoresearch"]
 
 [tool.ruff]
 line-length = 150
@@ -44,6 +42,10 @@ extend-exclude = [
     "tests/test_public_programs.py",
     ".autoresearch",
 ]
+
+[tool.ruff.lint]
+# Keep the lint scope stable across Ruff versions: syntax, imports, and Pyflakes.
+select = ["E4", "E7", "E9", "F"]
 
 [tool.black]
 line-length = 150
