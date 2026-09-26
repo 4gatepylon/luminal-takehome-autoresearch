@@ -1,73 +1,92 @@
-"""Persistence boundary for the runner's single results database."""
+"""SQLAlchemy models and persistence boundary for one DuckDB results database."""
 
+from datetime import datetime
 from pathlib import Path
 from types import TracebackType
 
-import duckdb
+from sqlalchemy import DateTime, Double, Integer, String, URL, create_engine, func, select
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy.pool import NullPool
 
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS results (
-    run_id VARCHAR, iteration INTEGER, started_at TIMESTAMPTZ DEFAULT current_timestamp,
-    branch VARCHAR, parent_commit VARCHAR, commit_sha VARCHAR, status VARCHAR,
-    cycle_speedup DOUBLE, scratch_reduction DOUBLE, combined_score DOUBLE,
-    elapsed_seconds DOUBLE, model VARCHAR, effort VARCHAR, logs VARCHAR, error VARCHAR,
-    PRIMARY KEY (run_id, iteration)
-)
-"""
+class Base(DeclarativeBase):
+    pass
+
+
+class Result(Base):
+    """Preserve the original results table, including its composite primary key."""
+
+    __tablename__ = "results"
+
+    run_id: Mapped[str] = mapped_column(String, primary_key=True)
+    iteration: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.current_timestamp(),
+    )
+    branch: Mapped[str | None] = mapped_column(String)
+    parent_commit: Mapped[str | None] = mapped_column(String)
+    commit_sha: Mapped[str | None] = mapped_column(String)
+    status: Mapped[str | None] = mapped_column(String)
+    cycle_speedup: Mapped[float | None] = mapped_column(Double)
+    scratch_reduction: Mapped[float | None] = mapped_column(Double)
+    combined_score: Mapped[float | None] = mapped_column(Double)
+    elapsed_seconds: Mapped[float | None] = mapped_column(Double)
+    model: Mapped[str | None] = mapped_column(String)
+    effort: Mapped[str | None] = mapped_column(String)
+    logs: Mapped[str | None] = mapped_column(String)
+    error: Mapped[str | None] = mapped_column(String)
 
 
 class ResultsStore:
-    """Start and finish writes commit separately; no transaction spans an agent run."""
+    """Each method owns a short session; no transaction spans an agent run."""
 
     def __init__(self, path: Path):
         self.path = path.resolve()
 
     def __enter__(self) -> "ResultsStore":
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._db = duckdb.connect(str(self.path))
+        self._engine = create_engine(URL.create("duckdb", database=str(self.path)),
+                                     poolclass=NullPool)
         try:
-            self._db.execute(SCHEMA)
+            Base.metadata.create_all(self._engine)
         except BaseException:
-            self._db.close()
+            self._engine.dispose()
             raise
+        self._sessions = sessionmaker(self._engine)
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None,
                  exc: BaseException | None, traceback: TracebackType | None) -> None:
-        self._db.close()
+        self._engine.dispose()
 
     def start_attempt(self, run_id: str, iteration: int, *, branch: str,
                       parent_commit: str, model: str, effort: str, logs: Path) -> None:
-        self._db.execute(
-            """INSERT INTO results
-               (run_id, iteration, branch, parent_commit, status, model, effort, logs)
-               VALUES ($run_id, $iteration, $branch, $parent_commit, 'running',
-                       $model, $effort, $logs)""",
-            dict(run_id=run_id, iteration=iteration, branch=branch,
-                 parent_commit=parent_commit, model=model, effort=effort, logs=str(logs)),
-        )
+        with self._sessions.begin() as session:
+            session.add(Result(run_id=run_id, iteration=iteration, branch=branch,
+                               parent_commit=parent_commit, status="running",
+                               model=model, effort=effort, logs=str(logs)))
 
     def finish_attempt(self, run_id: str, iteration: int, *, commit_sha: str | None,
                        status: str, metrics: dict[str, float], elapsed_seconds: float,
                        error: str | None) -> None:
-        self._db.execute(
-            """UPDATE results SET commit_sha=$commit_sha, status=$status,
-               cycle_speedup=$cycle_speedup, scratch_reduction=$scratch_reduction,
-               combined_score=$combined_score, elapsed_seconds=$elapsed_seconds,
-               error=$error WHERE run_id=$run_id AND iteration=$iteration""",
-            dict(run_id=run_id, iteration=iteration, commit_sha=commit_sha, status=status,
-                 cycle_speedup=metrics.get("cycle_speedup"),
-                 scratch_reduction=metrics.get("scratch_reduction"),
-                 combined_score=metrics.get("combined_score"),
-                 elapsed_seconds=elapsed_seconds, error=error),
-        )
+        with self._sessions.begin() as session:
+            result = session.get(Result, (run_id, iteration))
+            if result is None:
+                raise KeyError(f"Unknown attempt: {run_id}/{iteration}")
+            result.commit_sha = commit_sha
+            result.status = status
+            result.cycle_speedup = metrics.get("cycle_speedup")
+            result.scratch_reduction = metrics.get("scratch_reduction")
+            result.combined_score = metrics.get("combined_score")
+            result.elapsed_seconds = elapsed_seconds
+            result.error = error
 
     def recent_attempts(self, run_id: str, before_iteration: int,
-                        limit: int = 5) -> list[tuple[int, str, float | None, str | None]]:
-        return self._db.execute(
-            """SELECT iteration, status, combined_score, error FROM results
-               WHERE run_id=$run_id AND iteration<$before_iteration
-               ORDER BY iteration DESC LIMIT $limit""",
-            dict(run_id=run_id, before_iteration=before_iteration, limit=limit),
-        ).fetchall()
+                        limit: int = 5) -> list[tuple[int, str | None, float | None, str | None]]:
+        query = (
+            select(Result.iteration, Result.status, Result.combined_score, Result.error)
+            .where(Result.run_id == run_id, Result.iteration < before_iteration)
+            .order_by(Result.iteration.desc()).limit(limit)
+        )
+        with self._sessions() as session:
+            return [tuple(row) for row in session.execute(query)]

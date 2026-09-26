@@ -1,1 +1,4 @@
 duckdb>=1.0,<2
+SQLAlchemy>=2.0,<3
+duckdb-engine>=0.17,<1
+pytz>=2024.1

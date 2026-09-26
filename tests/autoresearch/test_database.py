@@ -5,6 +5,7 @@ import tempfile
 import unittest
 
 import duckdb
+from sqlalchemy.exc import IntegrityError
 
 from autoresearch.database import ResultsStore
 
@@ -63,6 +64,33 @@ class ResultsStoreTests(unittest.TestCase):
     def test_duplicate_attempt_does_not_overwrite_existing_record(self):
         with ResultsStore(self.path) as store:
             self.start(store)
-            with self.assertRaises(Exception):
+            with self.assertRaises(IntegrityError):
                 self.start(store)
             self.assertEqual(store.recent_attempts("run", 1), [(0, "running", None, None)])
+
+    def test_original_schema_and_rows_remain_usable(self):
+        self.path.parent.mkdir()
+        with duckdb.connect(str(self.path)) as db:
+            db.execute("""CREATE TABLE results (
+                run_id VARCHAR, iteration INTEGER,
+                started_at TIMESTAMPTZ DEFAULT current_timestamp,
+                branch VARCHAR, parent_commit VARCHAR, commit_sha VARCHAR, status VARCHAR,
+                cycle_speedup DOUBLE, scratch_reduction DOUBLE, combined_score DOUBLE,
+                elapsed_seconds DOUBLE, model VARCHAR, effort VARCHAR, logs VARCHAR,
+                error VARCHAR, PRIMARY KEY (run_id, iteration))""")
+            db.execute("INSERT INTO results (run_id, iteration, status) "
+                       "VALUES ('old', 0, 'running')")
+        with ResultsStore(self.path) as store:
+            store.finish_attempt("old", 0, commit_sha="sha", status="baseline",
+                                 metrics={"combined_score": 1.5}, elapsed_seconds=1,
+                                 error=None)
+            self.start(store)
+            self.assertEqual(store.recent_attempts("old", 1), [(0, "baseline", 1.5, None)])
+            self.assertEqual(store.recent_attempts("run", 1), [(0, "running", None, None)])
+
+    def test_finish_requires_an_existing_attempt(self):
+        with ResultsStore(self.path) as store:
+            with self.assertRaises(KeyError):
+                store.finish_attempt("absent", 0, commit_sha=None, status="failed",
+                                     metrics={}, elapsed_seconds=1, error="failure")
+            self.assertEqual(store.recent_attempts("absent", 1), [])

@@ -7,8 +7,9 @@ python -B -m unittest discover -s tests/autoresearch -t . -v
 ```
 
 `test_database.py` exercises persistence, separate start/finish commits, duplicate
-keys, null failure metrics, and recent-history filtering using real temporary
-DuckDB databases. It does not invoke Codex or test sandbox enforcement.
+keys, null failure metrics, recent-history filtering, and compatibility with the
+original table using SQLAlchemy against real temporary DuckDB databases. It does
+not invoke Codex or test sandbox enforcement.
 
 The unchanged compiler tests live in `tests/test_machine.py` and
 `tests/test_public_programs.py`. The runner evaluates only those two modules plus
