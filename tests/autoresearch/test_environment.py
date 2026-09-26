@@ -146,6 +146,7 @@ class GitEnvironmentTests(unittest.TestCase):
         errors = (RuntimeError("body failed"), subprocess.TimeoutExpired("codex", 10), KeyboardInterrupt())
         for original in errors:
             with self.subTest(error=type(original)):
+
                 def fail_removal(repo, *args, **kwargs):
                     if args[:2] == ("worktree", "remove"):
                         raise RuntimeError("simulated cleanup failure")
@@ -255,7 +256,9 @@ class ProcessTests(unittest.TestCase):
         for exit_code in (0, 7):
             with self.subTest(exit_code=exit_code):
                 marker = self.path / f"surviving-child-{exit_code}.txt"
-                child_script = f"import time; from pathlib import Path; print('ready', flush=True); time.sleep(1); Path({str(marker)!r}).write_text('alive')"
+                child_script = (
+                    f"import time; from pathlib import Path; print('ready', flush=True); time.sleep(1); Path({str(marker)!r}).write_text('alive')"
+                )
                 script = (
                     f"import subprocess, sys; child = subprocess.Popen([sys.executable, '-B', '-c', {child_script!r}], "
                     f"stdout=subprocess.PIPE, text=True); print(child.stdout.readline(), end='', flush=True); sys.exit({exit_code})"
