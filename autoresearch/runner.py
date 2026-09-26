@@ -15,6 +15,7 @@ from .environment import GitRepository, codex_command, evaluate, execute, valida
 from .usage import read_usage, usage_stop_reason
 
 
+# TODO(hadriano) since autoresearch is stateful, it should probably be a class.
 def research(args: ResearchConfig, repo: Path) -> None:
     repository = GitRepository(repo)
     base = repository.resolve(args.base)
@@ -51,7 +52,11 @@ def research(args: ResearchConfig, repo: Path) -> None:
             status, error, commit, metrics = "failed", None, None, {}
             print(f"[{iteration}/{args.iterations}] {branch}", flush=True)
             try:
+                # TODO(hadriano) environment should probably involve some kind of class that enables you to automatically
+                # "set up" and "tear down" with a simple interface. The auto-research loop should be agnostic to the exact
+                # details, github details, etc...
                 with repository.worktree(parent, branch if iteration else None) as path:
+                    # TODO(hadriano) let's leverage the integer 0 if applicable
                     if iteration:
                         recent = store.recent_attempts(run_id, iteration)
                         prompt = prompt_template.format(
@@ -62,6 +67,8 @@ def research(args: ResearchConfig, repo: Path) -> None:
                             codex_timeout=args.codex_timeout,
                         )
                         (logs / "prompt.txt").write_text(prompt)
+                        # TODO(hadriano) Ideally you should be able to continue in one session if needed
+                        # TODO(hadriano) exact agent harness might benefit from being abstracted away
                         execute(codex_command(path, args.model, args.effort), path, logs / "codex.log", args.codex_timeout, prompt)
                         if not validate_artifact(path, parent, branch):
                             status = "no_change"
@@ -77,6 +84,8 @@ def research(args: ResearchConfig, repo: Path) -> None:
                     if validate_artifact(path, commit, branch if iteration else ""):
                         raise RuntimeError("Evaluation modified compiler.py")
                 # Select the next parent only after validation and worktree cleanup succeed.
+                # TODO(hadriano) score selection should be a module to enable different selection strategies, some of which
+                # can focus on pareto improvement and some of which can focus on 1D optimization.
                 if metrics["combined_score"] > best_score:
                     best_commit, best_branch, best_score = commit, branch, metrics["combined_score"]
                     status = "improved" if iteration else "baseline"
