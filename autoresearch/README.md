@@ -14,6 +14,7 @@ python3 -m venv .venv
 npm install -g @openai/codex  # skip if codex is already installed
 codex login
 .venv/bin/python -m autoresearch --iterations 10
+.venv/bin/python -m autoresearch --config experiment.yaml --show-config
 ```
 
 Python invokes the installed CLI directly; no Python Codex SDK is needed.
@@ -21,6 +22,9 @@ Defaults live in `autoresearch/defaults.yaml`. A partial YAML file passed with
 `--config experiment.yaml` overrides those defaults; explicit CLI options win.
 `config.py` validates the merged values with a frozen Pydantic dataclass and
 rejects unknown keys. Relative database paths resolve from the repository root.
+The Click CLI's `--show-config` prints all hydrated settings as reusable YAML
+without opening a database, invoking Git, or launching Codex. `--help` lists
+the available overrides.
 
 ```yaml
 # experiment.yaml: all omitted fields inherit defaults.yaml

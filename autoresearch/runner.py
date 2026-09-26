@@ -3,14 +3,12 @@
 
 from __future__ import annotations
 
-import argparse
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
 import re
-import shutil
 import signal
 import subprocess
 import sys
@@ -18,7 +16,7 @@ import tempfile
 import time
 import uuid
 
-from .config import ResearchConfig, load_config
+from .config import ResearchConfig
 from .database import ResultsStore
 
 
@@ -216,28 +214,3 @@ of your hypothesis, change, and measured result. Only compiler.py may change.
                 )
                 print(f"  {status}: score={metrics.get('combined_score')} {error or ''}", flush=True)
         print(f"Best: {best_branch} ({best_commit}), score={best_score:.3f}x\nResults: {db_path}")
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, argument_default=argparse.SUPPRESS)
-    parser.add_argument("--config", type=Path, help="YAML overrides for packaged defaults")
-    parser.add_argument("--iterations", type=int, help="Codex attempts; 0 evaluates the baseline only")
-    parser.add_argument("--base", help="Starting branch or commit")
-    parser.add_argument("--db", type=Path, help="Database path relative to repository root")
-    parser.add_argument("--model")
-    parser.add_argument("--effort", choices=["low", "medium", "high", "xhigh"])
-    parser.add_argument("--codex-timeout", type=float)
-    parser.add_argument("--eval-timeout", type=float)
-    values = vars(parser.parse_args())
-    try:
-        args = load_config(values.pop("config", None), overrides=values)
-    except (OSError, ValueError) as exc:
-        parser.error(str(exc))
-    if not shutil.which("codex"):
-        parser.error("Install the Codex CLI and run codex login first (see autoresearch/README.md)")
-    repo = Path(git(Path.cwd(), "rev-parse", "--show-toplevel"))
-    research(args, repo)
-
-
-if __name__ == "__main__":
-    main()
