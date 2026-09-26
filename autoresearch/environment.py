@@ -30,15 +30,15 @@ DISABLED_AGENT_FEATURES = (
 )
 
 
-def git(repo: Path, *args: str) -> str:
-    """Invoke Git without a shell; return stdout or raise with captured stderr."""
+def git(repo: Path, *args: str, raw: bool = False) -> str:
+    """Invoke Git without hooks or a shell; raw preserves whitespace in file lists."""
     result = subprocess.run(
-        ["git", "-C", str(repo), *args],
+        ["git", "-c", "core.hooksPath=/dev/null", "-C", str(repo), *args],
         text=True,
         capture_output=True,
         check=True,
     )
-    return result.stdout.strip()
+    return result.stdout if raw else result.stdout.strip()
 
 
 class GitRepository:
@@ -153,6 +153,18 @@ def validate_artifact(path: Path, parent: str, branch: str) -> bool:
     if compiler.is_symlink() or not compiler.is_file():
         raise RuntimeError("compiler.py must remain a regular file")
     return bool(changed)
+
+
+def validate_proposal_commit(path: Path, parent: str, commit: str, branch: str) -> None:
+    """Require one compiler-only commit from parent, on branch with a clean checkout."""
+    if validate_artifact(path, commit, branch):
+        raise RuntimeError("Proposal commit left uncommitted changes")
+    parents = git(path, "rev-list", "--parents", "-n", "1", commit, "--").split()[1:]
+    if parents != [parent]:
+        raise RuntimeError("Proposal must be exactly one commit from the expected parent")
+    changed = set(git(path, "diff", "--no-renames", "--name-only", "-z", parent, commit, "--", raw=True).split("\0")[:-1])
+    if changed != {"compiler.py"}:
+        raise RuntimeError(f"Proposal commit must change only compiler.py: {sorted(changed)}")
 
 
 def compiler_permission_args(path: Path) -> list[str]:

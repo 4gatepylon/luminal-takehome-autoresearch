@@ -119,6 +119,33 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(row[5], "bad code")
         self.assert_cleaned_up()
 
+    def test_invalid_commit_is_retained_but_never_evaluated(self):
+        original_commit = GitRepository.commit_compiler
+
+        def agent(command, path, *args):
+            (path / "compiler.py").write_text("# proposed compiler\n")
+
+        def invalid_commit(repository, path, *args, **kwargs):
+            # Inject a commit-time mutation independently of hooks being disabled.
+            (path / "machine.py").write_text("# forbidden committed change\n")
+            git(path, "add", "--", "machine.py")
+            return original_commit(repository, path, *args, **kwargs)
+
+        with (
+            patch.object(GitRepository, "commit_compiler", invalid_commit),
+            patch("autoresearch.runner.execute", side_effect=agent),
+            patch("autoresearch.runner.evaluate", return_value=metrics(1)) as evaluate,
+            redirect_stdout(StringIO()),
+        ):
+            research(self.config(1), self.repo.root)
+        row = self.rows()[1]
+        self.assertEqual(row[1], "failed")
+        self.assertEqual(self.repo.resolve(git(self.repo.root, "branch", "--format=%(refname:short)", "--list", "autoresearch/*")), row[3])
+        self.assertIsNone(row[4])
+        self.assertIn("must change only compiler.py", row[5])
+        evaluate.assert_called_once()  # Only the baseline reached evaluation.
+        self.assert_cleaned_up()
+
     def test_baseline_failure_is_recorded_and_stops_before_any_agent(self):
         with (
             patch("autoresearch.runner.execute") as agent,

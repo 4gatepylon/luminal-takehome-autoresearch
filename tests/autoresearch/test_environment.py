@@ -18,6 +18,7 @@ from autoresearch.environment import (
     execute,
     git,
     validate_artifact,
+    validate_proposal_commit,
 )
 from tests.autoresearch.support import create_repository
 
@@ -40,11 +41,69 @@ class GitEnvironmentTests(unittest.TestCase):
             (path / "compiler.py").write_text("# proposed compiler\n")
             self.assertTrue(validate_artifact(path, self.base, "proposal"))
             commit = self.repository.commit_compiler(path, "run", 1, model="test-model", effort="low")
-            self.assertFalse(validate_artifact(path, commit, "proposal"))
+            validate_proposal_commit(path, self.base, commit, "proposal")
         self.assertFalse(path.exists())
         self.assertEqual(self.repository.resolve("proposal"), commit)
         self.assertEqual(compiler.read_text(), "# user's uncommitted work\n")
         self.assertIn("Implemented by Codex (test-model, reasoning effort: low).", git(self.repository.root, "show", "-s", "--format=%B", commit))
+
+    def test_runner_skips_hooks_without_changing_manual_git_behavior(self):
+        hooks = self.root / "hooks"
+        hooks.mkdir()
+        for name, script in {
+            "post-checkout": "echo 'hook ran' > hook-ran.txt\n",
+            "pre-commit": "echo '# hook ran' >> machine.py\ngit add -- machine.py\n",
+        }.items():
+            hook = hooks / name
+            hook.write_text("#!/bin/sh\n" + script)
+            hook.chmod(0o755)
+        git(self.repository.root, "config", "core.hooksPath", str(hooks))
+        with self.repository.worktree(self.base, "proposal") as path:
+            self.assertFalse((path / "hook-ran.txt").exists())
+            (path / "compiler.py").write_text("# proposed compiler\n")
+            commit = self.repository.commit_compiler(path, "run", 1, model="test-model", effort="low")
+            validate_proposal_commit(path, self.base, commit, "proposal")
+            self.assertEqual((path / "machine.py").read_text(), "# trusted evaluator\n")
+        # Bypass the runner's helper to exercise the user's unchanged Git settings.
+        command = ["git", "-C", str(self.repository.root)]
+        configured = subprocess.run([*command, "config", "--local", "--get", "core.hooksPath"], check=True, capture_output=True, text=True)
+        self.assertEqual(configured.stdout.strip(), str(hooks))
+        subprocess.run([*command, "commit", "--allow-empty", "-m", "Manual commit"], check=True, capture_output=True, text=True)
+        self.assertIn("# hook ran", (self.repository.root / "machine.py").read_text())
+
+    def test_commit_validation_rejects_empty_commits_and_forbidden_filenames(self):
+        for filename in (None, "machine.py", " compiler.py", "compiler.py\n"):
+            with self.subTest(filename=filename), self.repository.worktree(self.base) as path:
+                if filename is not None:
+                    (path / filename).write_text("# forbidden change\n")
+                    git(path, "add", "--", filename)
+                git(path, "commit", "--allow-empty", "-m", "Invalid proposal")
+                commit = git(path, "rev-parse", "HEAD")
+                # A clean checkout alone cannot detect these invalid commits.
+                self.assertFalse(validate_artifact(path, commit, ""))
+                with self.assertRaisesRegex(RuntimeError, "must change only compiler.py"):
+                    validate_proposal_commit(path, self.base, commit, "")
+
+    def test_commit_validation_requires_expected_single_parent(self):
+        with self.repository.worktree(self.base) as path:
+            (path / "compiler.py").write_text("# first proposal\n")
+            first = self.repository.commit_compiler(path, "run", 1, model="test-model", effort="low")
+            (path / "compiler.py").write_text("# second proposal\n")
+            second = self.repository.commit_compiler(path, "run", 2, model="test-model", effort="low")
+            merge = git(path, "commit-tree", f"{second}^{{tree}}", "-p", self.base, "-p", first, "-m", "Merge proposal")
+            for label, commit, parent in (("wrong parent", first, first), ("chain", second, self.base), ("merge", merge, self.base)):
+                with self.subTest(label=label):
+                    git(path, "reset", "--hard", commit)
+                    with self.assertRaisesRegex(RuntimeError, "exactly one commit from the expected parent"):
+                        validate_proposal_commit(path, parent, commit, "")
+
+    def test_commit_validation_rejects_post_commit_edits(self):
+        with self.repository.worktree(self.base) as path:
+            (path / "compiler.py").write_text("# proposed compiler\n")
+            commit = self.repository.commit_compiler(path, "run", 1, model="test-model", effort="low")
+            (path / "compiler.py").write_text("# uncommitted change\n")
+            with self.assertRaisesRegex(RuntimeError, "left uncommitted changes"):
+                validate_proposal_commit(path, self.base, commit, "")
 
     def test_worktree_cleanup_on_exception_and_interruption(self):
         for error in (RuntimeError("failure"), KeyboardInterrupt()):

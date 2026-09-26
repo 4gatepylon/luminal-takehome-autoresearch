@@ -43,8 +43,8 @@ flowchart LR
   a result. Iteration 0 is the baseline and starts no agent.
 - **Concurrency:** at most one agent attempt is scheduled. One writer per DB is an
   operating requirement; separate invocations are not coordinated by a runner lock.
-- **Ownership:** the agent may edit only `compiler.py`; the runner requests one
-  proposal commit per changed attempt and owns Git/DB/log writes.
+- **Ownership:** the agent may edit only `compiler.py`; the runner verifies one
+  compiler-only proposal commit per changed attempt and owns Git/DB/log writes.
 - **Selection:** only a strictly better score after successful evaluation, scope
   validation, and cleanup changes the best parent. Ties and failures retain it.
 - **Persistence:** `running` and final results commit separately; no DB transaction
@@ -74,8 +74,7 @@ Metrics return via JSON, never log parsing; `python score.py` retains its report
 
 ```text
 config = hydrate(defaults < YAML < CLI)
-run_id = new_id()
-best = baseline(resolve(config.base))  # evaluate, clean up, record iteration 0; abort on failure
+run_id = new_id(); best = baseline(resolve(config.base))  # evaluate, clean up, record iteration 0; abort on failure
 for iteration in 1..config.iterations:
     if quota_below_reserve(): break    # read errors abort; no attempt row/branch yet
     record_running(run_id, iteration, parent=best.commit)
@@ -86,6 +85,7 @@ for iteration in 1..config.iterations:
             if validate_proposal() == unchanged:
                 status = no_change; continue
             commit = commit_compiler()  # retained even if evaluation fails
+            validate_proposal_commit(best.commit, commit)  # one parent, compiler-only diff, clean checkout
             metrics = correctness_tests_then_score()
             validate_worktree_unchanged()
         if metrics.combined_score > best.score:
@@ -196,5 +196,5 @@ the original compiler, evaluator, and public tests; Cursor formatting/rulers use
 - **Quota reserves are not spending caps:** checks occur between attempts; an attempt can consume the reserve.
 - **Read-only does not hide secrets:** broad local reads remain subject to OS/managed restrictions.
   Model/authentication traffic is outside command-network restrictions.
-- **Host Git hooks remain active:** they can alter commits; current checks do not compare the final commit tree against its original parent.
+- **Runner Git hooks are disabled:** per-command override; manual Git keeps its hooks. Proposal commits are checked before evaluation.
 - **Crashes can leave `running` rows/stale worktrees:** no automatic recovery/job claiming.

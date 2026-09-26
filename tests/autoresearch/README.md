@@ -11,9 +11,9 @@ python -B -m unittest discover -s tests/autoresearch -t . -v
 | `test_config.py` | YAML defaults/overrides, validation, round-trip, unsafe-tag rejection | No Git, DB, or model |
 | `test_cli.py` | Click options, help/config output, validation and missing-Codex errors | Git discovery and runner mocked |
 | `test_database.py` | SQLAlchemy + temporary DuckDB, durable lifecycle writes, duplicates, history, original schema | No agent; no remote databases |
-| `test_environment.py` | Temporary Git repos/worktrees, attributed single commits, scope checks, process cleanup, structured scoring returns; real scoring worker using worktree inputs and noisy diagnostics | Codex sandbox/agent execution and correctness-test execution mocked for scoring integration |
+| `test_environment.py` | Temporary Git repos/worktrees, hook bypass without changing manual Git, single-parent/compiler-only commit validation, scope checks, timeout cleanup, structured scoring returns using worktree inputs and noisy diagnostics | Codex sandbox/agent execution and correctness-test execution mocked for scoring integration |
 | `test_score.py` | Importable scoring API, silent return values, CLI presentation, empty input rejection | Public programs compiled with the serial reference compiler |
-| `test_runner.py` | Real Git + DuckDB across baseline/improvement/rejection/no-change/failure/timeout/interruption; quota stops and unavailable-usage errors; cleanup failures cannot promote proposals | Codex execution, quota responses, benchmark execution, and cleanup failure scripted |
+| `test_runner.py` | Real Git + DuckDB across baseline/improvement/rejection/no-change/failure/timeout/interruption; quota stops/errors; invalid commits retained without evaluation; cleanup failures cannot promote proposals | Codex execution, quota responses, benchmark execution, commit mutation, and cleanup failure scripted |
 | `test_usage.py` | Named quota thresholds, multiple buckets, monthly credit limits, missing/unsupported data; real Codex Python SDK handshake, timeout, response validation, process cleanup | Local scripted app server; no credentials, network, or model |
 | `test_sandbox.py` | Actual Codex OS sandbox: compiler-only writes, read-only evaluation, blocked loopback networking | Opt-in; no model call |
 

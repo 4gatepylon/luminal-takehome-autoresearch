@@ -11,7 +11,7 @@ import uuid
 
 from .config import ResearchConfig
 from .database import ResultsStore
-from .environment import GitRepository, codex_command, evaluate, execute, validate_artifact
+from .environment import GitRepository, codex_command, evaluate, execute, validate_artifact, validate_proposal_commit
 from .usage import read_usage, usage_stop_reason
 
 
@@ -69,6 +69,7 @@ def research(args: ResearchConfig, repo: Path) -> None:
                         # Keep even incorrect/non-improving compiler proposals so
                         # every evaluated change can be reproduced from its branch.
                         commit = repository.commit_compiler(path, run_id, iteration, model=args.model, effort=args.effort)
+                        validate_proposal_commit(path, parent, commit, branch)
                     else:
                         commit = parent
                     metrics = evaluate(path, logs, args.eval_timeout)
