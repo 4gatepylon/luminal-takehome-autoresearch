@@ -37,6 +37,8 @@ class Result(Base):
 
     __tablename__ = "results"
 
+    # TODO(hadriano) you probably want to store the session here too and/or copy the agent trajectory logs so that
+    # future agents can leverage that (or we can leverage it offline)
     run_id: Mapped[str] = mapped_column(String, primary_key=True)
     iteration: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
     started_at: Mapped[datetime | None] = mapped_column(
