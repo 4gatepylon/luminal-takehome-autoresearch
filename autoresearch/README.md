@@ -1,15 +1,13 @@
 # Compiler autoresearch
 
-Sequential compiler search: propose a change to the best verified commit;
-keep it only if evaluation shows improvement.
+Sequential compiler search: change the best verified commit; keep verified improvements.
 
 ## System and concurrency
 
 ### Computational model
 
-One host runs the coordinator, Codex CLI/SDK, worktrees, evaluation, DuckDB, and
-logs; model inference is remote. Attempts are sequential: no parallel agent pool,
-distributed scheduler, or remote DB service.
+One host: runner, Codex CLI/SDK, worktrees, evaluation, DuckDB, logs; remote model inference.
+Sequential attempts; no parallel agent pool, distributed scheduler, or remote DB service.
 
 ```mermaid
 flowchart LR
@@ -18,10 +16,26 @@ flowchart LR
     G --> A[Codex: compiler-only writes]
     A --> E[Read-only tests + scoring library]
     E --> R
-    R --> S[ResultsStore / SQLAlchemy]
-    S --> D[(Local DuckDB: results table)]
+    R --> S[ResultsStore / SQLAlchemy] --> D[(Local DuckDB: results table)]
     R --> L[Local prompt, agent, evaluation logs]
 ```
+
+### Entities
+
+- **Runner/run — [runner.py](runner.py):** one process/invocation; owns `run_id`, frozen config, mutable best commit/score; coordinates work.
+- **Agent — `codex exec`:** fresh process per attempt; consumes worktree/prompt, edits `compiler.py`; conversation state is discarded.
+- **Git/worktrees — [environment.py](environment.py):** host helpers create/remove temporary
+  `<system-temp>/luminal-autoresearch-*/work` checkouts per baseline/attempt. Branches
+  `autoresearch/<run>/<iteration>` and proposal commits persist in shared repository metadata.
+- **Database — [schema/interface](database.py):** persistent `.autoresearch/results.duckdb`;
+  one row per baseline/attempt across runs, accessed through SQLAlchemy/duckdb-engine.
+- **Config/prompts — [config.py](config.py), [defaults.yaml](defaults.yaml), [instructions](agent_instructions.md),
+  [template](agent_prompt.md):** packaged sources; config hydrates once, prompts render per attempt.
+- **Verification — [environment.py](environment.py), [score.py](../score.py):** host scope checks
+  plus fresh read-only test/scoring subprocesses return metrics from worktree inputs.
+- **Logs — `<db-parent>/logs/<run>/<iteration>/`:** persistent prompt/diagnostic files;
+  DB rows store the directory path, not contents. [Files](#what-each-agent-sees).
+- **Quota client — [usage.py](usage.py):** fresh per check; authentication/quotas are account state shared across runs.
 
 ### Invariants
 
@@ -30,15 +44,12 @@ flowchart LR
 - **Concurrency:** at most one agent attempt is scheduled. One writer per DB is an
   operating requirement; separate invocations are not coordinated by a runner lock.
 - **Ownership:** the agent may edit only `compiler.py`; the runner requests one
-  proposal commit per changed attempt and owns Git/DB/log writes. Host Git tools/configuration are trusted.
+  proposal commit per changed attempt and owns Git/DB/log writes.
 - **Selection:** only a strictly better score after successful evaluation, scope
   validation, and cleanup changes the best parent. Ties and failures retain it.
 - **Persistence:** `running` and final results commit separately; no DB transaction
-  spans an experiment. Committed rejected/failed proposals remain; nothing is merged or pushed.
+  spans an experiment. No merges/pushes.
 
-Storage defaults to `.autoresearch/results.duckdb` and `logs/<run>/<iteration>/`
-beside it. [Result](database.py) defines every column; `logs` is a directory path.
-Abrupt termination can leave `running` rows; recovery/job claiming is not implemented.
 SQLAlchemy preserves [DuckDB's concurrency rules](https://duckdb.org/docs/current/connect/concurrency);
 [`create_all()`](https://docs.sqlalchemy.org/en/20/core/metadata.html#creating-and-dropping-database-tables)
 creates missing tables, not schema migrations.
@@ -47,18 +58,17 @@ creates missing tables, not schema migrations.
 
 [runner.py](runner.py) implements greedy search.
 
-| Decision | Current behavior |
+| Decision | Behavior |
 | --- | --- |
-| Run/budget | Resolve `base` (default `main`), evaluate baseline, then allow `iterations` attempts (default 10). Failures/no-change consume an attempt. |
-| Model/effort | Fixed by configuration: defaults `gpt-6-astra` / `xhigh`; no adaptive selection. Recorded in results and proposal commit footers. |
-| Proposal | Fresh Codex process, best commit's worktree, packaged instructions, best score, and last five result summaries from this run. The agent chooses the optimization; conversations/rejected changes are not resumed. |
-| Objective | Pass public correctness tests, then maximize `sqrt(cycle_speedup * scratch_reduction)`; both factors are geometric means over public programs. Compare full-precision values; never accept ties or worse candidates. |
-| Stop/continue | Low quota stops; quota-read errors or baseline failure abort. Agent/evaluation errors and timeouts are recorded, then continue. Ctrl-C records interruption and exits. |
-| Start from prior work | `--base autoresearch/<run-id>/<iteration>` starts a new run/baseline from that branch, with a fresh budget and prompt history. |
+| Run/budget | Evaluate resolved `base` (default `main`), then allow `iterations` attempts (default 10). Failures/no-change consume attempts. |
+| Model/effort | Fixed `model`/`effort` (defaults `gpt-6-astra`/`xhigh`); recorded in results/commit footers. No adaptive selection. |
+| Proposal | Agent chooses changes using the best compiler/score, packaged instructions, and this run's latest five result summaries. |
+| Objective | Require public correctness; maximize `sqrt(cycle_speedup * scratch_reduction)` from per-program geometric means. Full-precision comparison; reject ties/worse scores. |
+| Stop/continue | Low quota stops; baseline/quota-read errors abort. Agent/evaluation failures/timeouts are recorded, then continue; Ctrl-C records interruption and exits. |
 
 Evaluation calls the runner's `score.score()` in the read-only sandbox against
 the worktree's compiler, machine, and programs; older commits need not contain the API.
-The dictionary returns via JSON, never log parsing. `python score.py` retains its report.
+Metrics return via JSON, never log parsing; `python score.py` retains its report.
 
 ### Loop (pseudocode)
 
@@ -78,7 +88,6 @@ for iteration in 1..config.iterations:
             commit = commit_compiler()  # retained even if evaluation fails
             metrics = correctness_tests_then_score()
             validate_worktree_unchanged()
-        # Cleanup succeeded before selection.
         if metrics.combined_score > best.score:
             best, status = (commit, metrics.combined_score), improved
         else: status = rejected
@@ -90,8 +99,7 @@ report(best)
 
 ## Run and configure
 
-Requires Python 3.10+, Git, and an authenticated Codex CLI on macOS/Linux.
-Permission-profile flags were checked against Codex 0.157.0.
+Requires Python 3.10+, Git, authenticated Codex CLI on macOS/Linux; permission flags checked against Codex 0.157.0.
 
 ```sh
 make install  # creates .venv; installs package + development tools
@@ -104,17 +112,16 @@ codex login
 Precedence: [defaults.yaml](defaults.yaml) < partial user YAML < explicit CLI options.
 Invalid fields fail before execution. `--show-config` prints hydrated
 YAML without opening Git, DB, or Codex. `db` is repository-relative; `--config`
-is relative to the calling directory. Defaults allow 900 seconds per agent command
-and 180 per evaluation command, not a total run deadline. The installed `autoresearch`
-command aliases `python -m autoresearch`; defaults/instructions ship with the package.
+is caller-relative. Timeouts default to 900 seconds per agent command and 180 per
+evaluation command, not a run deadline. The installed `autoresearch` command aliases `python -m autoresearch`.
 
 ### Usage limits
 
-Before each agent attempt, [usage.py](usage.py) reads fresh quotas through the
-[Python SDK](https://learn.chatgpt.com/docs/codex-sdk#python-library)'s
+Before each agent attempt, [usage.py](usage.py) uses the
+[Python SDK](https://learn.chatgpt.com/docs/codex-sdk#python-library) to call
 [`account/rateLimits/read`](https://learn.chatgpt.com/docs/app-server#6-rate-limits-chatgpt).
-It reuses `codex` on PATH and saved authentication, starting no model turn.
-Baseline-only runs skip this check. Default minimum percentages remaining:
+It reuses `codex` on PATH and saved authentication without a model turn; baseline-only runs skip it.
+Minimum percentages remaining (defaults):
 
 ```yaml
 min_weekly_limit_remaining_allowed: 25
@@ -122,18 +129,15 @@ min_5h_limit_remaining_allowed: 5
 min_monthly_limit_remaining_allowed: 25
 ```
 
-Override via YAML or corresponding CLI flags; values are 0–100, equality is allowed,
-and zero still stops at exhaustion. All reported buckets are checked. Durations identify
-[weekly/five-hour windows](https://learn.chatgpt.com/docs/pricing#what-are-the-usage-limits-for-my-plan);
+Override via YAML/CLI: 0–100, equality allowed, zero still stops at exhaustion.
+All reported buckets are checked; durations identify [weekly/five-hour windows](https://learn.chatgpt.com/docs/pricing#what-are-the-usage-limits-for-my-plan);
 `individualLimit` is the optional workspace [monthly credit limit](https://github.com/openai/codex/blob/rust-v0.157.0/codex-rs/tui/src/status/rate_limits.rs).
 Purchased balances have no percentage denominator and are not treated as quotas.
 
 Low/exhausted or server-blocked quota stops before creating the next branch/logs/row
-and reports the best result. A running attempt can consume the reserve. Reads time out
-after 15 seconds; authentication failures, missing/malformed quotas, or unknown window
-durations abort. API-key-only accounts without ChatGPT quotas cannot use this guard.
-Reset timestamps never imply renewed allowance. `read_usage()` and
-`usage_stop_reason(usage, config)` are also reusable independently.
+and reports the best result. Reads time out after 15 seconds; authentication failures,
+missing/malformed quotas or unknown window durations abort. API-key-only accounts without ChatGPT quotas cannot use this guard.
+Reset timestamps never imply renewed allowance. `read_usage()` and `usage_stop_reason(usage, config)` are reusable independently.
 
 ## What each agent sees
 
@@ -147,9 +151,8 @@ trusted host runner                     temporary worktree at best commit
     └── tests.log, score.log
 ```
 
-The baseline is detached; proposals use fresh branches. Worktrees are removed on
-normal completion, errors, or Ctrl-C; branches/logs remain. Rules come from the runner
-package even for older bases. [Worktrees share Git metadata](https://git-scm.com/docs/git-worktree).
+The baseline is detached; proposals use fresh branches. Cleanup is attempted on completion, errors, or Ctrl-C.
+Rules come from the runner package even for older bases. [Worktrees share Git metadata](https://git-scm.com/docs/git-worktree).
 
 - **Tools/writes:** local shell/file editing and installed commands (Python, Git).
   The profile extends `:read-only`, granting only that worktree's `compiler.py`
@@ -157,9 +160,8 @@ package even for older bases. [Worktrees share Git metadata](https://git-scm.com
 - **Network/external tools:** command networking and approval escalation are disabled,
   as are web search, subagents, apps/plugins, browser, computer use, and image generation.
   System/project MCP controls are separate and must be trusted or restricted by managed policy.
-- **Reads/trust:** broad local reads remain allowed subject to OS/managed restrictions;
-  this does not hide secrets. Model/auth traffic is outside command networking. The host
-  runner trusts the starting repository and installed tools; scope checks do not prove code harmless or scores honest.
+- **Trust:** the host runner trusts the starting repository and installed tools;
+  scope checks do not prove code harmless or scores honest.
 - **Acceptance:** check HEAD/branch, staged/unstaged changes outside `compiler.py`, extra
   files (including ignored files), and missing/symlinked compilers. Evaluate read-only,
   then check again. No-change/pre-commit failures have no proposal commit.
@@ -171,17 +173,7 @@ can override profiles. Process-group timeouts stop ordinary children; this is no
 [CLI flags](https://learn.chatgpt.com/docs/developer-commands),
 [non-interactive execution](https://learn.chatgpt.com/docs/non-interactive-mode).
 
-## Components and tests
-
-| File(s) in `autoresearch/` | Responsibility |
-| --- | --- |
-| `__main__.py`, `cli.py` | Module/Click entry points |
-| `config.py`, `defaults.yaml` | Frozen Pydantic dataclass; YAML defaults/validation |
-| `runner.py` | Sequential experiment lifecycle and best-parent selection |
-| `database.py` | SQLAlchemy schema and `ResultsStore` interface |
-| `environment.py` | Git, subprocesses, permissions, artifact checks, evaluation |
-| `usage.py` | Account quota reads and stop decisions |
-| `agent_instructions.md`, `agent_prompt.md` | Agent rules and task/context template |
+## Tests
 
 ```sh
 make test          # infrastructure + original compiler tests; no model calls
@@ -190,7 +182,19 @@ make format       # Ruff format + fixes, line length 150
 make check        # formatting/lint checks without edits
 ```
 
-[Test coverage and mocked/untested boundaries](../tests/autoresearch/README.md).
-Experiment evaluation runs only `tests.test_machine`, `tests.test_public_programs`,
-and the scoring library; infrastructure tests never affect scores. Ruff/Black exclude
-the original compiler, evaluator, and public tests; Cursor formatting/rulers also use 150.
+[Coverage and mocked/untested boundaries](../tests/autoresearch/README.md).
+Evaluation uses `tests.test_machine`, `tests.test_public_programs`, and the scoring
+library; infrastructure tests never affect scores. Ruff/Black exclude
+the original compiler, evaluator, and public tests; Cursor formatting/rulers use 150.
+
+## Gotchas
+
+- **Inputs are committed:** `base` selects a Git commit; uncommitted compiler edits
+  are ignored. Default `main` need not be your checked-out branch.
+- **Starting from a branch is not resuming:** `--base autoresearch/<run>/<iteration>` creates a new baseline/run, budget, and history.
+- **Displays round scores:** equal-looking scores can still improve at full precision.
+- **Quota reserves are not spending caps:** checks occur between attempts; an attempt can consume the reserve.
+- **Read-only does not hide secrets:** broad local reads remain subject to OS/managed restrictions.
+  Model/authentication traffic is outside command-network restrictions.
+- **Host Git hooks remain active:** they can alter commits; current checks do not compare the final commit tree against its original parent.
+- **Crashes can leave `running` rows/stale worktrees:** no automatic recovery/job claiming.
