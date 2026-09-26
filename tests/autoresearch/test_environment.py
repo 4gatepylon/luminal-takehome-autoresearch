@@ -2,7 +2,9 @@
 
 Real Git and subprocess tests; evaluator command construction is mocked."""
 
+import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -103,6 +105,17 @@ class ProcessTests(unittest.TestCase):
             execute([sys.executable, "-B", "-c", "print('diagnostic'); raise SystemExit(7)"], self.path, self.log, 10)
         self.assertIn("diagnostic", self.log.read_text())
 
+    def test_captured_result_is_separate_from_diagnostic_log(self):
+        result = execute(
+            [sys.executable, "-B", "-c", "import sys; print('result'); print('diagnostic', file=sys.stderr)"],
+            self.path,
+            self.log,
+            10,
+            capture_result=True,
+        )
+        self.assertEqual(result, "result\n")
+        self.assertEqual(self.log.read_text(), "diagnostic\n")
+
     def test_timeout_stops_process_group(self):
         marker = self.path / "surviving-child.txt"
         child_script = (
@@ -130,15 +143,16 @@ class ProcessTests(unittest.TestCase):
         self.assertIn("network={enabled=false}", policy)
 
     def test_evaluation_only_runs_compiler_tests_in_read_only_sandbox(self):
-        output = "public geometric-mean speedup: 1.500x\npublic geometric-mean scratch reduction: 1.200x\npublic combined score: 1.342x\n"
+        expected = {"cycle_speedup": 1.5, "scratch_reduction": 1.2, "combined_score": 1.342123456789}
 
-        def command_output(command, cwd, log, timeout):
-            # Test diagnostics must never supply the benchmark's recorded metrics.
-            log.write_text(output if command[-1] == "score.py" else output.replace("1.342x", "9.000x"))
+        def command_output(command, cwd, log, timeout, *, capture_result=False):
+            # Arbitrary printed diagnostics cannot supply the function's return value.
+            log.write_text("public combined score: 9.000x\n" * 2)
+            return json.dumps(expected) if capture_result else None
 
         with patch("autoresearch.environment.execute", side_effect=command_output) as run:
             metrics = evaluate(self.path, self.path, 10)
-        self.assertEqual(metrics["combined_score"], 1.342)
+        self.assertEqual(metrics, expected)
         self.assertEqual(len(run.call_args_list), 2)
         for call in run.call_args_list:
             command = call.args[0]
@@ -148,24 +162,38 @@ class ProcessTests(unittest.TestCase):
         self.assertEqual(tests[-2:], ["tests.test_machine", "tests.test_public_programs"])
         self.assertNotIn("discover", tests)
         self.assertIn("9.000x", (self.path / "tests.log").read_text())
-        self.assertEqual((self.path / "score.log").read_text(), output)
+        self.assertIn("9.000x", (self.path / "score.log").read_text())
+        self.assertTrue(run.call_args_list[1].kwargs["capture_result"])
 
-    def test_evaluation_rejects_missing_duplicate_and_nonfinite_metrics(self):
-        output = "public geometric-mean speedup: 1.500x\npublic geometric-mean scratch reduction: 1.200x\npublic combined score: 1.342x\n"
-        for invalid in (
-            "",
-            output * 2,
-            output.replace("1.342x", "0.000x"),
-            output.replace("1.342x", "nanx"),
-            output.replace("1.342", "9" * 400 + ".000"),
-        ):
+    def test_evaluation_rejects_missing_or_invalid_return_values(self):
+        for invalid in (None, 0, -1, True, "1.5", float("nan"), float("inf")):
             with self.subTest(invalid=invalid):
-
-                def command_output(command, cwd, log, timeout):
-                    log.write_text(invalid if command[-1] == "score.py" else output)
-
+                result = {"cycle_speedup": 1.5, "scratch_reduction": 1.2, "combined_score": invalid}
+                if invalid is None:
+                    del result["combined_score"]
                 with (
-                    patch("autoresearch.environment.execute", side_effect=command_output),
+                    patch("autoresearch.environment.execute", return_value=json.dumps(result)),
                     self.assertRaisesRegex(RuntimeError, "Missing or invalid"),
                 ):
                     evaluate(self.path, self.path, 10)
+
+    def test_scoring_worker_uses_worktree_inputs_and_ignores_printed_output(self):
+        root = Path(__file__).resolve().parents[2]
+        for filename in ("compiler.py", "machine.py"):
+            shutil.copyfile(root / filename, self.path / filename)
+        shutil.copytree(root / "programs", self.path / "programs")
+        with (self.path / "compiler.py").open("a") as compiler:
+            compiler.write("\nprint('public combined score: 999.000x')\n")
+        # Older starting commits need not contain the scoring API.
+        (self.path / "score.py").write_text("raise AssertionError('Loaded legacy scoring CLI')\n")
+
+        def run_without_sandbox(command, cwd, log, timeout, *, capture_result=False):
+            if capture_result:
+                return execute(command[command.index("--") + 1:], cwd, log, timeout, capture_result=True)
+            log.write_text("scripted correctness tests\n")
+
+        with patch("autoresearch.environment.execute", side_effect=run_without_sandbox):
+            metrics = evaluate(self.path, self.path, 10)
+        self.assertGreater(metrics["combined_score"], 0)
+        self.assertNotEqual(metrics["combined_score"], 999)
+        self.assertIn("999.000x", (self.path / "score.log").read_text())

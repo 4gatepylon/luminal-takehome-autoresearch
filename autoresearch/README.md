@@ -50,7 +50,7 @@ flowchart LR
     C[Click + validated YAML] --> R[Single sequential runner]
     R --> G[Git and environment tooling]
     G --> A[One Codex process: compiler-only writes]
-    A --> E[Read-only tests + score.py]
+    A --> E[Read-only tests + score.score]
     E --> R
     R --> S[ResultsStore / SQLAlchemy]
     S --> D[(DuckDB: results table)]
@@ -62,8 +62,15 @@ Each changed proposal is **exactly one runner-created commit**, not a commit cha
 No-change attempts and failures before committing have no proposal commit.
 Failed evaluations and slower proposals retain their commits for inspection.
 Only a passing, strictly better score becomes the next attempt's parent; ties
-are rejected. Scores use the benchmark's printed precision. Proposals carry an
+are rejected. Scores use the library's full-precision return values. Proposals carry an
 authorship footer recording the configured model and effort. Nothing is merged or pushed.
+
+`score.py` exposes `score() -> dict[str, float]`; its CLI still prints the benchmark
+table and summary. Evaluation calls the runner's scoring library inside the
+read-only sandbox, using the worktree's compiler, machine, and programs. This also
+supports starting commits that predate the API. The returned dictionary crosses
+the subprocess boundary as JSON; printed diagnostics go to `score.log`, which is
+never parsed for metrics.
 
 Default storage: `.autoresearch/results.duckdb` and `.autoresearch/logs/<run>/<iteration>/`.
 The `results` table records lineage, status, metrics, elapsed time, and paths;
@@ -140,4 +147,4 @@ Sources: [permission profiles and enforcement](https://learn.chatgpt.com/docs/pe
 
 [tests/autoresearch/README.md](../tests/autoresearch/README.md) lists real versus
 mocked boundaries and the opt-in OS sandbox probes. Compiler evaluation selects
-only the two original test modules above plus `score.py`, never infrastructure tests.
+only the two original test modules above plus the scoring library, never infrastructure tests.

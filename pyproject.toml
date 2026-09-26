@@ -29,6 +29,10 @@ autoresearch = "autoresearch.cli:main"
 # Include the package's Python, YAML defaults, and Markdown instruction files.
 packages = ["autoresearch"]
 
+[tool.hatch.build.targets.wheel.force-include]
+# The sandbox imports this scoring API while using each worktree's compiler/programs.
+"score.py" = "score.py"
+
 [tool.ruff]
 line-length = 150
 target-version = "py310"

@@ -10,7 +10,6 @@ import json
 import math
 import os
 from pathlib import Path
-import re
 import signal
 import subprocess
 import sys
@@ -75,15 +74,8 @@ class GitRepository:
         return git(path, "rev-parse", "HEAD")
 
 
-METRICS = {
-    "cycle_speedup": "public geometric-mean speedup",
-    "scratch_reduction": "public geometric-mean scratch reduction",
-    "combined_score": "public combined score",
-}
-
-
-def execute(command: list[str], cwd: Path, log: Path, timeout: float, prompt: str | None = None) -> None:
-    """Bound each command and kill its children too on timeout or Ctrl-C."""
+def execute(command: list[str], cwd: Path, log: Path, timeout: float, prompt: str | None = None, *, capture_result: bool = False) -> str | None:
+    """Bound a command; optionally capture its result separately from diagnostic logs."""
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     with log.open("a") as output:
         with subprocess.Popen(
@@ -92,12 +84,12 @@ def execute(command: list[str], cwd: Path, log: Path, timeout: float, prompt: st
             env=env,
             text=True,
             stdin=subprocess.PIPE,
-            stdout=output,
-            stderr=subprocess.STDOUT,
+            stdout=subprocess.PIPE if capture_result else output,
+            stderr=output,
             start_new_session=True,
         ) as process:
             try:
-                process.communicate(prompt, timeout=timeout)
+                result, _ = process.communicate(prompt, timeout=timeout)
             except (subprocess.TimeoutExpired, KeyboardInterrupt):
                 try:
                     os.killpg(process.pid, signal.SIGKILL)
@@ -107,10 +99,11 @@ def execute(command: list[str], cwd: Path, log: Path, timeout: float, prompt: st
                 raise
             if process.returncode:
                 raise RuntimeError(f"{command[0]} exited {process.returncode}; see {log}")
+            return result
 
 
 def evaluate(path: Path, logs: Path, timeout: float) -> dict[str, float]:
-    """Log tests and scoring separately; accept one finite positive value per metric."""
+    """Invoke the scoring library in the sandbox; logs never supply metric values."""
     # The proposed compiler executes here too. Keep the evaluator's filesystem
     # read-only; the parent runner, outside the sandbox, owns logs and Git writes.
     sandbox = ["codex", "sandbox", "--include-managed-config", "--permission-profile", ":read-only", "--cd", str(path), "--"]
@@ -121,14 +114,25 @@ def evaluate(path: Path, logs: Path, timeout: float) -> dict[str, float]:
         timeout,
     )
     score_log = logs / "score.log"
-    execute([*sandbox, sys.executable, "-B", "score.py"], path, score_log, timeout)
-    output = score_log.read_text()
-    metrics = {}
-    for name, label in METRICS.items():
-        matches = re.findall(rf"^{re.escape(label)}: ([0-9]+\.[0-9]+)x$", output, re.M)
-        if len(matches) != 1 or not math.isfinite(value := float(matches[0])) or value <= 0:
+    # Load the runner's scoring library, even when the worktree predates its API.
+    # Its compiler/machine imports and explicit program directory use the worktree.
+    # JSON transports the function's return value; all printed diagnostics go to stderr.
+    scoring_script = """import contextlib, json, runpy, sys
+from pathlib import Path
+with contextlib.redirect_stdout(sys.stderr):
+    score = runpy.run_path(sys.argv[1])["score"]
+    metrics = score(program_dir=Path.cwd() / "programs")
+json.dump(metrics, sys.stdout, allow_nan=False)
+"""
+    score_module = Path(__file__).resolve().parents[1] / "score.py"
+    result = execute([*sandbox, sys.executable, "-B", "-c", scoring_script, str(score_module)], path, score_log, timeout, capture_result=True)
+    metrics = json.loads(result)
+    if not isinstance(metrics, dict):
+        raise RuntimeError(f"Scoring function must return a metrics dictionary; see {score_log}")
+    for name in ("cycle_speedup", "scratch_reduction", "combined_score"):
+        value = metrics.get(name)
+        if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
             raise RuntimeError(f"Missing or invalid {name}; see {score_log}")
-        metrics[name] = value
     return metrics
 
 
