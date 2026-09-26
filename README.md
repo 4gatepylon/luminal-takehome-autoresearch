@@ -1,10 +1,13 @@
+# README.md
+This is a take-home exercise for [Luminal](https://www.luminal.com). I did it all using AI autoresearch as a learning exercise.
+
+For automated compiler experiments, see [autoresearch](autoresearch/README.md).
+
 # Luminal Compiler Take Home: Original README.md
 
 This take-home exercise is for candidates joining the compiler engineering team
 at Luminal. It evaluates instruction scheduling, scratch allocation, correctness,
 and engineering judgment when building a compiler backend.
-
-For automated compiler experiments, see [autoresearch](autoresearch/README.md).
 
 Build a general backend compiler for a small, deterministic VLIW machine. The
 input is a typed, straight-line SSA program. Your compiler must assign every
