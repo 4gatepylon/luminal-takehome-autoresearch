@@ -1,0 +1,2 @@
+openevolve==0.3.2
+python-dotenv==1.2.3
