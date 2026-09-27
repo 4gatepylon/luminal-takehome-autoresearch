@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""- Input: work/compiler.py; OpenEvolve executes temporary copies under run-*/tmp/.
+"""
+- Input: work/compiler.py; OpenEvolve executes temporary copies under run-*/tmp/.
 - Isolation: sandbox.py blocks candidate writes, networking, forks, and signals to
   other processes; see that module for the exact profile and its limitations.
 - Model visibility:
