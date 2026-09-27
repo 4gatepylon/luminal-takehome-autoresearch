@@ -44,6 +44,13 @@ python3 -m unittest -v
 python3 score.py
 ```
 
+Install the development tools, automatically fix lint issues, and format all Python files with:
+
+```sh
+python3 -m pip install -r requirements.txt
+make format
+```
+
 Compile one program to a JSON schedule with:
 
 ```sh
