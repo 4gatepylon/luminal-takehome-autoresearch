@@ -59,6 +59,13 @@ with `cycle_speedup`, `scratch_reduction`, and `combined_score` without printing
 Pass `verbose=True` to `score()` or `eval()` to print the benchmark report.
 The CLI returns a nonzero exit status when tests fail.
 
+Install the development tools, automatically fix lint issues, and format all Python files with:
+
+```sh
+python3 -m pip install -r requirements.txt
+make format
+```
+
 Compile one program to a JSON schedule with:
 
 ```sh

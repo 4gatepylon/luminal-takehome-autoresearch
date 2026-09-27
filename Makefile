@@ -1,7 +1,7 @@
 PYTHON ?= python3
 PYTHON_BIN ?= $(PYTHON)
 
-.PHONY: test test-compiler score eval
+.PHONY: test test-compiler score eval format
 
 test: test-compiler
 
@@ -13,3 +13,7 @@ score:
 
 eval:
 	$(PYTHON_BIN) -B evaluate.py eval
+
+format:
+	ruff check --fix .
+	ruff format .
