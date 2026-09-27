@@ -5,6 +5,7 @@
 - Install: Python 3.10+ on macOS; pip install -r autoresearch-openevolve/requirements.txt.
 - Setup: copy .env-example to .env beside this script and configure the API.
 - Run from the repo root: PYTHONPATH="$PWD" python -B autoresearch-openevolve/run.py.
+  (-B: no bytecode caches.)
 - --check: no API calls; run work/compiler.py against every public program, validate
   its schedule and every case, and report cycle, scratch, and combined scores.
 - Outputs: the checkout stays unchanged; each run writes beneath this tree:

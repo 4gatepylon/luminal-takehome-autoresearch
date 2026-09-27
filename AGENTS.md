@@ -15,11 +15,10 @@ Run from the repository root with Python 3.10+ on macOS:
 
 ```sh
 export PYTHONPATH="$PWD"
-python -B autoresearch-openevolve/run.py
+python -B autoresearch-openevolve/run.py  # -B: no bytecode caches
 ```
 
 Use `--check` to evaluate `work/compiler.py` without API calls. Keep all run
-artifacts under `.autoresearch-openevolve/`; `-B` disables bytecode files outside
-that directory. Keep generated compiler execution inside `run_in_sandbox` and
+artifacts under `.autoresearch-openevolve/`. Keep generated compiler execution inside `run_in_sandbox` and
 grade its JSON output with the trusted machine implementation in the parent
 process.
