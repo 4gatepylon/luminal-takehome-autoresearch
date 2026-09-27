@@ -39,47 +39,47 @@ import machine
 from compatible_llm import CompatibleLLM
 from sandbox import run_in_sandbox
 
-ROOT = Path.cwd()
-COMPILER = ROOT / "work/compiler.py"
+REPO_ROOT = Path.cwd()
+COMPILER_PATH = REPO_ROOT / "work/compiler.py"
 
 
-def evaluate(program_path):
+def evaluate(candidate_path: str | Path) -> EvaluationResult:
     """Run candidate CLI in a read-only subprocess; grade JSON in trusted Python."""
-    speedups, reductions = [], []
+    cycle_speedups, scratch_reductions = [], []
     try:
-        paths = sorted((ROOT / "programs").glob("*.json"))
-        if not paths:
-            raise ValueError(f"No benchmark programs in {ROOT / 'programs'}")
-        for path in paths:
-            result = run_in_sandbox(
-                [sys.executable, "-B", str(Path(program_path).resolve()), str(path)],
+        program_paths = sorted((REPO_ROOT / "programs").glob("*.json"))
+        if not program_paths:
+            raise ValueError(f"No benchmark programs in {REPO_ROOT / 'programs'}")
+        for program_path in program_paths:
+            sandbox_result = run_in_sandbox(
+                [sys.executable, "-B", str(Path(candidate_path).resolve()), str(program_path)],
             )
-            if result.returncode:
-                raise ValueError(f"{path.name}: {result.stderr[-4000:]}")
-            compilation = json.loads(result.stdout)
-            program = machine.load_program(path)
-            cycles = machine.check_compilation(program, compilation)
-            for case in program["cases"]:
-                machine.check_case(program, compilation, case)
-            baseline = machine.serial_compile(program)
-            speedups.append(machine.check_compilation(program, baseline) / cycles)
-            reductions.append(machine.scratch_footprint(program, baseline)
-                              / machine.scratch_footprint(program, compilation))
-        speedup = math.prod(speedups) ** (1 / len(speedups))
-        reduction = math.prod(reductions) ** (1 / len(reductions))
+            if sandbox_result.returncode:
+                raise ValueError(f"{program_path.name}: {sandbox_result.stderr[-4000:]}")
+            compilation = json.loads(sandbox_result.stdout)
+            program = machine.load_program(program_path)
+            cycle_count = machine.check_compilation(program, compilation)
+            for test_case in program["cases"]:
+                machine.check_case(program, compilation, test_case)
+            baseline_compilation = machine.serial_compile(program)
+            cycle_speedups.append(machine.check_compilation(program, baseline_compilation) / cycle_count)
+            scratch_reductions.append(machine.scratch_footprint(program, baseline_compilation)
+                                      / machine.scratch_footprint(program, compilation))
+        cycle_speedup_geomean = math.prod(cycle_speedups) ** (1 / len(cycle_speedups))
+        scratch_reduction_geomean = math.prod(scratch_reductions) ** (1 / len(scratch_reductions))
         return EvaluationResult(metrics={
-            "combined_score": math.sqrt(speedup * reduction),
-            "cycle_speedup": speedup, "scratch_reduction": reduction,
+            "combined_score": math.sqrt(cycle_speedup_geomean * scratch_reduction_geomean),
+            "cycle_speedup": cycle_speedup_geomean, "scratch_reduction": scratch_reduction_geomean,
         })
     except Exception as exc:
         return EvaluationResult(metrics={"combined_score": 0.0},
                                 artifacts={"error": str(exc)})
 
 
-def init_config(run):
+def init_config(run_dir: Path) -> Config:
     """Build OpenEvolve configuration from dotenv-loaded settings and prompt.md."""
     config = Config(max_iterations=int(os.getenv("ITERATIONS", "50")),
-                    random_seed=None, log_dir=str(run / "logs"))
+                    random_seed=None, log_dir=str(run_dir / "logs"))
     config.llm = LLMConfig(
         api_base=os.environ["OPENAI_BASE_URL"].rstrip("/"),
         api_key=os.environ["OPENAI_API_KEY"],
@@ -88,51 +88,51 @@ def init_config(run):
         max_tokens=int(os.environ["MAX_TOKENS"]) if os.getenv("MAX_TOKENS") else None,
         timeout=int(os.getenv("API_TIMEOUT", "180")),
     )
-    config.database.db_path = str(run / "database")
-    config.database.artifacts_base_path = str(run / "artifacts")
+    config.database.db_path = str(run_dir / "database")
+    config.database.artifacts_base_path = str(run_dir / "artifacts")
     config.evaluator.cascade_evaluation = False
-    config.prompt.system_message = (ROOT / "autoresearch-openevolve/prompt.md").read_text().format(
-        readme=(ROOT / "README.md").read_text(),
-        machine=(ROOT / "machine.py").read_text(),
+    config.prompt.system_message = (REPO_ROOT / "autoresearch-openevolve/prompt.md").read_text().format(
+        readme=(REPO_ROOT / "README.md").read_text(),
+        machine=(REPO_ROOT / "machine.py").read_text(),
     )
     return config
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     if not shutil.which("sandbox-exec"):
         parser.error("macOS sandbox-exec is required; refusing to run candidates unsandboxed")
-    if not COMPILER.is_file():
+    if not COMPILER_PATH.is_file():
         parser.error("Expected work/compiler.py; run from the repository root")
-    load_dotenv(ROOT / "autoresearch-openevolve/.env")
+    load_dotenv(REPO_ROOT / "autoresearch-openevolve/.env")
     if not args.check:
-        for name in ("OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL"):
-            if not os.getenv(name):
-                parser.error(f"Set {name} in autoresearch-openevolve/.env")
+        for env_name in ("OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL"):
+            if not os.getenv(env_name):
+                parser.error(f"Set {env_name} in autoresearch-openevolve/.env")
 
-    output = ROOT / ".autoresearch-openevolve"
-    output.mkdir(exist_ok=True)
-    run = Path(tempfile.mkdtemp(prefix="run-", dir=output))
-    (run / "tmp").mkdir()
-    os.environ["TMPDIR"] = tempfile.tempdir = str(run / "tmp")
+    output_dir = REPO_ROOT / ".autoresearch-openevolve"
+    output_dir.mkdir(exist_ok=True)
+    run_dir = Path(tempfile.mkdtemp(prefix="run-", dir=output_dir))
+    (run_dir / "tmp").mkdir()
+    os.environ["TMPDIR"] = tempfile.tempdir = str(run_dir / "tmp")
     os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
     if args.check:
-        result = evaluate(COMPILER)
-        print(json.dumps({"metrics": result.metrics, "artifacts": result.artifacts}, indent=2))
-        return int(result.metrics["combined_score"] <= 0)
+        evaluation_result = evaluate(COMPILER_PATH)
+        print(json.dumps({"metrics": evaluation_result.metrics, "artifacts": evaluation_result.artifacts}, indent=2))
+        return int(evaluation_result.metrics["combined_score"] <= 0)
 
-    result = run_evolution(
-        initial_program=COMPILER.read_text(), output_dir=str(run),
-        evaluator=str(ROOT / "autoresearch-openevolve/run.py"), config=init_config(run),
+    evolution_result = run_evolution(
+        initial_program=COMPILER_PATH.read_text(), output_dir=str(run_dir),
+        evaluator=str(REPO_ROOT / "autoresearch-openevolve/run.py"), config=init_config(run_dir),
     )
-    if not result.best_code or result.best_score <= 0:
-        raise RuntimeError(f"No correct compiler found; inspect {run}")
-    best = run / "best/compiler.py"
-    best.parent.mkdir(exist_ok=True)
-    best.write_text(result.best_code)
-    print(f"Best score: {result.best_score:.6f}\nCompiler: {best}\nOutputs: {run}")
+    if not evolution_result.best_code or evolution_result.best_score <= 0:
+        raise RuntimeError(f"No correct compiler found; inspect {run_dir}")
+    best_compiler_path = run_dir / "best/compiler.py"
+    best_compiler_path.parent.mkdir(exist_ok=True)
+    best_compiler_path.write_text(evolution_result.best_code)
+    print(f"Best score: {evolution_result.best_score:.6f}\nCompiler: {best_compiler_path}\nOutputs: {run_dir}")
     return 0
 
 
