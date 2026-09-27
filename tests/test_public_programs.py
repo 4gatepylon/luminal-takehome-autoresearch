@@ -1,28 +1,8 @@
-"""Luminal Compiler Take Home — Public compiler correctness tests for compiler engineering."""
-
-from __future__ import annotations
+"""Discover the shared public compiler correctness tests."""
 
 import unittest
-from pathlib import Path
 
-import machine
-from work import compiler
-
-
-PROGRAM_DIR = Path(__file__).parents[1] / "programs"
-
-
-class PublicProgramTests(unittest.TestCase):
-    def test_compiler_on_all_public_programs(self):
-        paths = sorted(PROGRAM_DIR.glob("*.json"))
-        self.assertEqual(len(paths), 8)
-        for path in paths:
-            with self.subTest(program=path.name):
-                program = machine.load_program(path)
-                compilation = compiler.compile_program(program)
-                machine.check_compilation(program, compilation)
-                for case in program["cases"]:
-                    machine.check_case(program, compilation, case)
+from evaluate import PublicProgramTests as PublicProgramTests
 
 
 if __name__ == "__main__":

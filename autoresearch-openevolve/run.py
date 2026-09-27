@@ -15,7 +15,7 @@
 - Run from the repo root: PYTHONPATH="$PWD" python -B autoresearch-openevolve/run.py.
   (-B: no bytecode caches.)
 - --check: no API calls; run the shared eval(compiler_filepath=...) on work/compiler.py
-  for public tests and scoring, with a 180-second timeout for the full evaluation.
+  for public tests and scoring, with a 20-second sandbox timeout per compilation.
 - Outputs: the checkout stays unchanged; each run writes beneath this tree:
 
 ```
@@ -30,13 +30,11 @@
 """
 
 import argparse
-from contextlib import redirect_stdout
+from io import StringIO
 import json
 import os
 from pathlib import Path
 import shutil
-from subprocess import CompletedProcess
-import sys
 import tempfile
 from typing import Final
 
@@ -48,22 +46,18 @@ from openevolve.evaluation_result import EvaluationResult
 
 from compatible_llm import CompatibleLLM
 from evaluate import eval as evaluate_compiler
-from sandbox import run_in_sandbox
 
 REPO_ROOT: Final[Path] = Path.cwd()
 COMPILER_PATH: Final[Path] = REPO_ROOT / "work/compiler.py"
 
 
 def evaluate(candidate_path: str | Path) -> EvaluationResult:
-    """Run the shared evaluation API in the sandbox and forward its metrics."""
+    """Forward metrics from the shared evaluator, which sandboxes compiler execution."""
     try:
-        sandbox_result: CompletedProcess[str] = run_in_sandbox(
-            [sys.executable, "-B", str(REPO_ROOT / "autoresearch-openevolve/run.py"),
-             "--evaluate-candidate", str(Path(candidate_path).resolve())], timeout=180,
-        )
-        if sandbox_result.returncode:
-            raise ValueError(sandbox_result.stderr[-4000:] or f"Evaluation exited with {sandbox_result.returncode}")
-        metrics: dict[str, float] = json.loads(sandbox_result.stdout)
+        diagnostics = StringIO()
+        metrics: dict[str, float] | None = evaluate_compiler(compiler_filepath=candidate_path, stream=diagnostics)
+        if metrics is None:
+            raise ValueError(diagnostics.getvalue()[-4000:])
         return EvaluationResult(metrics=metrics)
     except Exception as exc:
         return EvaluationResult(metrics={"combined_score": 0.0},
@@ -95,16 +89,7 @@ def init_config(run_dir: Path) -> Config:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--evaluate-candidate", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
-    if args.evaluate_candidate:
-        with redirect_stdout(sys.stderr):
-            metrics: dict[str, float] | None = evaluate_compiler(compiler_filepath=args.evaluate_candidate)
-        if metrics is None:
-            print("Public tests failed", file=sys.stderr)
-            return 1
-        print(json.dumps(metrics))
-        return 0
     if not shutil.which("sandbox-exec"):
         parser.error("macOS sandbox-exec is required; refusing to run candidates unsandboxed")
     if not COMPILER_PATH.is_file():
