@@ -19,6 +19,7 @@ python -B autoresearch-openevolve/run.py  # -B: no bytecode caches
 ```
 
 Use `--check` to evaluate `work/compiler.py` without API calls. Keep all run
-artifacts under `.autoresearch-openevolve/`. Keep generated compiler execution inside `run_in_sandbox` and
-grade its JSON output with the trusted machine implementation in the parent
-process.
+artifacts under `.autoresearch-openevolve/`. Run the shared
+`evaluate.eval(compiler_filepath=...)` API inside `run_in_sandbox` so candidate
+loading, public tests, and scoring are sandboxed. The parent collects JSON
+metrics or reports evaluation errors.

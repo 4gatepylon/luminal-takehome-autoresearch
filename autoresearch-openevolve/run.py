@@ -6,8 +6,8 @@
 - Setup: copy .env-example to .env beside this script and configure the API.
 - Run from the repo root: PYTHONPATH="$PWD" python -B autoresearch-openevolve/run.py.
   (-B: no bytecode caches.)
-- --check: no API calls; run work/compiler.py against every public program, validate
-  its schedule and every case, and report cycle, scratch, and combined scores.
+- --check: no API calls; run the shared eval(compiler_filepath=...) on work/compiler.py
+  for public tests and scoring, with a 180-second timeout for the full evaluation.
 - Outputs: the checkout stays unchanged; each run writes beneath this tree:
 
 ```
@@ -23,14 +23,13 @@
 
 import argparse
 import json
-import math
 import os
 from pathlib import Path
 import shutil
 from subprocess import CompletedProcess
 import sys
 import tempfile
-from typing import Any, Final
+from typing import Final
 
 from dotenv import load_dotenv
 from openevolve import run_evolution
@@ -38,7 +37,6 @@ from openevolve.api import EvolutionResult
 from openevolve.config import Config, LLMConfig, LLMModelConfig
 from openevolve.evaluation_result import EvaluationResult
 
-import machine
 from compatible_llm import CompatibleLLM
 from sandbox import run_in_sandbox
 
@@ -47,34 +45,16 @@ COMPILER_PATH: Final[Path] = REPO_ROOT / "work/compiler.py"
 
 
 def evaluate(candidate_path: str | Path) -> EvaluationResult:
-    """Run candidate CLI in a read-only subprocess; grade JSON in trusted Python."""
-    cycle_speedups: list[float] = []
-    scratch_reductions: list[float] = []
+    """Run the shared evaluation API in the sandbox and forward its metrics."""
     try:
-        program_paths: list[Path] = sorted((REPO_ROOT / "programs").glob("*.json"))
-        if not program_paths:
-            raise ValueError(f"No benchmark programs in {REPO_ROOT / 'programs'}")
-        for program_path in program_paths:
-            sandbox_result: CompletedProcess[str] = run_in_sandbox(
-                [sys.executable, "-B", str(Path(candidate_path).resolve()), str(program_path)],
-            )
-            if sandbox_result.returncode:
-                raise ValueError(f"{program_path.name}: {sandbox_result.stderr[-4000:]}")
-            compilation: dict[str, Any] = json.loads(sandbox_result.stdout)
-            program: dict[str, Any] = machine.load_program(program_path)
-            cycle_count: int = machine.check_compilation(program, compilation)
-            for test_case in program["cases"]:
-                machine.check_case(program, compilation, test_case)
-            baseline_compilation: dict[str, Any] = machine.serial_compile(program)
-            cycle_speedups.append(machine.check_compilation(program, baseline_compilation) / cycle_count)
-            scratch_reductions.append(machine.scratch_footprint(program, baseline_compilation)
-                                      / machine.scratch_footprint(program, compilation))
-        cycle_speedup_geomean: float = math.prod(cycle_speedups) ** (1 / len(cycle_speedups))
-        scratch_reduction_geomean: float = math.prod(scratch_reductions) ** (1 / len(scratch_reductions))
-        return EvaluationResult(metrics={
-            "combined_score": math.sqrt(cycle_speedup_geomean * scratch_reduction_geomean),
-            "cycle_speedup": cycle_speedup_geomean, "scratch_reduction": scratch_reduction_geomean,
-        })
+        sandbox_result: CompletedProcess[str] = run_in_sandbox(
+            [sys.executable, "-B", str(REPO_ROOT / "autoresearch-openevolve/evaluate_candidate.py"),
+             str(Path(candidate_path).resolve())], timeout=180,
+        )
+        if sandbox_result.returncode:
+            raise ValueError(sandbox_result.stderr[-4000:] or f"Evaluation exited with {sandbox_result.returncode}")
+        metrics: dict[str, float] = json.loads(sandbox_result.stdout)
+        return EvaluationResult(metrics=metrics)
     except Exception as exc:
         return EvaluationResult(metrics={"combined_score": 0.0},
                                 artifacts={"error": str(exc)})
