@@ -2,6 +2,13 @@
 """- Input: work/compiler.py; OpenEvolve executes temporary copies under run-*/tmp/.
 - Isolation: sandbox.py blocks candidate writes, networking, forks, and signals to
   other processes; see that module for the exact profile and its limitations.
+- Model visibility:
+  - Sees prompt.md rendered with the repo-root README.md and machine.py, current
+    compiler code, sampled earlier candidates and metrics, and evaluation errors.
+  - Full test/program files, evaluator source, .env, and other repository files
+    are not automatically included in the prompt.
+  - Has no direct shell or filesystem tools. Generated candidate code can still
+    read host files, and returned error text can expose their contents.
 - Install: Python 3.10+ on macOS; pip install -r autoresearch-openevolve/requirements.txt.
 - Setup: copy .env-example to .env beside this script and configure the API.
 - Run from the repo root: PYTHONPATH="$PWD" python -B autoresearch-openevolve/run.py.
