@@ -51,7 +51,17 @@ The same functions are available from Python:
 from evaluate import test, score, eval
 
 metrics = eval()  # runs tests, then scores; returns None if tests fail
+metrics = eval("path/to/compiler.py")  # use a different compiler
 ```
+
+`test()`, `score()`, and `eval()` accept an optional `compiler_path` (string or
+`Path`), defaulting to this repository's `work/compiler.py`. The file must define
+`compile_program(program: dict) -> dict`, returning the existing `scratch` and
+`bundles` structure. Files are loaded fresh; explicit relative paths resolve
+from the current working directory.
+
+From the CLI, use `python3 evaluate.py eval --compiler-path path/to/compiler.py`
+(also supported for `test` and `score`).
 
 `test()` returns a `unittest.TestResult` with `.wasSuccessful()` and accepts
 `verbosity` and `stream` options for its output. `score()` returns a dictionary

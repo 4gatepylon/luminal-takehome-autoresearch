@@ -7,14 +7,14 @@ import math
 from pathlib import Path
 
 import machine
-from work import compiler
-
+from compiler_loader import DEFAULT_COMPILER_PATH, load_compiler
 
 PROGRAM_DIR = Path(__file__).parent / "programs"
 
 
-def score(*, program_dir: Path = PROGRAM_DIR, verbose: bool = False) -> dict[str, float]:
+def score(compiler_path: str | Path = DEFAULT_COMPILER_PATH, *, program_dir: Path = PROGRAM_DIR, verbose: bool = False) -> dict[str, float]:
     """Validate the public programs and return unrounded score multipliers."""
+    compile_fn = load_compiler(compiler_path)
     speedups = []
     reductions = []
     if verbose:
@@ -23,7 +23,7 @@ def score(*, program_dir: Path = PROGRAM_DIR, verbose: bool = False) -> dict[str
         print("-" * 60)
     for path in sorted(program_dir.glob("*.json")):
         program = machine.load_program(path)
-        compilation = compiler.compile_program(program)
+        compilation = compile_fn(program)
         cycles = machine.check_compilation(program, compilation)
         for case in program["cases"]:
             machine.check_case(program, compilation, case)
