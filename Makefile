@@ -6,10 +6,10 @@ PYTHON_BIN ?= $(PYTHON)
 test: test-compiler
 
 test-compiler:
-	$(PYTHON_BIN) -B -m unittest -v tests.test_machine tests.test_public_programs
+	$(PYTHON_BIN) -B evaluate.py test
 
 score:
-	$(PYTHON_BIN) -B score.py
+	$(PYTHON_BIN) -B evaluate.py score
 
-eval: test
-	$(MAKE) score
+eval:
+	$(PYTHON_BIN) -B evaluate.py eval

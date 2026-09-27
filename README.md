@@ -40,9 +40,24 @@ once.
 Run the public suite and benchmark with:
 
 ```sh
-python3 -m unittest -v
-python3 score.py
+make test   # unit tests
+make score  # public benchmark
+make eval   # tests, then score only if tests pass
 ```
+
+The same functions are available from Python:
+
+```python
+from evaluate import test, score, eval
+
+metrics = eval()  # runs tests, then scores; returns None if tests fail
+```
+
+`test()` returns a `unittest.TestResult` with `.wasSuccessful()` and accepts
+`verbosity` and `stream` options for its output. `score()` returns a dictionary
+with `cycle_speedup`, `scratch_reduction`, and `combined_score` without printing.
+Pass `verbose=True` to `score()` or `eval()` to print the benchmark report.
+The CLI returns a nonzero exit status when tests fail.
 
 Compile one program to a JSON schedule with:
 
