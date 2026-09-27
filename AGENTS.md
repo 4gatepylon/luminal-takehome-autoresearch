@@ -5,9 +5,6 @@
   layouts.
 - Always put every import at the top of its module, after the module docstring.
   Do not use function-local imports.
-- Always use `work/compiler.py` as the compiler being evolved. Do not fall back
-  to the root `compiler.py`. The trusted `machine.py`, `programs/`, and `README.md`
-  are at the repository root.
 
 # OpenEvolve autoresearch
 
@@ -18,7 +15,7 @@ export PYTHONPATH="$PWD"
 python -B autoresearch-openevolve/run.py  # -B: no bytecode caches
 ```
 
-Use `--check` to evaluate `work/compiler.py` without API calls. Keep all run
+Use `--check` to evaluate the compiler without API calls. Keep all run
 artifacts under `.autoresearch-openevolve/`. Run the shared
 `evaluate.eval(compiler_filepath=...)` API inside `run_in_sandbox` so candidate
 loading, public tests, and scoring are sandboxed. The parent collects JSON
