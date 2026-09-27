@@ -30,6 +30,7 @@
 """
 
 import argparse
+from contextlib import redirect_stdout
 import json
 import os
 from pathlib import Path
@@ -46,6 +47,7 @@ from openevolve.config import Config, LLMConfig, LLMModelConfig
 from openevolve.evaluation_result import EvaluationResult
 
 from compatible_llm import CompatibleLLM
+from evaluate import eval as evaluate_compiler
 from sandbox import run_in_sandbox
 
 REPO_ROOT: Final[Path] = Path.cwd()
@@ -56,8 +58,8 @@ def evaluate(candidate_path: str | Path) -> EvaluationResult:
     """Run the shared evaluation API in the sandbox and forward its metrics."""
     try:
         sandbox_result: CompletedProcess[str] = run_in_sandbox(
-            [sys.executable, "-B", str(REPO_ROOT / "autoresearch-openevolve/evaluate_candidate.py"),
-             str(Path(candidate_path).resolve())], timeout=180,
+            [sys.executable, "-B", str(REPO_ROOT / "autoresearch-openevolve/run.py"),
+             "--evaluate-candidate", str(Path(candidate_path).resolve())], timeout=180,
         )
         if sandbox_result.returncode:
             raise ValueError(sandbox_result.stderr[-4000:] or f"Evaluation exited with {sandbox_result.returncode}")
@@ -93,7 +95,16 @@ def init_config(run_dir: Path) -> Config:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--evaluate-candidate", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.evaluate_candidate:
+        with redirect_stdout(sys.stderr):
+            metrics: dict[str, float] | None = evaluate_compiler(compiler_filepath=args.evaluate_candidate)
+        if metrics is None:
+            print("Public tests failed", file=sys.stderr)
+            return 1
+        print(json.dumps(metrics))
+        return 0
     if not shutil.which("sandbox-exec"):
         parser.error("macOS sandbox-exec is required; refusing to run candidates unsandboxed")
     if not COMPILER_PATH.is_file():
