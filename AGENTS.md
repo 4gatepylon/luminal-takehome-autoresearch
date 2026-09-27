@@ -1,5 +1,6 @@
 # Python conventions
 
+- All compiler and Python executions must run inside a sandbox.
 - Always invoke scripts from the repository root with the repository root on
   `PYTHONPATH`. Use ordinary imports; do not add import-path discovery or fallback
   layouts.
