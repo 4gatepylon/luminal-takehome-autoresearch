@@ -29,6 +29,26 @@ SANDBOX = (
 )
 
 
+def init_client(model_config):
+    """Add service-tier support and GPT-6 parameters to OpenEvolve 0.3.2."""
+    from openevolve.llm.openai import OpenAILLM
+
+    class CompatibleLLM(OpenAILLM):
+        async def _call_api(self, params):
+            if self.model.rsplit("/", 1)[-1].startswith("gpt-6"):
+                params.pop("temperature", None)
+                params.pop("top_p", None)
+                params["max_completion_tokens"] = params.pop("max_tokens", None)
+            for key in ("max_tokens", "max_completion_tokens"):
+                if params.get(key) is None:
+                    params.pop(key, None)
+            if tier := os.getenv("OPENAI_SERVICE_TIER"):
+                params["service_tier"] = tier
+            return await super()._call_api(params)
+
+    return CompatibleLLM(model_config)
+
+
 def evaluate(program_path):
     """Run candidate CLI in a read-only subprocess; grade JSON in trusted Python."""
     from openevolve.evaluation_result import EvaluationResult
@@ -106,8 +126,9 @@ def main():
     config.llm = LLMConfig(
         api_base=os.environ["OPENAI_BASE_URL"].rstrip("/"),
         api_key=os.environ["OPENAI_API_KEY"],
-        models=[LLMModelConfig(name=os.environ["OPENAI_MODEL"])],
-        max_tokens=int(os.getenv("MAX_TOKENS", "16384")),
+        models=[LLMModelConfig(name=os.environ["OPENAI_MODEL"], init_client=init_client)],
+        reasoning_effort=os.getenv("OPENAI_REASONING_EFFORT") or None,
+        max_tokens=int(os.environ["MAX_TOKENS"]) if os.getenv("MAX_TOKENS") else None,
         timeout=int(os.getenv("API_TIMEOUT", "180")),
     )
     config.log_dir = str(run / "logs")
@@ -128,7 +149,7 @@ def main():
     result = run_evolution(
         initial_program=(SOURCE / "compiler.py").read_text(),
         evaluator=str(Path(__file__).resolve()), config=config,
-        iterations=int(os.getenv("ITERATIONS", "100")), output_dir=str(run),
+        iterations=int(os.getenv("ITERATIONS", "50")), output_dir=str(run),
     )
     if not result.best_code or result.best_score <= 0:
         raise RuntimeError(f"No correct compiler found; inspect {run}")
