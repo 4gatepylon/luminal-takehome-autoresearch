@@ -15,7 +15,7 @@ change.
 
 ## Candidate task
 
-Implement scheduling and scratch allocation in `compile_program()` in `compiler.py`.
+Implement scheduling and scratch allocation in `compile_program()` in `work/compiler.py`.
 You may add helpers and standard-library imports to that file. Do not modify `machine.py`, the
 public programs, or the tests when preparing a submission.
 
@@ -62,7 +62,7 @@ The CLI returns a nonzero exit status when tests fail.
 Compile one program to a JSON schedule with:
 
 ```sh
-python3 compiler.py programs/03_vector_axpy.json > axpy.schedule.json
+python3 -m work.compiler programs/03_vector_axpy.json > axpy.schedule.json
 python3 machine.py programs/03_vector_axpy.json axpy.schedule.json
 ```
 
@@ -194,7 +194,7 @@ tools used and how you checked their output. You should be able to explain and
 modify your submission in a follow-up discussion. Do not share the exercise or
 solution publicly or collaborate with another person.
 
-Email `compiler.py` and a short `SUBMISSION.md` to
+Email `work/compiler.py` and a short `SUBMISSION.md` to
 [submissions@luminal.com](mailto:submissions@luminal.com). Include time spent,
 your scheduling and allocation approach, measured public scores, tradeoffs, unfinished work, and
 any tool assistance. You may include additional tests separately; do not alter

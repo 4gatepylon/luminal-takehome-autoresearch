@@ -6,8 +6,8 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-import compiler
 import machine
+from work import compiler
 
 
 PROGRAM_DIR = Path(__file__).parent / "programs"
