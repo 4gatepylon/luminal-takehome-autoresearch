@@ -14,9 +14,3 @@ Run from the repository root with Python 3.10+ on macOS:
 export PYTHONPATH="$PWD"
 python -B autoresearch-openevolve/run.py  # -B: no bytecode caches
 ```
-
-Use `--check` to evaluate the compiler without API calls. Keep all run
-artifacts under `.autoresearch-openevolve/`. Run the shared
-`evaluate.eval(compiler_filepath=...)` API inside `run_in_sandbox` so candidate
-loading, public tests, and scoring are sandboxed. The parent collects JSON
-metrics or reports evaluation errors.
