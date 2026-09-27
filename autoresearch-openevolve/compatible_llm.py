@@ -6,12 +6,13 @@ evaluation and makes it easy to remove when upstream supports these settings.
 """
 
 import os
+from typing import Any
 
 from openevolve.llm.openai import OpenAILLM
 
 
 class CompatibleLLM(OpenAILLM):
-    async def _call_api(self, params):
+    async def _call_api(self, params: dict[str, Any]) -> str:
         if self.model.rsplit("/", 1)[-1].startswith("gpt-6"):
             params.pop("temperature", None)
             params.pop("top_p", None)

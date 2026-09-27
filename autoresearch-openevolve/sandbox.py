@@ -11,17 +11,19 @@ allowed. Children receive only the root PYTHONPATH and bytecode-disable setting,
 not the parent's API credentials. Each command has a wall-clock timeout.
 """
 
+from collections.abc import Sequence
 from pathlib import Path
 import subprocess
+from typing import Final
 
 
-PROFILE = (
+PROFILE: Final[str] = (
     "(version 1)(allow default)(deny file-write*)(deny network*)"
     "(deny process-fork)(deny signal)"
 )
 
 
-def run_in_sandbox(command, *, timeout=20):
+def run_in_sandbox(command: Sequence[str], *, timeout: float = 20) -> subprocess.CompletedProcess[str]:
     """Capture a command's output while enforcing PROFILE; run from the repo root."""
     return subprocess.run(
         ["/usr/bin/sandbox-exec", "-p", PROFILE, *command],

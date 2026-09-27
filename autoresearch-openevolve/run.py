@@ -27,11 +27,14 @@ import math
 import os
 from pathlib import Path
 import shutil
+from subprocess import CompletedProcess
 import sys
 import tempfile
+from typing import Any, Final
 
 from dotenv import load_dotenv
 from openevolve import run_evolution
+from openevolve.api import EvolutionResult
 from openevolve.config import Config, LLMConfig, LLMModelConfig
 from openevolve.evaluation_result import EvaluationResult
 
@@ -39,34 +42,35 @@ import machine
 from compatible_llm import CompatibleLLM
 from sandbox import run_in_sandbox
 
-REPO_ROOT = Path.cwd()
-COMPILER_PATH = REPO_ROOT / "work/compiler.py"
+REPO_ROOT: Final[Path] = Path.cwd()
+COMPILER_PATH: Final[Path] = REPO_ROOT / "work/compiler.py"
 
 
 def evaluate(candidate_path: str | Path) -> EvaluationResult:
     """Run candidate CLI in a read-only subprocess; grade JSON in trusted Python."""
-    cycle_speedups, scratch_reductions = [], []
+    cycle_speedups: list[float] = []
+    scratch_reductions: list[float] = []
     try:
-        program_paths = sorted((REPO_ROOT / "programs").glob("*.json"))
+        program_paths: list[Path] = sorted((REPO_ROOT / "programs").glob("*.json"))
         if not program_paths:
             raise ValueError(f"No benchmark programs in {REPO_ROOT / 'programs'}")
         for program_path in program_paths:
-            sandbox_result = run_in_sandbox(
+            sandbox_result: CompletedProcess[str] = run_in_sandbox(
                 [sys.executable, "-B", str(Path(candidate_path).resolve()), str(program_path)],
             )
             if sandbox_result.returncode:
                 raise ValueError(f"{program_path.name}: {sandbox_result.stderr[-4000:]}")
-            compilation = json.loads(sandbox_result.stdout)
-            program = machine.load_program(program_path)
-            cycle_count = machine.check_compilation(program, compilation)
+            compilation: dict[str, Any] = json.loads(sandbox_result.stdout)
+            program: dict[str, Any] = machine.load_program(program_path)
+            cycle_count: int = machine.check_compilation(program, compilation)
             for test_case in program["cases"]:
                 machine.check_case(program, compilation, test_case)
-            baseline_compilation = machine.serial_compile(program)
+            baseline_compilation: dict[str, Any] = machine.serial_compile(program)
             cycle_speedups.append(machine.check_compilation(program, baseline_compilation) / cycle_count)
             scratch_reductions.append(machine.scratch_footprint(program, baseline_compilation)
                                       / machine.scratch_footprint(program, compilation))
-        cycle_speedup_geomean = math.prod(cycle_speedups) ** (1 / len(cycle_speedups))
-        scratch_reduction_geomean = math.prod(scratch_reductions) ** (1 / len(scratch_reductions))
+        cycle_speedup_geomean: float = math.prod(cycle_speedups) ** (1 / len(cycle_speedups))
+        scratch_reduction_geomean: float = math.prod(scratch_reductions) ** (1 / len(scratch_reductions))
         return EvaluationResult(metrics={
             "combined_score": math.sqrt(cycle_speedup_geomean * scratch_reduction_geomean),
             "cycle_speedup": cycle_speedup_geomean, "scratch_reduction": scratch_reduction_geomean,
@@ -112,24 +116,24 @@ def main() -> int:
             if not os.getenv(env_name):
                 parser.error(f"Set {env_name} in autoresearch-openevolve/.env")
 
-    output_dir = REPO_ROOT / ".autoresearch-openevolve"
+    output_dir: Path = REPO_ROOT / ".autoresearch-openevolve"
     output_dir.mkdir(exist_ok=True)
-    run_dir = Path(tempfile.mkdtemp(prefix="run-", dir=output_dir))
+    run_dir: Path = Path(tempfile.mkdtemp(prefix="run-", dir=output_dir))
     (run_dir / "tmp").mkdir()
     os.environ["TMPDIR"] = tempfile.tempdir = str(run_dir / "tmp")
     os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
     if args.check:
-        evaluation_result = evaluate(COMPILER_PATH)
+        evaluation_result: EvaluationResult = evaluate(COMPILER_PATH)
         print(json.dumps({"metrics": evaluation_result.metrics, "artifacts": evaluation_result.artifacts}, indent=2))
         return int(evaluation_result.metrics["combined_score"] <= 0)
 
-    evolution_result = run_evolution(
+    evolution_result: EvolutionResult = run_evolution(
         initial_program=COMPILER_PATH.read_text(), output_dir=str(run_dir),
         evaluator=str(REPO_ROOT / "autoresearch-openevolve/run.py"), config=init_config(run_dir),
     )
     if not evolution_result.best_code or evolution_result.best_score <= 0:
         raise RuntimeError(f"No correct compiler found; inspect {run_dir}")
-    best_compiler_path = run_dir / "best/compiler.py"
+    best_compiler_path: Path = run_dir / "best/compiler.py"
     best_compiler_path.parent.mkdir(exist_ok=True)
     best_compiler_path.write_text(evolution_result.best_code)
     print(f"Best score: {evolution_result.best_score:.6f}\nCompiler: {best_compiler_path}\nOutputs: {run_dir}")
