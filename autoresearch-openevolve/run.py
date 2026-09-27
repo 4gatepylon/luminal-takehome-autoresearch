@@ -137,14 +137,9 @@ def main():
     config.evaluator.cascade_evaluation = False
     config.evaluator.parallel_evaluations = 1
     config.evaluator.timeout = 300
-    config.prompt.system_message = (
-        "Optimize compiler.py's general VLIW scheduling and scratch allocation. "
-        "Preserve compile_program(program) and the JSON-only CLI. Only this file evolves. "
-        "Use standard-library imports and machine; no file writes, network, or subprocesses. "
-        "Do not modify the input IR, monkeypatch machine, or special-case public programs. "
-        "Maximize the combined score; every case must remain correct.\n\n"
-        + (SOURCE / "README.md").read_text()
-        + "\n\nRead-only machine.py:\n" + (SOURCE / "machine.py").read_text()
+    config.prompt.system_message = Path(__file__).with_name("prompt.md").read_text().format(
+        readme=(SOURCE / "README.md").read_text(),
+        machine=(SOURCE / "machine.py").read_text(),
     )
     result = run_evolution(
         initial_program=(SOURCE / "compiler.py").read_text(),
