@@ -75,7 +75,7 @@ def compile_program(program: dict) -> dict:
 
 def main(argv: list[str]) -> int:
     if len(argv) != 1:
-        print("usage: python3 compiler.py <program.json>", file=sys.stderr)
+        print("usage: python3 -m work.compiler <program.json>", file=sys.stderr)
         return 2
 
     program = machine.load_program(argv[0])
