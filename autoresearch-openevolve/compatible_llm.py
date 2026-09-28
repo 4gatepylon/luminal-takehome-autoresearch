@@ -13,6 +13,7 @@ from openevolve.llm.openai import OpenAILLM
 
 class CompatibleLLM(OpenAILLM):
     async def _call_api(self, params: dict[str, Any]) -> str:
+        params = params.copy()
         if self.model.rsplit("/", 1)[-1].startswith("gpt-6"):
             params.pop("temperature", None)
             params.pop("top_p", None)
