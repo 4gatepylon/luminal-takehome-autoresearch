@@ -59,6 +59,13 @@ with `cycle_speedup`, `scratch_reduction`, and `combined_score` without printing
 Pass `verbose=True` to `score()` or `eval()` to print the benchmark report.
 The CLI returns a nonzero exit status when tests fail.
 
+All three functions accept `compiler_filepath`, defaulting to `work/compiler.py`;
+the CLI accepts `--compiler-filepath <path>`. Evaluation requires macOS:
+`sandbox.py` runs each compiler's JSON CLI with a 20-second timeout, blocking
+writes, networking, forks, and signals to other processes. The parent checks the
+returned schedule with the trusted machine and computes scores. Invoke from the
+repository root with `PYTHONPATH="$PWD"` so candidates can import `machine`.
+
 Install the development tools, automatically fix lint issues, and format all Python files with:
 
 ```sh

@@ -6,3 +6,4 @@ __pycache__/
 trace.json
 .autoresearch
 .autoresearch-openevolve
+autoresearch-openevolve/.env
