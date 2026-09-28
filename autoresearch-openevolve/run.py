@@ -79,6 +79,9 @@ def init_config(run_dir: Path) -> Config:
     config.database.db_path = str(run_dir / "database")
     config.database.artifacts_base_path = str(run_dir / "artifacts")
     config.evaluator.cascade_evaluation = False
+    # test() compiles 8 programs for correctness; score() recompiles them for metrics.
+    # Each compilation has a 20-second sandbox limit: 16 × 20 = 320 seconds.
+    config.evaluator.timeout = 320
     config.prompt.system_message = (REPO_ROOT / "autoresearch-openevolve/prompt.md").read_text().format(
         repo_root_readme=(REPO_ROOT / "README.md").read_text(),
         machine=(REPO_ROOT / "machine.py").read_text(),
