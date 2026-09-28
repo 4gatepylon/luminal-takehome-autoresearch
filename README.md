@@ -37,13 +37,29 @@ The lists in each bundle contain operation IDs from the input program. Missing
 engines and empty bundles are allowed. Every operation must appear exactly
 once.
 
-Run the public suite and benchmark with:
+From the repository root, set up Python 3.10+ dependencies and run the public suite:
 
 ```sh
+make setup  # create/reuse .venv and install all repository requirements.txt files
 make test   # unit tests
 make score  # public benchmark
 make eval   # tests, then score only if tests pass
 ```
+
+If `python3` is older than 3.10, use `make setup PYTHON=python3.13` (or another
+installed Python 3.10+). Make commands use `.venv` and set `PYTHONPATH` automatically;
+activation is unnecessary. Setup installs root requirements first, then each
+subdirectory's requirements in sequence, and preserves an existing OpenEvolve `.env`.
+
+For autoresearch on macOS, configure `autoresearch-openevolve/.env`, created from
+`.env-example` during setup, then run:
+
+```sh
+make evolve ARGS=--check  # evaluate without API calls
+make evolve              # start OpenEvolve with settings from .env
+```
+
+Outputs go under `.autoresearch-openevolve/`; the source compiler is not overwritten.
 
 The same functions are available from Python:
 
@@ -66,10 +82,9 @@ writes, networking, forks, and signals to other processes. The parent checks the
 returned schedule with the trusted machine and computes scores. Invoke from the
 repository root with `PYTHONPATH="$PWD"` so candidates can import `machine`.
 
-Install the development tools, automatically fix lint issues, and format all Python files with:
+After setup, automatically fix lint issues and format all Python files with:
 
 ```sh
-python3 -m pip install -r requirements.txt
 make format
 ```
 

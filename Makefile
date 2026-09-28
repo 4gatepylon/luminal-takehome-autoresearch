@@ -1,9 +1,16 @@
 PYTHON ?= python3
-PYTHON_BIN ?= $(PYTHON)
+PYTHON_BIN ?= .venv/bin/python
+export PYTHONPATH := $(CURDIR)
 
-.PHONY: test test-compiler score eval format
+.PHONY: setup evolve test test-compiler score eval format
 
 test: test-compiler
+
+setup:
+	bash scripts/setup.sh "$(PYTHON)"
+
+evolve:
+	$(PYTHON_BIN) -B autoresearch-openevolve/run.py $(ARGS)
 
 test-compiler:
 	$(PYTHON_BIN) -B evaluate.py test
@@ -15,5 +22,5 @@ eval:
 	$(PYTHON_BIN) -B evaluate.py eval
 
 format:
-	ruff check --fix .
-	ruff format .
+	$(PYTHON_BIN) -m ruff check --fix .
+	$(PYTHON_BIN) -m ruff format .
