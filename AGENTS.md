@@ -1,6 +1,7 @@
 # Python conventions
 
-- All compiler and Python executions must run inside a sandbox.
+- All compiler and AI-written candidate code must execute inside `run_in_sandbox`.
+  Trusted runners, tests, and grading code may execute in the parent process.
 - Always invoke scripts from the repository root with the repository root on
   `PYTHONPATH`. Use ordinary imports; do not add import-path discovery or fallback
   layouts.
