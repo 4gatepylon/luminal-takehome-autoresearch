@@ -11,6 +11,16 @@ import evaluate
 import machine
 
 
+class DefaultCompilerTests(unittest.TestCase):
+    def test_default_compiler_correctness_and_no_regression(self) -> None:
+        diagnostics = StringIO()
+        metrics = evaluate.eval(stream=diagnostics)
+        self.assertIsNotNone(metrics, diagnostics.getvalue())
+        for metric_name in ("cycle_speedup", "scratch_reduction", "combined_score"):
+            with self.subTest(metric=metric_name):
+                self.assertGreaterEqual(metrics[metric_name], 1.0)
+
+
 class EvaluationTests(unittest.TestCase):
     def setUp(self) -> None:
         output_dir = Path(".autoresearch-openevolve")
