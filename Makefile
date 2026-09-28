@@ -7,7 +7,7 @@ export PYTHONPATH := $(CURDIR)
 test: test-compiler
 
 setup:
-	bash scripts/setup.sh "$(PYTHON)"
+	$(PYTHON) -B scripts/setup.py
 
 evolve:
 	$(PYTHON_BIN) -B autoresearch-openevolve/run.py $(ARGS)

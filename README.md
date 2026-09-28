@@ -50,6 +50,8 @@ If `python3` is older than 3.10, use `make setup PYTHON=python3.13` (or another
 installed Python 3.10+). Make commands use `.venv` and set `PYTHONPATH` automatically;
 activation is unnecessary. Setup installs root requirements first, then each
 subdirectory's requirements in sequence, and preserves an existing OpenEvolve `.env`.
+The Python setup script globs for `requirements.txt` outside hidden directories
+and rejects duplicate package declarations across the files before installing.
 
 For autoresearch on macOS, configure `autoresearch-openevolve/.env`, created from
 `.env-example` during setup, then run:
