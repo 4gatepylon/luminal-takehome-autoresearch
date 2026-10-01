@@ -9,9 +9,9 @@ input is a typed, straight-line SSA program. Your compiler must assign every
 virtual value to the machine's scratchpad and schedule every operation into
 VLIW bundles. Correctness is required; shorter schedules and smaller scratch footprints score better.
 
-The starter compiler is deliberately simple and serial. It is correct for all
-supported programs, so you can improve it incrementally and measure every
-change.
+The starter compiler is deliberately simple and serial. It handles programs
+01–17; programs 18–19 intentionally exceed its scratch allocation capacity and
+require scratch reuse. You can improve the compiler incrementally.
 
 ## Candidate task
 
@@ -94,8 +94,11 @@ scratch space before it can be consumed.
 SIMD vectors contain eight words and occupy eight consecutive scratch words.
 Vector allocations must begin at an address divisible by eight. Scalar values
 occupy one word. Values may share all or part of their scratch ranges when their
-live intervals do not overlap. All supplied programs fit without spilling even
-with the starter's allocation; reducing scratch use is part of the challenge.
+live intervals do not overlap. Programs 01–17 fit without spilling even with
+the starter's allocation. Program 18 needs 793 words with separate storage per
+result but fits in 41 words with scratch reuse. Program 19 needs 504 words with
+separate storage but fits in 24 words by interleaving loads and computation and
+reusing scratch. Reducing scratch use is part of the challenge.
 
 A value's live interval starts when its result writes scratch, at issue cycle
 plus latency, and ends at its last consumer's issue cycle, inclusive. An unused
@@ -199,13 +202,21 @@ traffic, and inputs for optimization experiments. All arithmetic wraps modulo
 | [14_strip_trailing_zeros.json](programs/14_strip_trailing_zeros.json) | Unrolls 32 conditional steps: keep the current value when its low bit is one, otherwise shift right by one. Each step uses `and`, `shr`, and `select`. Returns the odd part of nonzero `x`, or zero for zero. Cases cover every possible trailing-zero count. Provides input for a logarithmic sequence of conditional shifts or a single shift by the trailing-zero count. |
 | [15_power_of_two_multiplication.json](programs/15_power_of_two_multiplication.json) | Computes `x * 4 + x + x + x + x`, equivalent to `x << 3` modulo `2**32`. Provides input for replacing multiplication by a power of two with a shift, and for combining repeated terms. Cases exercise overflow in both multiplication and addition. |
 | [16_algebraic_identities.json](programs/16_algebraic_identities.json) | Chains addition, XOR, OR, subtraction, and shifts by zero, multiplication by one, and AND with all ones. Separately computes `x & 0` and propagates that zero into the result. Stores `[x, 0]`, exposing identity elimination and constant propagation. |
-| [17_common_subexpressions.json](programs/17_common_subexpressions.json) | Computes `x * y` in four separate multiplication nodes, then adds their results. Stores `4 * x * y` modulo `2**32`. Provides input for common-subexpression elimination and reuse of one product. |
+| [17_non_power_of_two_factoring.json](programs/17_non_power_of_two_factoring.json) | Computes `13 * x + 3 * x` in eight independent scalar paths and four independent eight-lane vector paths. Scalars use the first eight input elements; vectors use all 32. Provides input for factoring into `16 * x` and replacing two multiplies plus an add with one `shl` or `vshl` by four. Cases cover zero, one, varied lanes, and overflow in the products and sum. |
+| [18_copy_propagation.json](programs/18_copy_propagation.json) | Chains 32 vector stages, each creating aliases with `previous + 0` and `previous ^ 0`, then using `vselect` with a runtime vector gate. Stores the eight-lane result after stages 8, 16, 24, and 32; each equals the input vector. Exercises copy propagation and scratch reuse, including mixed zero/nonzero lane conditions. Separate storage needs 793 words, exceeding the 256-word limit; a schedule retaining all operations fits in 41 words. |
+| [19_interleaved_vector_reductions.json](programs/19_interleaved_vector_reductions.json) | Loads 32 eight-lane vectors, multiplies vectors 1–8 lane-wise, sums vectors 9–32 lane-wise, and XORs the two reductions into one output vector. Source order places all loads before two left-associated reduction chains. Exercises load/computation interleaving and scratch reuse; reassociation could additionally shorten the chains. Separate storage needs 504 words; a legal interleaved schedule fits in 24 words. |
 
-Programs 09–17 expose opportunities for dead-code elimination and algebraic
+Programs 09–18 expose opportunities for dead-code elimination and algebraic
 simplification. The current schedule-only grader requires every original
 operation to issue exactly once and preserves its dependencies. Accepting
 eliminated operations or rewritten expressions requires changes to the
 compiler/grader contract.
+
+Programs 18–19 intentionally fail with both the starter compiler and the frozen
+serial baseline, which allocate separate storage for every result. Consequently,
+the default public correctness suite fails on these programs, and full-suite
+scoring requires a baseline allocation change even after the candidate compiler
+supports scratch reuse. These fixtures do not change the compiler or baseline.
 
 ## Evaluation
 
@@ -220,7 +231,8 @@ relative to the frozen serial baseline across all public and hidden programs. Fo
 program these ratios are `baseline_cycles / cycles` and
 `baseline_scratch_words / scratch_words`. The combined score is
 `sqrt(cycle_speedup_geomean * scratch_reduction_geomean)`, giving equal weight
-to both objectives. The starter scores 1.000x on each metric. Public scoring
+to both objectives. On programs 01–17 the starter scores 1.000x on each metric;
+programs 18–19 currently block full-suite scoring as described above. Public scoring
 uses the same formula on the visible programs; the private grader reports
 the final combined result on all public and hidden programs. We also review compiler structure, clarity, and the
 tradeoffs in your scheduling heuristic.
