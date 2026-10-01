@@ -17,7 +17,8 @@ from typing import Any, Final, TextIO
 import unittest
 
 import machine
-from program.representations.ssa._codec import parse_program
+from program.representations.json import JsonRepresentation
+from program.representations.ssa import SsaRepresentation
 from sandbox import run_in_sandbox
 
 
@@ -87,8 +88,8 @@ def _validate_ssa_equivalents(program_paths: list[Path]) -> None:
     for program_path in program_paths:
         ssa_path = program_path.parent.parent / "ssa" / program_path.with_suffix(".ssa").name
         try:
-            program = machine.load_program(program_path)
-            restored = parse_program(ssa_path.read_text(encoding="utf-8"))
+            program = JsonRepresentation().decode(program_path.read_text(encoding="utf-8"))
+            restored = SsaRepresentation().decode(ssa_path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as error:
             raise ValueError(f"{program_path}: cannot validate SSA equivalent {ssa_path}: {error}") from error
         if restored != program:
@@ -97,7 +98,7 @@ def _validate_ssa_equivalents(program_paths: list[Path]) -> None:
 
 def _compile_and_check(program_path: Path, compiler_filepath: str | Path) -> tuple[dict[str, Any], dict[str, Any], int]:
     """Run one compiler CLI with a 20-second limit and validate its JSON in the parent."""
-    program = machine.load_program(program_path)
+    program = JsonRepresentation().decode(program_path.read_text(encoding="utf-8"))
     result = run_in_sandbox(
         [sys.executable, "-B", str(Path(compiler_filepath).resolve()), str(program_path.resolve())],
         timeout=20,

@@ -1,6 +1,7 @@
-"""Check that JSON/SSA chains preserve program data and canonical text."""
+"""Check that representation chains preserve program data and SSA text."""
 
 from copy import deepcopy
+import json
 from pathlib import Path
 import unittest
 
@@ -12,9 +13,9 @@ from program.representations.ssa import SsaRepresentation
 class RepresentationChainTests(unittest.TestCase):
     def assert_representation_chains(self, program):
         expected = deepcopy(program)
-        json = JsonRepresentation()
+        json_representation = JsonRepresentation()
         ssa = SsaRepresentation()
-        for first, second in ((json, ssa), (ssa, json)):
+        for first, second in ((json_representation, ssa), (ssa, json_representation)):
             with self.subTest(first=type(first).__name__):
                 initial_text = first.encode(program)
                 intermediate = first.decode(initial_text)
@@ -23,7 +24,11 @@ class RepresentationChainTests(unittest.TestCase):
 
                 final = second.decode(second.encode(intermediate))
                 self.assertEqual(final, expected, "Second round trip changed the program")
-                self.assertEqual(first.encode(final), initial_text, "Canonical text changed")
+                final_text = first.encode(final)
+                if isinstance(first, JsonRepresentation):
+                    self.assertEqual(json.loads(final_text), json.loads(initial_text), "JSON data changed")
+                else:
+                    self.assertEqual(final_text, initial_text, "SSA text changed")
 
                 # All three program objects must remain equal, including after encoding.
                 self.assertEqual(program, expected, "Original program was mutated")

@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import evaluate
 import machine
-from program.representations.ssa._codec import format_program
+from program.representations.ssa import SsaRepresentation
 
 
 class EvaluationFormatTests(unittest.TestCase):
@@ -77,7 +77,7 @@ class EvaluationFormatTests(unittest.TestCase):
                 else:
                     changed["note"] = "extra field"
                 ssa_path = self.ssa_dir / json_path.with_suffix(".ssa").name
-                ssa_path.write_text(format_program(changed), encoding="utf-8")
+                ssa_path.write_text(SsaRepresentation().encode(changed), encoding="utf-8")
                 self.assert_rejected_before_compilation(ssa_path.name, "does not exactly match")
 
     def test_expected_compiler_failures_cannot_hide_ssa_mismatches(self) -> None:
@@ -86,7 +86,7 @@ class EvaluationFormatTests(unittest.TestCase):
         program = machine.load_program(json_path)
         program["name"] += "_edited"
         ssa_path = self.ssa_dir / json_path.with_suffix(".ssa").name
-        ssa_path.write_text(format_program(program), encoding="utf-8")
+        ssa_path.write_text(SsaRepresentation().encode(program), encoding="utf-8")
         self.assert_rejected_before_compilation(ssa_path.name, "does not exactly match")
 
     def test_comments_and_layout_do_not_change_program_equality(self) -> None:
