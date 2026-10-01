@@ -85,6 +85,38 @@ eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
 
+## Visualize SSA dataflow
+
+Install Graphviz once with `brew install graphviz`, then run from the repository root:
+
+```sh
+PYTHONPATH="$PWD" python3 -B visualize_ssa.py programs/03_vector_axpy.json -o axpy.svg
+open -a Safari axpy.svg
+```
+
+The tool writes an SVG and its editable `.dot` source. Use `-o axpy.dot` to emit
+only DOT without installing Graphviz. Blue boxes are scalar SSA values; green
+boxes are vectors. Small operation junctions connect inputs to results, with
+operand numbers at incoming arrows. Orange nodes show memory loads and stores.
+Hover over operations for their opcode, ID, and latency.
+
+Rows follow topological dataflow depth, computed by `lib/dag.py`. They do not
+represent scheduled cycles, and this MVP omits memory-order dependencies.
+The tool reads JSON without executing the program or candidate compiler.
+
+Generate all public diagrams in the workspace's ignored context directory:
+
+```sh
+mkdir -p .context/ssa
+for program in programs/*.json; do
+  PYTHONPATH="$PWD" python3 -B visualize_ssa.py "$program" \
+    -o ".context/ssa/$(basename "${program%.json}").svg"
+done
+```
+
+Run the graph tests with
+`PYTHONPATH="$PWD" python3 -B -m unittest tests.test_dag tests.test_visualize_ssa`.
+
 ## Machine model
 
 The machine has a 256-word scratchpad. Each word is an unsigned 32-bit integer.

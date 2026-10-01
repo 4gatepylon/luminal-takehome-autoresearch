@@ -1,0 +1,49 @@
+"""Check Graphviz output for public programs and unusual SSA names."""
+
+from pathlib import Path
+import shutil
+import subprocess
+import unittest
+import xml.etree.ElementTree as ET
+
+from machine import load_program
+from visualize_ssa import program_dot
+
+
+@unittest.skipUnless(shutil.which("dot"), "Graphviz is not installed")
+class VisualizationTests(unittest.TestCase):
+    def render(self, program):
+        result = subprocess.run(
+            ["dot", "-Tsvg"], input=program_dot(program), text=True,
+            capture_output=True, check=True, timeout=30,
+        )
+        self.assertEqual(result.stderr, "")
+        return ET.fromstring(result.stdout)
+
+    def test_all_public_programs(self):
+        for path in sorted(Path("programs").glob("*.json")):
+            with self.subTest(program=path.name):
+                program = load_program(path)
+                svg = self.render(program)
+                nodes = [node for node in svg.iter() if node.get("class") == "node"]
+                operations = program["operations"]
+                self.assertEqual(
+                    len(nodes), len(operations) + sum("dest" in op for op in operations)
+                )
+
+    def test_repeated_operands_and_literal_names(self):
+        name = 'a"\\N<&>'
+        program = {
+            "name": "Escaping <&>",
+            "operations": [
+                {"id": 0, "op": "const", "dest": name, "value": 1},
+                {"id": 1, "op": "sub", "dest": "result", "args": [name, name]},
+            ],
+        }
+        svg = self.render(program)
+        edges = [node for node in svg.iter() if node.get("class") == "edge"]
+        self.assertEqual(len(edges), 4)
+        labels = [node.text for node in svg.iter() if node.tag.endswith("}text")]
+        self.assertIn(name, labels)
+        self.assertIn("1", labels)
+        self.assertIn("2", labels)
