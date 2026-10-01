@@ -59,7 +59,7 @@ test("manifest registers .ssa and all referenced files exist", () => {
 });
 
 test("every checked-in SSA file tokenizes without invalid scopes", () => {
-  const directory = path.join(repositoryRoot, "programs");
+  const directory = path.join(repositoryRoot, "programs", "ssa");
   const files = fs.readdirSync(directory).filter((name) => name.endsWith(".ssa"));
   assert.ok(files.length > 0);
   for (const file of files) {

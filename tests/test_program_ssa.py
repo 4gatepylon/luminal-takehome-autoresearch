@@ -62,14 +62,19 @@ class RoundTripTests(unittest.TestCase):
         return source
 
     def test_every_existing_json_program_and_checked_in_ssa(self) -> None:
-        paths = sorted(Path("programs").rglob("*.json"))
+        paths = sorted(Path("programs/json").glob("*.json"))
         self.assertTrue(paths, "no existing programs were tested")
+        self.assertEqual(
+            {path.stem for path in paths},
+            {path.stem for path in Path("programs/ssa").glob("*.ssa")},
+        )
         for path in paths:
             with self.subTest(program=path):
                 original = json.loads(path.read_text(encoding="utf-8"))
                 source = self.assert_round_trip(original)
-                self.assertEqual(path.with_suffix(".ssa").read_text(encoding="utf-8"), source)
-                self.assertEqual(parse_program(path.with_suffix(".ssa").read_text(encoding="utf-8")), original)
+                ssa_path = Path("programs/ssa") / path.with_suffix(".ssa").name
+                self.assertEqual(ssa_path.read_text(encoding="utf-8"), source)
+                self.assertEqual(parse_program(ssa_path.read_text(encoding="utf-8")), original)
 
     def test_all_supported_opcodes(self) -> None:
         program = all_opcodes_program()
@@ -319,9 +324,9 @@ class CLITests(unittest.TestCase):
         self.json_path.write_text(json.dumps(scalar_program()), encoding="utf-8")
 
     def test_file_round_trip(self) -> None:
-        self.assertEqual(main(["to-ssa", str(self.json_path), "-o", str(self.ssa_path)]), 0)
+        self.assertEqual(main(["json2ssa", str(self.json_path), "-o", str(self.ssa_path)]), 0)
         restored = self.directory / "restored.json"
-        self.assertEqual(main(["to-json", str(self.ssa_path), "-o", str(restored)]), 0)
+        self.assertEqual(main(["ssa2json", str(self.ssa_path), "-o", str(restored)]), 0)
         self.assertEqual(json.loads(restored.read_text()), scalar_program())
 
     def test_stdout_and_error_exit(self) -> None:

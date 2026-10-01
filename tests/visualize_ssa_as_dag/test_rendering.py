@@ -21,7 +21,7 @@ class VisualizationTests(unittest.TestCase):
         return ET.fromstring(result.stdout)
 
     def test_all_public_programs(self):
-        for path in sorted(Path("programs").glob("*.json")):
+        for path in sorted(Path("programs/json").glob("*.json")):
             with self.subTest(program=path.name):
                 program = load_program(path)
                 svg = self.render(program)
