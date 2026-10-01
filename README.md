@@ -15,11 +15,12 @@ capacity and require scratch reuse. You can improve the compiler incrementally.
 
 ## Readable program files
 
-Each public JSON program has a matching `.ssa` file in `programs/` for reading,
-editing, and debugging. Convert in either direction from the repository root:
+Each public JSON program in `programs/json/` has a matching `.ssa` file in
+`programs/ssa/` for reading, editing, and debugging. Convert in either direction
+from the repository root:
 
 ```sh
-PYTHONPATH="$PWD" python3 -B program_ssa.py to-ssa programs/03_vector_axpy.json -o example.ssa
+PYTHONPATH="$PWD" python3 -B program_ssa.py to-ssa programs/json/03_vector_axpy.json -o example.ssa
 PYTHONPATH="$PWD" python3 -B program_ssa.py to-json example.ssa -o example.json
 ```
 
@@ -101,11 +102,12 @@ make format
 Compile one program to a JSON schedule with:
 
 ```sh
-python3 -m work.compiler programs/03_vector_axpy.json > axpy.schedule.json
-python3 machine.py programs/03_vector_axpy.json axpy.schedule.json
+python3 -m work.compiler programs/json/03_vector_axpy.json > axpy.schedule.json
+python3 machine.py programs/json/03_vector_axpy.json axpy.schedule.json
 ```
 
-Public programs are in `programs/`. Submission grading uses another
+Public programs are in `programs/json/`, with readable equivalents in
+`programs/ssa/`. Submission grading uses another
 eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
@@ -115,7 +117,7 @@ special-case public filenames, operation IDs, or constants will not generalize.
 On macOS, install Graphviz once with `brew install graphviz`, then run from the repository root:
 
 ```sh
-PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag image programs/03_vector_axpy.json -o axpy.svg
+PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag image programs/json/03_vector_axpy.json -o axpy.svg
 open -a Safari axpy.svg
 ```
 
@@ -135,7 +137,7 @@ The package exports only `program_dot(validated_program) -> str` for Python call
 from machine import load_program
 from visualize_ssa_as_dag import program_dot
 
-dot_source = program_dot(load_program("programs/03_vector_axpy.json"))
+dot_source = program_dot(load_program("programs/json/03_vector_axpy.json"))
 ```
 
 Topological sorting, DOT formatting, Graphviz execution, and CLI handling live in
@@ -165,6 +167,7 @@ Use `--programs-dir <directory>` to select another set of JSON programs and
 `dag-gallery/` location is automatically gitignored. Regeneration replaces
 matching generated files, leaving unrelated files untouched. The original
 single-image command without the `image` keyword also remains supported.
+The default input directory is `programs/json/`.
 
 Run the graph tests with
 `PYTHONPATH="$PWD" python3 -B -m unittest discover -s tests/visualize_ssa_as_dag -t .`.
@@ -273,35 +276,35 @@ traffic, and inputs for optimization experiments. All arithmetic wraps modulo
 
 | Program | Description |
 | --- | --- |
-| [01_scalar_pipeline.json](programs/01_scalar_pipeline.json) | A scalar multiply-add feeds bitwise mixing, shifts, a comparison, and a final selection. Exercises scheduling along a dependency chain. |
-| [02_scalar_dual_chain.json](programs/02_scalar_dual_chain.json) | Two scalar products share an `a + c` intermediate, producing `a * b + (a + c)` and `(c * d) ^ (a + c)`. Exposes parallel work and shared dependencies. |
-| [03_vector_axpy.json](programs/03_vector_axpy.json) | Computes `3 * x + y` over 16 elements using two eight-lane vector paths and a broadcast scalar constant. |
-| [04_vector_bitmix.json](programs/04_vector_bitmix.json) | XORs 16 data elements with masks, shifts each result left by five bits, and adds the original data. Exercises parallel vector chains. |
-| [05_mixed_broadcast.json](programs/05_mixed_broadcast.json) | Broadcasts scalar gate and bias values to compute `weights * gate + bias` over eight lanes. Connects scalar loads to vector arithmetic. |
-| [06_parallel_memory.json](programs/06_parallel_memory.json) | Computes `out0 = (a + b) * (c - d)` and `out1 = out0 ^ a` over 16 elements. Exercises independent loads, vector arithmetic, and multiple stores. |
-| [07_scalar_selects.json](programs/07_scalar_selects.json) | Computes the unsigned maximum of each of four score/threshold pairs using comparisons and selections. Exercises the flow engine. |
-| [08_vector_reduction.json](programs/08_vector_reduction.json) | Sums eight vectors lane by lane through a balanced addition tree, then XORs the result with a broadcast constant. Exercises dependencies that converge on one output vector. |
-| [09_dead_code.json](programs/09_dead_code.json) | Stores `x + y * z` while operations 5–16 compute unused expressions: `x + y * 2`, `x * z + y`, `x * y * z`, and `x + z * z + y * x * x`. Provides input for dead-code elimination. |
-| [10_repeated_addition.json](programs/10_repeated_addition.json) | Adds 16 copies of `x` in a left-associated chain of 15 additions. Provides input for simplification to `16 * x` or a balanced addition tree. Cases include zero, one, ordinary values, and overflow. |
-| [11_repeated_multiplication.json](programs/11_repeated_multiplication.json) | Multiplies 16 copies of `x` in a left-associated chain of 15 multiplications. Provides input for repeated squaring to compute `x**16`. Cases include zero, one, ordinary values, and overflow. |
-| [12_algebraic_associativity.json](programs/12_algebraic_associativity.json) | Computes `out1 = x * z + y * z` and `out2 = x * z + y * z + 2 * x * z`, with separate product nodes for each output followed by additions; the last term is `(2 * x) * z`. Provides input for reassociation and distributive factoring into `(x + y) * z` and `(3 * x + y) * z`. |
-| [13_constant_condition.json](programs/13_constant_condition.json) | Selects between runtime inputs using constant comparisons (`7 < 8` and `7 == 8`) and a literal nonzero condition (`7`). Stores `[x, y, x]`. Provides input for constant folding and conditional simplification. |
-| [14_strip_trailing_zeros.json](programs/14_strip_trailing_zeros.json) | Unrolls 32 conditional steps: keep the current value when its low bit is one, otherwise shift right by one. Each step uses `and`, `shr`, and `select`. Returns the odd part of nonzero `x`, or zero for zero. Cases cover every possible trailing-zero count. Provides input for a logarithmic sequence of conditional shifts or a single shift by the trailing-zero count. |
-| [15_power_of_two_multiplication.json](programs/15_power_of_two_multiplication.json) | Computes `x * 4 + x + x + x + x`, equivalent to `x << 3` modulo `2**32`. Provides input for replacing multiplication by a power of two with a shift, and for combining repeated terms. Cases exercise overflow in both multiplication and addition. |
-| [16_algebraic_identities.json](programs/16_algebraic_identities.json) | Chains addition, XOR, OR, subtraction, and shifts by zero, multiplication by one, and AND with all ones. Separately computes `x & 0` and propagates that zero into the result. Stores `[x, 0]`, exposing identity elimination and constant propagation. |
-| [17_non_power_of_two_factoring.json](programs/17_non_power_of_two_factoring.json) | Computes `13 * x + 3 * x` in eight independent scalar paths and four independent eight-lane vector paths. Scalars use the first eight input elements; vectors use all 32. Provides input for factoring into `16 * x` and replacing two multiplies plus an add with one `shl` or `vshl` by four. Cases cover zero, one, varied lanes, and overflow in the products and sum. |
-| [18_copy_propagation.json](programs/18_copy_propagation.json) | Chains 32 vector stages, each creating aliases with `previous + 0` and `previous ^ 0`, then using `vselect` with a runtime vector gate. Stores the eight-lane result after stages 8, 16, 24, and 32; each equals the input vector. Exercises copy propagation and scratch reuse, including mixed zero/nonzero lane conditions. Separate storage needs 793 words, exceeding the 256-word limit; a schedule retaining all operations fits in 41 words. |
-| [19_interleaved_vector_reductions.json](programs/19_interleaved_vector_reductions.json) | Loads 32 eight-lane vectors, multiplies vectors 1–8 lane-wise, sums vectors 9–32 lane-wise, and XORs the two reductions into one output vector. Source order places all loads before two left-associated reduction chains. Exercises load/computation interleaving and scratch reuse; reassociation could additionally shorten the chains. Separate storage needs 504 words; a legal interleaved schedule fits in 24 words. |
-| [20_vectorization_factoring.json](programs/20_vectorization_factoring.json) | Loads 40 elements individually and computes each output lane as `a*e + b*e + c*e + d*e`, where `a` through `e` are corresponding lanes of five consecutive eight-element blocks. Uses 32 scalar multiplies and 24 scalar adds before eight stores. Exposes vectorization and distributive factoring into `(a+b+c+d)*e`, using five vector loads, three vector adds, one vector multiply, and one vector store. |
-| [21_scalar_vector_sum.json](programs/21_scalar_vector_sum.json) | Loads 32 elements individually and sums corresponding lanes of four eight-element blocks using 24 scalar adds, then stores eight outputs. Exposes vectorization into four vector loads, three vector adds, and one vector store, plus reassociation into a balanced reduction. Shares the first four input blocks of program 20's cases. |
-| [22_constant_folding.json](programs/22_constant_folding.json) | Computes `z = 3 * 4`, `c = 6 * 9`, and `t = c + z`, then loads runtime `alpha` and stores `alpha * t`. Exposes constant folding through multiple arithmetic nodes into `66 * alpha`. Cases cover zero, one, ordinary values, and 32-bit overflow boundaries. |
-| [23_store_load_forwarding.json](programs/23_store_load_forwarding.json) | Loads eight-lane vectors `A` and `B`, stores their sum and difference back into `A` and `B`, reloads them, stores their product and XOR back, then reloads again and adds them into `out`. Exposes elimination of four redundant reloads by forwarding the stored values. Correctness includes final contents of `A` and `B` as well as `out`. |
-| [24_pairwise_vector_reduction.json](programs/24_pairwise_vector_reduction.json) | Loads 64 eight-lane vectors from 64 separate buffers and stores the lane-wise sum of the 32 products `v[2*i] * v[2*i+1]`. Source order places all 64 loads before the products and a left-associated sum. Separate storage needs 1,016 words; an interleaved schedule with scratch reuse fits in 24 words while retaining every operation and storing only the final output. Exercises scratch pressure and load/computation scheduling. |
-| [25_sum_217_vectors.json](programs/25_sum_217_vectors.json) | Loads 217 eight-lane vectors from one contiguous 1,736-element buffer at offsets 0, 8, …, 1,728, then sums them lane-wise through 216 left-associated `vadd`s and stores one output vector. Separate scratch storage needs 3,464 words; interleaved loads and scratch reuse fit in 16 words. Exercises a long reduction with a non-power-of-two input count. |
-| [26_sum_31_vectors.json](programs/26_sum_31_vectors.json) | Loads 31 eight-lane vectors from one contiguous 248-element buffer at offsets 0, 8, …, 240, then sums them lane-wise through 30 left-associated `vadd`s and stores one output vector. The inputs alone occupy 248 words, but separate scratch storage for inputs and sums needs 488 words. A legal interleaved schedule fits in 16 words. Cases include a nonzero final vector with every earlier vector zero. |
-| [27_sum_17_scalars.json](programs/27_sum_17_scalars.json) | Loads 17 numbers individually from one contiguous buffer, reduces them through 16 left-associated scalar additions, and stores one scalar sum. Includes an input where only the seventeenth element is nonzero to exercise tail handling. |
-| [28_sum_16_scalars.json](programs/28_sum_16_scalars.json) | Loads 16 numbers individually from one contiguous buffer, reduces them through 15 left-associated scalar additions, and stores one scalar sum. Provides a power-of-two counterpart to program 27. |
-| [29_sum_64_scalars.json](programs/29_sum_64_scalars.json) | Loads 64 numbers individually from one contiguous buffer, reduces them through 63 left-associated scalar additions, and stores one scalar sum. Provides a longer scalar reduction that still fits the starter's allocation at 127 words. Cases cover zero, one, varied values, overflow, and a nonzero final element. |
+| [01_scalar_pipeline.json](programs/json/01_scalar_pipeline.json) | A scalar multiply-add feeds bitwise mixing, shifts, a comparison, and a final selection. Exercises scheduling along a dependency chain. |
+| [02_scalar_dual_chain.json](programs/json/02_scalar_dual_chain.json) | Two scalar products share an `a + c` intermediate, producing `a * b + (a + c)` and `(c * d) ^ (a + c)`. Exposes parallel work and shared dependencies. |
+| [03_vector_axpy.json](programs/json/03_vector_axpy.json) | Computes `3 * x + y` over 16 elements using two eight-lane vector paths and a broadcast scalar constant. |
+| [04_vector_bitmix.json](programs/json/04_vector_bitmix.json) | XORs 16 data elements with masks, shifts each result left by five bits, and adds the original data. Exercises parallel vector chains. |
+| [05_mixed_broadcast.json](programs/json/05_mixed_broadcast.json) | Broadcasts scalar gate and bias values to compute `weights * gate + bias` over eight lanes. Connects scalar loads to vector arithmetic. |
+| [06_parallel_memory.json](programs/json/06_parallel_memory.json) | Computes `out0 = (a + b) * (c - d)` and `out1 = out0 ^ a` over 16 elements. Exercises independent loads, vector arithmetic, and multiple stores. |
+| [07_scalar_selects.json](programs/json/07_scalar_selects.json) | Computes the unsigned maximum of each of four score/threshold pairs using comparisons and selections. Exercises the flow engine. |
+| [08_vector_reduction.json](programs/json/08_vector_reduction.json) | Sums eight vectors lane by lane through a balanced addition tree, then XORs the result with a broadcast constant. Exercises dependencies that converge on one output vector. |
+| [09_dead_code.json](programs/json/09_dead_code.json) | Stores `x + y * z` while operations 5–16 compute unused expressions: `x + y * 2`, `x * z + y`, `x * y * z`, and `x + z * z + y * x * x`. Provides input for dead-code elimination. |
+| [10_repeated_addition.json](programs/json/10_repeated_addition.json) | Adds 16 copies of `x` in a left-associated chain of 15 additions. Provides input for simplification to `16 * x` or a balanced addition tree. Cases include zero, one, ordinary values, and overflow. |
+| [11_repeated_multiplication.json](programs/json/11_repeated_multiplication.json) | Multiplies 16 copies of `x` in a left-associated chain of 15 multiplications. Provides input for repeated squaring to compute `x**16`. Cases include zero, one, ordinary values, and overflow. |
+| [12_algebraic_associativity.json](programs/json/12_algebraic_associativity.json) | Computes `out1 = x * z + y * z` and `out2 = x * z + y * z + 2 * x * z`, with separate product nodes for each output followed by additions; the last term is `(2 * x) * z`. Provides input for reassociation and distributive factoring into `(x + y) * z` and `(3 * x + y) * z`. |
+| [13_constant_condition.json](programs/json/13_constant_condition.json) | Selects between runtime inputs using constant comparisons (`7 < 8` and `7 == 8`) and a literal nonzero condition (`7`). Stores `[x, y, x]`. Provides input for constant folding and conditional simplification. |
+| [14_strip_trailing_zeros.json](programs/json/14_strip_trailing_zeros.json) | Unrolls 32 conditional steps: keep the current value when its low bit is one, otherwise shift right by one. Each step uses `and`, `shr`, and `select`. Returns the odd part of nonzero `x`, or zero for zero. Cases cover every possible trailing-zero count. Provides input for a logarithmic sequence of conditional shifts or a single shift by the trailing-zero count. |
+| [15_power_of_two_multiplication.json](programs/json/15_power_of_two_multiplication.json) | Computes `x * 4 + x + x + x + x`, equivalent to `x << 3` modulo `2**32`. Provides input for replacing multiplication by a power of two with a shift, and for combining repeated terms. Cases exercise overflow in both multiplication and addition. |
+| [16_algebraic_identities.json](programs/json/16_algebraic_identities.json) | Chains addition, XOR, OR, subtraction, and shifts by zero, multiplication by one, and AND with all ones. Separately computes `x & 0` and propagates that zero into the result. Stores `[x, 0]`, exposing identity elimination and constant propagation. |
+| [17_non_power_of_two_factoring.json](programs/json/17_non_power_of_two_factoring.json) | Computes `13 * x + 3 * x` in eight independent scalar paths and four independent eight-lane vector paths. Scalars use the first eight input elements; vectors use all 32. Provides input for factoring into `16 * x` and replacing two multiplies plus an add with one `shl` or `vshl` by four. Cases cover zero, one, varied lanes, and overflow in the products and sum. |
+| [18_copy_propagation.json](programs/json/18_copy_propagation.json) | Chains 32 vector stages, each creating aliases with `previous + 0` and `previous ^ 0`, then using `vselect` with a runtime vector gate. Stores the eight-lane result after stages 8, 16, 24, and 32; each equals the input vector. Exercises copy propagation and scratch reuse, including mixed zero/nonzero lane conditions. Separate storage needs 793 words, exceeding the 256-word limit; a schedule retaining all operations fits in 41 words. |
+| [19_interleaved_vector_reductions.json](programs/json/19_interleaved_vector_reductions.json) | Loads 32 eight-lane vectors, multiplies vectors 1–8 lane-wise, sums vectors 9–32 lane-wise, and XORs the two reductions into one output vector. Source order places all loads before two left-associated reduction chains. Exercises load/computation interleaving and scratch reuse; reassociation could additionally shorten the chains. Separate storage needs 504 words; a legal interleaved schedule fits in 24 words. |
+| [20_vectorization_factoring.json](programs/json/20_vectorization_factoring.json) | Loads 40 elements individually and computes each output lane as `a*e + b*e + c*e + d*e`, where `a` through `e` are corresponding lanes of five consecutive eight-element blocks. Uses 32 scalar multiplies and 24 scalar adds before eight stores. Exposes vectorization and distributive factoring into `(a+b+c+d)*e`, using five vector loads, three vector adds, one vector multiply, and one vector store. |
+| [21_scalar_vector_sum.json](programs/json/21_scalar_vector_sum.json) | Loads 32 elements individually and sums corresponding lanes of four eight-element blocks using 24 scalar adds, then stores eight outputs. Exposes vectorization into four vector loads, three vector adds, and one vector store, plus reassociation into a balanced reduction. Shares the first four input blocks of program 20's cases. |
+| [22_constant_folding.json](programs/json/22_constant_folding.json) | Computes `z = 3 * 4`, `c = 6 * 9`, and `t = c + z`, then loads runtime `alpha` and stores `alpha * t`. Exposes constant folding through multiple arithmetic nodes into `66 * alpha`. Cases cover zero, one, ordinary values, and 32-bit overflow boundaries. |
+| [23_store_load_forwarding.json](programs/json/23_store_load_forwarding.json) | Loads eight-lane vectors `A` and `B`, stores their sum and difference back into `A` and `B`, reloads them, stores their product and XOR back, then reloads again and adds them into `out`. Exposes elimination of four redundant reloads by forwarding the stored values. Correctness includes final contents of `A` and `B` as well as `out`. |
+| [24_pairwise_vector_reduction.json](programs/json/24_pairwise_vector_reduction.json) | Loads 64 eight-lane vectors from 64 separate buffers and stores the lane-wise sum of the 32 products `v[2*i] * v[2*i+1]`. Source order places all 64 loads before the products and a left-associated sum. Separate storage needs 1,016 words; an interleaved schedule with scratch reuse fits in 24 words while retaining every operation and storing only the final output. Exercises scratch pressure and load/computation scheduling. |
+| [25_sum_217_vectors.json](programs/json/25_sum_217_vectors.json) | Loads 217 eight-lane vectors from one contiguous 1,736-element buffer at offsets 0, 8, …, 1,728, then sums them lane-wise through 216 left-associated `vadd`s and stores one output vector. Separate scratch storage needs 3,464 words; interleaved loads and scratch reuse fit in 16 words. Exercises a long reduction with a non-power-of-two input count. |
+| [26_sum_31_vectors.json](programs/json/26_sum_31_vectors.json) | Loads 31 eight-lane vectors from one contiguous 248-element buffer at offsets 0, 8, …, 240, then sums them lane-wise through 30 left-associated `vadd`s and stores one output vector. The inputs alone occupy 248 words, but separate scratch storage for inputs and sums needs 488 words. A legal interleaved schedule fits in 16 words. Cases include a nonzero final vector with every earlier vector zero. |
+| [27_sum_17_scalars.json](programs/json/27_sum_17_scalars.json) | Loads 17 numbers individually from one contiguous buffer, reduces them through 16 left-associated scalar additions, and stores one scalar sum. Includes an input where only the seventeenth element is nonzero to exercise tail handling. |
+| [28_sum_16_scalars.json](programs/json/28_sum_16_scalars.json) | Loads 16 numbers individually from one contiguous buffer, reduces them through 15 left-associated scalar additions, and stores one scalar sum. Provides a power-of-two counterpart to program 27. |
+| [29_sum_64_scalars.json](programs/json/29_sum_64_scalars.json) | Loads 64 numbers individually from one contiguous buffer, reduces them through 63 left-associated scalar additions, and stores one scalar sum. Provides a longer scalar reduction that still fits the starter's allocation at 127 words. Cases cover zero, one, varied values, overflow, and a nonzero final element. |
 
 Programs 09–18 and 22 expose opportunities for dead-code elimination and algebraic
 simplification; programs 20–21 expose scalar-to-vector conversion, and program 23

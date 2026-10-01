@@ -26,8 +26,8 @@ def main() -> int:
     )
     gallery = commands.add_parser("gallery", help="build a local webpage of all diagrams")
     gallery.add_argument(
-        "--programs-dir", type=Path, default=Path("programs"),
-        help="directory of program JSON files (default: programs)",
+        "--programs-dir", type=Path, default=Path("programs/json"),
+        help="directory of program JSON files (default: programs/json)",
     )
     gallery.add_argument(
         "-o", "--output", type=Path, default=Path("dag-gallery"),
