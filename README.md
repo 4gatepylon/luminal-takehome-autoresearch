@@ -80,7 +80,7 @@ python3 -m work.compiler programs/03_vector_axpy.json > axpy.schedule.json
 python3 machine.py programs/03_vector_axpy.json axpy.schedule.json
 ```
 
-Nine public programs are in `programs/`. Submission grading uses another
+Eleven public programs are in `programs/`. Submission grading uses another
 eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
@@ -91,6 +91,16 @@ for `x + y * 2`, `x * z + y`, `x * y * z`, and `x + z * z + y * x * x`.
 This is a simple input for testing dead-code elimination. The current grader
 still requires every operation to issue exactly once, so it rejects schedules
 that omit the dead operations.
+
+`programs/10_repeated_addition.json` computes `out = x + x + ... + x` with
+sixteen summands. `programs/11_repeated_multiplication.json` computes
+`out = x * x * ... * x` with sixteen factors. Both use a left-associated chain
+of fifteen arithmetic operations on one loaded scalar, with cases covering zero,
+one, ordinary values, and 32-bit wraparound. These inputs expose opportunities
+for algebraic simplification: multiplication by 16 or a balanced addition tree,
+and repeated squaring for `x**16`. The current grader preserves the original
+operations and dependencies, so accepting those rewrites requires future changes
+to the compiler/grader contract.
 
 ## Machine model
 
@@ -189,13 +199,13 @@ memory. Modifying or bypassing the public simulator cannot change hidden results
 
 Correctness on all programs is the first requirement. Among correct compilers,
 we report geometric-mean cycle speedup and geometric-mean scratch reduction
-relative to the frozen serial baseline across all seventeen programs. For each
+relative to the frozen serial baseline across all nineteen programs. For each
 program these ratios are `baseline_cycles / cycles` and
 `baseline_scratch_words / scratch_words`. The combined score is
 `sqrt(cycle_speedup_geomean * scratch_reduction_geomean)`, giving equal weight
 to both objectives. The starter scores 1.000x on each metric. Public scoring
-uses the same formula on the nine visible programs; the private grader reports
-the final combined result on all seventeen. We also review compiler structure, clarity, and the
+uses the same formula on the eleven visible programs; the private grader reports
+the final combined result on all nineteen. We also review compiler structure, clarity, and the
 tradeoffs in your scheduling heuristic.
 
 Useful directions include critical-path priorities, latency-aware ready queues,
