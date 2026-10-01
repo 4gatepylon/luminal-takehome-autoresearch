@@ -112,7 +112,7 @@ def main() -> int:
         if output.suffix.lower() == ".svg":
             dot = shutil.which("dot")
             if dot is None:
-                raise ValueError("Graphviz is required: brew install graphviz (or use -o graph.dot)")
+                raise ValueError("Graphviz is required: on macOS, brew install graphviz (or use -o graph.dot)")
             rendered = subprocess.run(
                 [dot, "-Tsvg"], input=source, text=True, capture_output=True,
                 check=True, timeout=30,

@@ -95,7 +95,7 @@ special-case public filenames, operation IDs, or constants will not generalize.
 
 ## Visualize SSA dataflow
 
-Install Graphviz once with `brew install graphviz`, then run from the repository root:
+On macOS, install Graphviz once with `brew install graphviz`, then run from the repository root:
 
 ```sh
 PYTHONPATH="$PWD" python3 -B visualize_ssa.py programs/03_vector_axpy.json -o axpy.svg
