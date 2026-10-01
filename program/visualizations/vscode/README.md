@@ -24,11 +24,24 @@ make setup-cursor VSCODE=.vscode
 
 The command creates or refreshes a symlink to this checkout in the editor's
 extensions directory; existing files or directories are not overwritten.
+After moving the checkout or pulling a change that relocates the extension,
+run `make setup-cursor` again from the checkout you want Cursor to use.
 Then run **Developer: Reload Window** in your editor and open any `programs/ssa/*.ssa`
 file. The language mode should be **Luminal SSA**. This is a local installation;
 it does not publish anything or require installing Node dependencies. Keep the
 repository checkout available while using the symlink. To remove this local
 installation, remove the symlink and reload your editor.
+
+Check the Cursor link from the repository root:
+
+```sh
+readlink "$HOME/.cursor/extensions/local.luminal-ssa-0.1.0"
+test "$HOME/.cursor/extensions/local.luminal-ssa-0.1.0" -ef "$PWD/program/visualizations/vscode" && echo "Link points to this checkout"
+```
+
+The first command should print this checkout's `program/visualizations/vscode`
+path. The second confirms the link resolves to that directory. For VS Code,
+replace `.cursor` with `.vscode`.
 
 Alternatively, preview without installing using the VS Code CLI:
 
@@ -52,9 +65,10 @@ Use **Developer: Inspect Editor Tokens and Scopes** to inspect highlighting.
 From the repository root (Node.js 18+):
 
 ```sh
-npm ci --prefix program/visualizations/vscode
-npm test --prefix program/visualizations/vscode
+make test-ssa-highlighting
 ```
 
+This command installs the locked test dependencies in this folder before
+running the tests, including after a fresh clone or a folder move.
 These tests run the actual TextMate/Oniguruma tokenizer against the repository's
 `.ssa` examples and focused highlighting fixtures, without launching VS Code.

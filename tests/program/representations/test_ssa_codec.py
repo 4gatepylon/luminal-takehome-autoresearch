@@ -9,7 +9,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import machine
-from program.representations.ssa._codec import SECTIONS, SSAError, format_program, main, parse_program
+from program.representations.json import JsonRepresentation
+from program.representations.ssa import SsaRepresentation
+from program.representations.ssa._cli import main
+from program.representations.ssa._codec import SECTIONS, SSAError
 
 
 def scalar_program() -> dict:
@@ -52,11 +55,11 @@ def all_opcodes_program() -> dict:
 class RoundTripTests(unittest.TestCase):
     def assert_round_trip(self, program: dict) -> str:
         before = deepcopy(program)
-        source = format_program(program)
-        decoded = parse_program(source)
+        source = SsaRepresentation().encode(program)
+        decoded = SsaRepresentation().decode(source)
         self.assertEqual(decoded, program)
         self.assertEqual(program, before, "formatting must not mutate its input")
-        self.assertEqual(format_program(decoded), source)
+        self.assertEqual(SsaRepresentation().encode(decoded), source)
         for marker in SECTIONS:
             self.assertEqual(source.count(marker), 1)
         return source
@@ -74,7 +77,7 @@ class RoundTripTests(unittest.TestCase):
                 source = self.assert_round_trip(original)
                 ssa_path = Path("programs/ssa") / path.with_suffix(".ssa").name
                 self.assertEqual(ssa_path.read_text(encoding="utf-8"), source)
-                self.assertEqual(parse_program(ssa_path.read_text(encoding="utf-8")), original)
+                self.assertEqual(SsaRepresentation().decode(ssa_path.read_text(encoding="utf-8")), original)
 
     def test_all_supported_opcodes(self) -> None:
         program = all_opcodes_program()
@@ -126,7 +129,7 @@ class RoundTripTests(unittest.TestCase):
 class AuthoringTests(unittest.TestCase):
     def setUp(self) -> None:
         self.program = scalar_program()
-        self.source = format_program(self.program)
+        self.source = SsaRepresentation().encode(self.program)
 
     def test_canonical_readable_output(self) -> None:
         self.assertEqual(
@@ -155,17 +158,17 @@ buff[out][0] = result
         for edited in (" ".join(program.split()), program.replace(" ", "\n\t"), program.replace("const(3)", "const\n(\n3\n)")):
             with self.subTest(edited=edited):
                 source = before + SECTIONS[1] + "\n" + edited + "\n" + SECTIONS[2] + after
-                self.assertEqual(parse_program(source), self.program)
+                self.assertEqual(SsaRepresentation().decode(source), self.program)
 
     def test_blank_lines_indented_comments_and_crlf(self) -> None:
         source = "\n  # introductory comment\n" + self.source.replace("\n", "\n\n  # comment\n")
-        self.assertEqual(parse_program(source), self.program)
-        self.assertEqual(parse_program(source.replace("\n", "\r\n")), self.program)
+        self.assertEqual(SsaRepresentation().decode(source), self.program)
+        self.assertEqual(SsaRepresentation().decode(source.replace("\n", "\r\n")), self.program)
 
     def test_hash_in_json_string_is_data(self) -> None:
         self.program["name"] = "# not a comment"
         self.program["operations"][0]["note"] = "# preserved"
-        self.assertEqual(parse_program(format_program(self.program)), self.program)
+        self.assertEqual(SsaRepresentation().decode(SsaRepresentation().encode(self.program)), self.program)
 
     def test_editing_changes_only_the_corresponding_json_field(self) -> None:
         for old, new, index, key, value in (
@@ -176,7 +179,7 @@ buff[out][0] = result
             with self.subTest(edit=new):
                 expected = deepcopy(self.program)
                 expected["operations"][index][key] = value
-                self.assertEqual(parse_program(self.source.replace(old, new)), expected)
+                self.assertEqual(SsaRepresentation().decode(self.source.replace(old, new)), expected)
 
     def test_splat_and_scalar_vector_selection_semantics(self) -> None:
         source = """lang: ssa-v1
@@ -202,14 +205,14 @@ buff[out][17] = scalar_no
 ================ CASES ================
 """
         case = {"gates": [0, 1, 0, 2, 0, 0, 99, 0], "out": [0] * 18}
-        program = parse_program(source + json.dumps(case) + "\n")
+        program = SsaRepresentation().decode(source + json.dumps(case) + "\n")
         actual = machine.run_reference(program, case)
         self.assertEqual(actual["out"], [7] * 8 + [9, 7, 9, 7, 9, 9, 7, 9] + [7, 9])
 
 
 class ValidationTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.source = format_program(scalar_program())
+        self.source = SsaRepresentation().encode(scalar_program())
 
     def test_invalid_program_statements(self) -> None:
         edits = (
@@ -237,10 +240,10 @@ class ValidationTests(unittest.TestCase):
         )
         for old, new, error in edits:
             with self.subTest(statement=new), self.assertRaisesRegex(SSAError, "line [0-9]+:.*" + error):
-                parse_program(self.source.replace(old, new))
+                SsaRepresentation().decode(self.source.replace(old, new))
 
     def test_type_mismatches_and_unsupported_vector_comparisons(self) -> None:
-        source = format_program(all_opcodes_program())
+        source = SsaRepresentation().encode(all_opcodes_program())
         for old, new in (
             ("va = ...a", "va = ...va"),
             ("vb = ...b", "vb = ...va"),
@@ -255,7 +258,7 @@ class ValidationTests(unittest.TestCase):
             with self.subTest(statement=new):
                 self.assertIn(old, source)
                 with self.assertRaises(SSAError):
-                    parse_program(source.replace(old, new))
+                    SsaRepresentation().decode(source.replace(old, new))
 
     def test_sections_headers_and_jsonl(self) -> None:
         edits = (
@@ -283,7 +286,7 @@ class ValidationTests(unittest.TestCase):
         )
         for old, new in edits:
             with self.subTest(replacement=new), self.assertRaises(SSAError):
-                parse_program(self.source.replace(old, new))
+                SsaRepresentation().decode(self.source.replace(old, new))
 
     def test_invalid_metadata_and_aliases(self) -> None:
         for header in (
@@ -298,19 +301,19 @@ class ValidationTests(unittest.TestCase):
             f'metadata: {{"note":"{SECTIONS[0]}"}}',
         ):
             with self.subTest(header=header), self.assertRaises(SSAError):
-                parse_program(self.source.replace("lang: ssa-v1", "lang: ssa-v1\n" + header))
+                SsaRepresentation().decode(self.source.replace("lang: ssa-v1", "lang: ssa-v1\n" + header))
 
     def test_store_cannot_acquire_a_destination_through_metadata(self) -> None:
         for dest in ('"extra"', "[]", "{}"):
             source = self.source.replace("buff[out][0] = result", 'buff[out][0] = result @ {"dest":' + dest + "}")
             with self.subTest(dest=dest), self.assertRaisesRegex(SSAError, "cannot have a dest"):
-                parse_program(source)
+                SsaRepresentation().decode(source)
 
     def test_error_line_counts_include_comments_and_blank_lines(self) -> None:
         source = self.source.replace("result = a0 * factor", "# comment\n\nresult = a0 * missing")
         expected_line = next(index for index, line in enumerate(source.splitlines(), 1) if "missing" in line)
         with self.assertRaisesRegex(SSAError, f"line {expected_line}: undefined value 'missing'"):
-            parse_program(source)
+            SsaRepresentation().decode(source)
 
 
 class CLITests(unittest.TestCase):
@@ -329,11 +332,29 @@ class CLITests(unittest.TestCase):
         self.assertEqual(main(["ssa2json", str(self.ssa_path), "-o", str(restored)]), 0)
         self.assertEqual(json.loads(restored.read_text()), scalar_program())
 
+    def test_cli_matches_public_representations_for_every_program(self) -> None:
+        for path in sorted(Path("programs/json").glob("*.json")):
+            ssa_path = Path("programs/ssa") / path.with_suffix(".ssa").name
+            for command, source_path, source_representation, target_representation in (
+                ("json2ssa", path, JsonRepresentation(), SsaRepresentation()),
+                ("ssa2json", ssa_path, SsaRepresentation(), JsonRepresentation()),
+            ):
+                with self.subTest(program=path.name, command=command):
+                    program = source_representation.decode(source_path.read_text(encoding="utf-8"))
+                    output = StringIO()
+                    with patch("sys.stdout", output):
+                        self.assertEqual(main([command, str(source_path)]), 0)
+                    expected = target_representation.encode(program)
+                    if isinstance(target_representation, JsonRepresentation):
+                        self.assertEqual(json.loads(output.getvalue()), json.loads(expected))
+                    else:
+                        self.assertEqual(output.getvalue(), expected)
+
     def test_stdout_and_error_exit(self) -> None:
         output = StringIO()
         with patch("sys.stdout", output):
             self.assertEqual(main(["to-ssa", str(self.json_path)]), 0)
-        self.assertEqual(parse_program(output.getvalue()), scalar_program())
+        self.assertEqual(SsaRepresentation().decode(output.getvalue()), scalar_program())
         self.ssa_path.write_text(output.getvalue(), encoding="utf-8")
         restored = StringIO()
         with patch("sys.stdout", restored):

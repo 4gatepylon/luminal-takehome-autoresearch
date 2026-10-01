@@ -11,7 +11,8 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-from program.representations.ssa._codec import format_program, main, parse_program
+from program.representations.ssa import SsaRepresentation
+from program.representations.ssa._cli import main
 from tests.program.representations.test_ssa_codec import scalar_program
 
 
@@ -29,7 +30,7 @@ class RegenerationTests(unittest.TestCase):
             self.last: self.directory / "ssa" / "nested" / "z.ssa",
         }
         self.program = scalar_program()
-        self.generated = format_program(self.program).encode("utf-8")
+        self.generated = SsaRepresentation().encode(self.program).encode("utf-8")
         for path in (self.first, self.last):
             path.write_text(json.dumps(self.program), encoding="utf-8")
 
@@ -52,7 +53,7 @@ class RegenerationTests(unittest.TestCase):
         for path in (self.first, self.last):
             ssa_path = self.outputs[path]
             self.assertEqual(ssa_path.read_bytes(), self.generated)
-            self.assertEqual(parse_program(ssa_path.read_text(encoding="utf-8")), self.program)
+            self.assertEqual(SsaRepresentation().decode(ssa_path.read_text(encoding="utf-8")), self.program)
         self.assertFalse(list((self.directory / "json").rglob("*.ssa")))
 
     def test_matching_files_are_not_rewritten(self) -> None:
@@ -191,7 +192,7 @@ class RegenerationTests(unittest.TestCase):
                 self.assertIn(str(directory), error.getvalue())
 
     def test_default_directory_is_programs(self) -> None:
-        with patch("program.representations.ssa._codec.regenerate_programs", return_value=(0, 29)) as regenerate, patch("sys.stdout", StringIO()):
+        with patch("program.representations.ssa._cli.regenerate_programs", return_value=(0, 29)) as regenerate, patch("sys.stdout", StringIO()):
             self.assertEqual(main(["json2ssa", "all"]), 0)
         regenerate.assert_called_once_with(Path("programs"), clobber=False)
 

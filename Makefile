@@ -38,7 +38,8 @@ test: test-compiler test-ssa ## Run compiler and SSA tests (default)
 test-ssa: ## Run SSA codec, round-trip, evaluation-format, and regeneration tests
 	PYTHONPATH="$(CURDIR)" $(PYTHON_BIN) -B -m unittest tests.program.representations.test_ssa_codec tests.program.representations.test_round_trip tests.test_evaluate_formats tests.test_regenerate_ssa -v
 
-test-ssa-highlighting: ## Run SSA syntax-highlighting tests
+test-ssa-highlighting: ## Install test dependencies and run SSA syntax-highlighting tests
+	npm ci --include=dev --prefix program/visualizations/vscode
 	npm test --prefix program/visualizations/vscode
 
 test-compiler: ## Run compiler correctness tests

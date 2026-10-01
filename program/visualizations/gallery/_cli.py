@@ -5,10 +5,9 @@ from pathlib import Path
 import subprocess
 import sys
 
-from machine import load_program
-from program.representations.graphviz._dot import program_dot
+from program.representations.graphviz import GraphvizRepresentation
+from program.representations.json import JsonRepresentation
 from program.visualizations.gallery._gallery import write_gallery
-from program.representations.graphviz._graphviz import render_svg
 
 
 def main() -> int:
@@ -57,9 +56,10 @@ def main() -> int:
     if args.program.resolve() in {output.resolve(), dot_path.resolve()}:
         parser.error("output must not overwrite the input program")
     try:
-        source = program_dot(load_program(args.program))
+        program = JsonRepresentation().decode(args.program.read_text(encoding="utf-8"))
+        source = GraphvizRepresentation(format="dot").encode(program)
         if output.suffix.lower() == ".svg":
-            output.write_text(render_svg(source), encoding="utf-8")
+            output.write_text(GraphvizRepresentation().encode(program), encoding="utf-8")
         dot_path.write_text(source, encoding="utf-8")
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         print(f"program.visualizations.gallery: {exc}", file=sys.stderr)

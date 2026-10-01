@@ -6,9 +6,8 @@ from string import Template
 import subprocess
 from urllib.parse import quote
 
-from machine import load_program
-from program.representations.graphviz._dot import program_dot
-from program.representations.graphviz._graphviz import render_svg
+from program.representations.graphviz import GraphvizRepresentation
+from program.representations.json import JsonRepresentation
 
 
 _ASSETS = Path(__file__).parent / "_assets"
@@ -64,9 +63,9 @@ def write_gallery(
     cards = []
     for index, path in enumerate(paths, start=1):
         try:
-            program = load_program(path)
-            source = program_dot(program)
-            svg = render_svg(source)
+            program = JsonRepresentation().decode(path.read_text(encoding="utf-8"))
+            source = GraphvizRepresentation(format="dot").encode(program)
+            svg = GraphvizRepresentation().encode(program)
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
             raise ValueError(f"could not render {path.name}: {exc}") from exc
         (diagrams / f"{path.stem}.svg").write_text(svg, encoding="utf-8")

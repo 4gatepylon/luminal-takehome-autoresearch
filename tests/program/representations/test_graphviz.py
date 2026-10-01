@@ -14,10 +14,23 @@ from program.representations.graphviz import GraphvizRepresentation
 
 class GraphvizRepresentationTests(unittest.TestCase):
     def test_decode_is_explicitly_unsupported(self):
-        representation = GraphvizRepresentation()
-        self.assertIsInstance(representation, Representation)
-        with self.assertRaisesRegex(NotImplementedError, "cannot be decoded"):
-            representation.decode("<svg/>")
+        for format in ("svg", "dot"):
+            with self.subTest(format=format):
+                representation = GraphvizRepresentation(format=format)
+                self.assertIsInstance(representation, Representation)
+                with self.assertRaisesRegex(NotImplementedError, "cannot be decoded"):
+                    representation.decode("visualization")
+
+    def test_dot_output_does_not_require_graphviz(self):
+        program = load_program("programs/json/03_vector_axpy.json")
+        with patch("program.representations.graphviz._graphviz.shutil.which", return_value=None):
+            source = GraphvizRepresentation(format="dot").encode(program)
+        self.assertTrue(source.startswith("digraph SSA {"))
+        self.assertIn("op0 -> v0", source)
+
+    def test_unknown_output_format_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "svg.*dot"):
+            GraphvizRepresentation(format="png")
 
     def test_invalid_program_is_rejected_before_rendering(self):
         with patch("program.representations.graphviz.representation.render_svg") as render:
