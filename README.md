@@ -112,6 +112,47 @@ eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
 
+## Program representations
+
+The `program/` package provides a common `Representation` ABC with
+`encode(program) -> str` and `decode(text) -> Program`. A `Program` is the
+existing dictionary structure; `program/core.py` reuses the machine's validation.
+Encoders validate their inputs without mutating them, and decoders return
+validated programs. File reads and writes belong to the caller.
+
+```python
+from pathlib import Path
+
+from program.representations.json import JsonRepresentation
+from program.representations.ssa import SsaRepresentation
+from program.representations.graphviz import GraphvizRepresentation
+
+source = Path("programs/json/03_vector_axpy.json").read_text(encoding="utf-8")
+program = JsonRepresentation().decode(source)
+ssa_text = SsaRepresentation().encode(program)
+svg_text = GraphvizRepresentation().encode(program)
+Path("axpy.svg").write_text(svg_text, encoding="utf-8")
+```
+
+JSON and SSA support decoding as well as encoding. Graphviz requires the `dot`
+executable and returns SVG XML as a string; its `decode()` raises
+`NotImplementedError` because the diagram is only a visualization.
+
+Each representation lives in its own folder under `program/representations/`
+and exports only its concrete class. To add a format, implement `encode()` and
+`decode()` in another subclass and add tests under `tests/program/representations/`.
+No registration step is required.
+
+This initial package delegates SSA to the existing codec and copies the DAG
+helpers. The existing conversion CLI and visualizer remain unchanged; switching
+them to the new package and removing the copies is a separate migration.
+
+Run the package tests from the repository root:
+
+```sh
+PYTHONPATH="$PWD" python3 -B -m unittest discover -s tests/program -t .
+```
+
 ## Visualize SSA dataflow
 
 On macOS, install Graphviz once with `brew install graphviz`, then run from the repository root:
