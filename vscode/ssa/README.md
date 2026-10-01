@@ -1,5 +1,7 @@
 # Luminal SSA syntax highlighting
 
+> NOTE: this was written by AI with minimal review.
+
 This local VS Code extension recognizes `.ssa` files and highlights the `ssa-v1`
 header, section markers, names, constants, operators, splat, ternary selection,
 full-line comments, and JSON buffers/cases/metadata. It provides bracket matching,
