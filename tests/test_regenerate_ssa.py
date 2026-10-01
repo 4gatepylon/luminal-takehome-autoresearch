@@ -11,8 +11,8 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-from program_ssa import format_program, main, parse_program
-from tests.test_program_ssa import scalar_program
+from program.representations.ssa._codec import format_program, main, parse_program
+from tests.program.representations.test_ssa_codec import scalar_program
 
 
 class RegenerationTests(unittest.TestCase):
@@ -191,7 +191,7 @@ class RegenerationTests(unittest.TestCase):
                 self.assertIn(str(directory), error.getvalue())
 
     def test_default_directory_is_programs(self) -> None:
-        with patch("program_ssa.regenerate_programs", return_value=(0, 29)) as regenerate, patch("sys.stdout", StringIO()):
+        with patch("program.representations.ssa._codec.regenerate_programs", return_value=(0, 29)) as regenerate, patch("sys.stdout", StringIO()):
             self.assertEqual(main(["json2ssa", "all"]), 0)
         regenerate.assert_called_once_with(Path("programs"), clobber=False)
 

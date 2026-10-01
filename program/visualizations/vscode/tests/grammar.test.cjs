@@ -8,7 +8,7 @@ const oniguruma = require("vscode-oniguruma");
 const { Registry, parseRawGrammar, INITIAL } = require("vscode-textmate");
 
 const extensionRoot = path.resolve(__dirname, "..");
-const repositoryRoot = path.resolve(extensionRoot, "../..");
+const repositoryRoot = path.resolve(extensionRoot, "../../..");
 let grammar;
 let rawGrammar;
 

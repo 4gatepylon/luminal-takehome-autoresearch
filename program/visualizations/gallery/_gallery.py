@@ -7,8 +7,8 @@ import subprocess
 from urllib.parse import quote
 
 from machine import load_program
-from visualize_ssa_as_dag._dot import program_dot
-from visualize_ssa_as_dag._graphviz import render_svg
+from program.representations.graphviz._dot import program_dot
+from program.representations.graphviz._graphviz import render_svg
 
 
 _ASSETS = Path(__file__).parent / "_assets"

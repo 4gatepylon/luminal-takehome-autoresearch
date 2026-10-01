@@ -12,7 +12,7 @@ from unittest.mock import patch
 from urllib.parse import unquote
 
 from machine import load_program
-from visualize_ssa_as_dag._gallery import write_gallery
+from program.visualizations.gallery._gallery import write_gallery
 
 
 class PageLinks(HTMLParser):
@@ -32,7 +32,7 @@ class GalleryTests(unittest.TestCase):
             output = Path(directory)
             index = output / "index.html"
             index.write_text("existing gallery", encoding="utf-8")
-            with patch("visualize_ssa_as_dag._gallery.render_svg") as render:
+            with patch("program.visualizations.gallery._gallery.render_svg") as render:
                 with self.assertRaisesRegex(ValueError, "--clobber"):
                     write_gallery(Path("programs/json"), output)
                 render.assert_not_called()
@@ -58,7 +58,7 @@ class GalleryTests(unittest.TestCase):
             filename = '01 vector # & "demo".json'
             (source / filename).write_text(json.dumps(program), encoding="utf-8")
             command = [
-                sys.executable, "-B", "-m", "visualize_ssa_as_dag", "gallery",
+                sys.executable, "-B", "-m", "program.visualizations.gallery", "gallery",
                 "--programs-dir", str(source), "-o", str(output),
             ]
             result = subprocess.run(command, capture_output=True, text=True, timeout=30)
