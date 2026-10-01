@@ -20,8 +20,8 @@ Each public JSON program in `programs/json/` has a matching `.ssa` file in
 from the repository root:
 
 ```sh
-PYTHONPATH="$PWD" python3 -B program_ssa.py to-ssa programs/json/03_vector_axpy.json -o example.ssa
-PYTHONPATH="$PWD" python3 -B program_ssa.py to-json example.ssa -o example.json
+PYTHONPATH="$PWD" python3 -B -m program.representations.ssa to-ssa programs/json/03_vector_axpy.json -o example.ssa
+PYTHONPATH="$PWD" python3 -B -m program.representations.ssa to-json example.ssa -o example.json
 ```
 
 The converter preserves the complete program JSON data, including cases and
@@ -143,9 +143,10 @@ and exports only its concrete class. To add a format, implement `encode()` and
 `decode()` in another subclass and add tests under `tests/program/representations/`.
 No registration step is required.
 
-This initial package delegates SSA to the existing codec and copies the DAG
-helpers. The existing conversion CLI and visualizer remain unchanged; switching
-them to the new package and removing the copies is a separate migration.
+The SSA codec and DAG helpers live inside their representation folders. They
+were moved as whole files, preserving their implementations; the existing
+visualizer imports the relocated helpers. The SSA conversion CLI is available
+through `python3 -B -m program.representations.ssa`.
 
 Run the package tests from the repository root:
 
@@ -181,8 +182,9 @@ from visualize_ssa_as_dag import program_dot
 dot_source = program_dot(load_program("programs/json/03_vector_axpy.json"))
 ```
 
-Topological sorting, DOT formatting, Graphviz execution, and CLI handling live in
-separate private modules inside `visualize_ssa_as_dag/`.
+Topological sorting, DOT formatting, and Graphviz execution live in private
+modules inside `program/representations/graphviz/`. CLI and gallery handling
+remain in `visualize_ssa_as_dag/`.
 
 Build an offline webpage containing all programs:
 

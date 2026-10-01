@@ -1,4 +1,4 @@
-"""SVG output, one-way decoding, and parity with the existing visualizer."""
+"""SVG output, one-way decoding, and validation before rendering."""
 
 from copy import deepcopy
 from pathlib import Path
@@ -10,8 +10,6 @@ import xml.etree.ElementTree as ET
 from machine import load_program
 from program.representations import Representation
 from program.representations.graphviz import GraphvizRepresentation
-from program.representations.graphviz._dot import program_dot
-from visualize_ssa_as_dag import program_dot as existing_program_dot
 
 
 class GraphvizRepresentationTests(unittest.TestCase):
@@ -42,7 +40,6 @@ class GraphvizRepresentationTests(unittest.TestCase):
             with self.subTest(program=path.name):
                 program = load_program(path)
                 before = deepcopy(program)
-                self.assertEqual(program_dot(program), existing_program_dot(program))
                 text = representation.encode(program)
                 self.assertIsInstance(text, str)
                 svg = ET.fromstring(text)

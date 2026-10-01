@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import machine
-from program_ssa import SECTIONS, SSAError, format_program, main, parse_program
+from program.representations.ssa._codec import SECTIONS, SSAError, format_program, main, parse_program
 
 
 def scalar_program() -> dict:

@@ -6,9 +6,9 @@ import subprocess
 import sys
 
 from machine import load_program
-from visualize_ssa_as_dag._dot import program_dot
+from program.representations.graphviz._dot import program_dot
 from visualize_ssa_as_dag._gallery import write_gallery
-from visualize_ssa_as_dag._graphviz import render_svg
+from program.representations.graphviz._graphviz import render_svg
 
 
 def main() -> int:

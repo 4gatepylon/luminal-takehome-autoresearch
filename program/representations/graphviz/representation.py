@@ -7,11 +7,7 @@ from program.representations.graphviz._graphviz import render_svg
 
 
 class GraphvizRepresentation(Representation):
-    """An SVG visualization; Graphviz must be installed to encode.
-
-    Private helpers are copied from visualize_ssa_as_dag for this initial
-    addition. Migrating the existing visualizer is a separate change.
-    """
+    """An SVG visualization; Graphviz must be installed to encode."""
 
     def encode(self, program: Program) -> str:
         validate_program(program)

@@ -2,7 +2,7 @@
 
 from program.core import Program
 from program.representations.base import Representation
-from program_ssa import format_program, parse_program
+from program.representations.ssa._codec import format_program, parse_program
 
 
 class SsaRepresentation(Representation):

@@ -1,6 +1,6 @@
 # Readable SSA programs (`.ssa`)
 
-`program_ssa.py` converts existing program JSON to readable SSA and back. It
+`python3 -B -m program.representations.ssa` converts program JSON to readable SSA and back. It
 never executes, optimizes, schedules, or rewrites the program. Existing compiler
 and machine entry points continue to consume JSON; convert edited SSA back to
 JSON before using them.
@@ -130,8 +130,8 @@ Run from the repository root with Python 3.10+:
 
 ```sh
 export PYTHONPATH="$PWD"
-python3 -B program_ssa.py to-ssa programs/json/03_vector_axpy.json -o example.ssa
-python3 -B program_ssa.py to-json example.ssa -o example.json
+python3 -B -m program.representations.ssa to-ssa programs/json/03_vector_axpy.json -o example.ssa
+python3 -B -m program.representations.ssa to-json example.ssa -o example.json
 ```
 
 Omit `-o` to emit the converted file to stdout. SSA input/output file paths must
@@ -140,10 +140,11 @@ and include source-line context where available. Conversion finishes before
 the output file is opened, so invalid input does not overwrite existing output.
 
 ```python
-from program_ssa import format_program, parse_program
+from program.representations.ssa import SsaRepresentation
 
-source = format_program(program)
-restored = parse_program(source)
+representation = SsaRepresentation()
+source = representation.encode(program)
+restored = representation.decode(source)
 assert restored == program
 ```
 

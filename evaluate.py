@@ -17,7 +17,7 @@ from typing import Any, Final, TextIO
 import unittest
 
 import machine
-from program_ssa import parse_program
+from program.representations.ssa._codec import parse_program
 from sandbox import run_in_sandbox
 
 
