@@ -45,13 +45,18 @@ make score  # public benchmark
 make eval   # tests, then score only if tests pass
 ```
 
-`make score` reports `ERROR` for any program that fails compilation, validation,
-or baseline scoring, then continues through the remaining programs. It reports
-geometric-mean speedup, scratch reduction, and combined score over successful
-programs, plus a separate summary for successful original programs 1–8 (identified
-by filename prefixes `01_`–`08_`). Each summary shows how many programs succeeded;
-an empty subset has no score. The command exits nonzero if any programs fail.
-`make test` and `make eval` retain detailed failure diagnostics.
+`make score` requires exactly 29 program files. `evaluate.py` lists the exact
+filenames of the original eight programs and the five expected failures
+(18–19 and 24–26); all of those files must be present. Conflicting group
+expectations are rejected before compilation.
+
+Each program is compiled and evaluated once. Expected failures print `ERROR`;
+an unexpected success or a failure in any other program raises an error.
+The report gives geometric-mean speedup, scratch reduction, and combined score
+for all 24 successful programs and separately for the original eight, which
+belong to both groups. The expected-failure group has no performance score.
+The command succeeds only when every outcome matches its expectation.
+`make test` and `make eval` retain their correctness checks and diagnostics.
 
 The same functions are available from Python:
 

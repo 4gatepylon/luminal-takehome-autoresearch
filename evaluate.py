@@ -7,6 +7,7 @@ Candidate imports, compilation, and CLI execution stay in a separate process.
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import json
 import math
 from pathlib import Path
@@ -21,6 +22,52 @@ from sandbox import run_in_sandbox
 
 COMPILER_PATH: Final[Path] = Path("work/compiler.py")
 PROGRAM_DIR: Final[Path] = Path("programs")
+EXPECTED_PROGRAM_COUNT: Final[int] = 29
+ORIGINAL_PROGRAM_FILENAMES: Final[frozenset[str]] = frozenset({
+    "01_scalar_pipeline.json",
+    "02_scalar_dual_chain.json",
+    "03_vector_axpy.json",
+    "04_vector_bitmix.json",
+    "05_mixed_broadcast.json",
+    "06_parallel_memory.json",
+    "07_scalar_selects.json",
+    "08_vector_reduction.json",
+})
+EXPECTED_FAILURE_PROGRAM_FILENAMES: Final[frozenset[str]] = frozenset({
+    "18_copy_propagation.json",
+    "19_interleaved_vector_reductions.json",
+    "24_pairwise_vector_reduction.json",
+    "25_sum_217_vectors.json",
+    "26_sum_31_vectors.json",
+})
+
+
+@dataclass(frozen=True)
+class _ProgramGroup:
+    name: str
+    filenames: frozenset[str]
+    must_fail: bool
+
+
+def _identify_program_groups(program_paths: list[Path]) -> tuple[_ProgramGroup, ...]:
+    """Validate the inventory and overlapping groups before running any compiler."""
+    filenames = frozenset(path.name for path in program_paths)
+    groups = (
+        _ProgramGroup("all successful programs", filenames - EXPECTED_FAILURE_PROGRAM_FILENAMES, must_fail=False),
+        _ProgramGroup("original programs 1-8", ORIGINAL_PROGRAM_FILENAMES, must_fail=False),
+        _ProgramGroup("expected failures", EXPECTED_FAILURE_PROGRAM_FILENAMES, must_fail=True),
+    )
+    must_fail = frozenset().union(*(group.filenames for group in groups if group.must_fail))
+    must_succeed = frozenset().union(*(group.filenames for group in groups if not group.must_fail))
+    conflicts = must_fail & must_succeed
+    if conflicts:
+        raise ValueError(f"Programs required to both fail and succeed: {', '.join(sorted(conflicts))}")
+    missing = (ORIGINAL_PROGRAM_FILENAMES | EXPECTED_FAILURE_PROGRAM_FILENAMES) - filenames
+    if missing:
+        raise ValueError(f"Missing required programs: {', '.join(sorted(missing))}")
+    if len(program_paths) != EXPECTED_PROGRAM_COUNT:
+        raise ValueError(f"Expected {EXPECTED_PROGRAM_COUNT} program files, found {len(program_paths)}")
+    return groups
 
 
 def _compile_and_check(program_path: Path, compiler_filepath: str | Path) -> tuple[dict[str, Any], dict[str, Any], int]:
@@ -74,74 +121,69 @@ def _aggregate_scores(speedups: list[float], reductions: list[float]) -> dict[st
     }
 
 
+def _calculate_reduction_and_speedup(
+    program_path: Path, compiler_filepath: str | Path, *, verbose: bool = False,
+) -> tuple[float, float]:
+    """Compile and validate once, then return scratch reduction and cycle speedup."""
+    program, compilation, cycles = _compile_and_check(program_path, compiler_filepath)
+    baseline_compilation = machine.serial_compile(program)
+    baseline = machine.check_compilation(program, baseline_compilation)
+    words = machine.scratch_footprint(program, compilation)
+    baseline_words = machine.scratch_footprint(program, baseline_compilation)
+    reduction = baseline_words / words
+    speedup = baseline / cycles
+    if verbose:
+        print(f"{program_path.name:40} {cycles:8d} {baseline:9d} {speedup:8.3f}x {words:8d} {reduction:9.3f}x")
+    return reduction, speedup
+
+
 def score(
     *, compiler_filepath: str | Path = COMPILER_PATH, program_dir: Path = PROGRAM_DIR,
-    verbose: bool = False, continue_on_error: bool = False,
-) -> dict[str, float] | None:
-    """Return score multipliers; by default, raise on the first program error.
-
-    With continue_on_error, check every program and return None if any failed.
-    Verbose reports show ERROR for each failure and scores over successful
-    programs, both overall and within the original programs numbered 01-08.
-    """
-    speedups: list[float] = []
-    reductions: list[float] = []
-    original_speedups: list[float] = []
-    original_reductions: list[float] = []
-    original_count = 0
-    failures = 0
-    program_paths = sorted(program_dir.glob("*.json"))
-    if not program_paths:
-        raise ValueError(f"No benchmark programs found in {program_dir}")
+    verbose: bool = False,
+) -> dict[str, float]:
+    """Enforce each group's expected outcome and score each program exactly once."""
+    program_paths = sorted(path for path in program_dir.glob("*.json") if path.is_file())
+    groups = _identify_program_groups(program_paths)
+    memberships = {
+        path: tuple(group for group in groups if path.name in group.filenames)
+        for path in program_paths
+    }
+    results: dict[str, tuple[float, float]] = {}
     if verbose:
         print("Luminal Compiler Take Home — compiler engineering public benchmark")
-        print(f"{'program':30} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
-        print("-" * 60)
-    for program_path in program_paths:
-        is_original = program_path.stem.partition("_")[0] in {"01", "02", "03", "04", "05", "06", "07", "08"}
-        if is_original:
-            original_count += 1
+        print(f"{'program':40} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
+        print("-" * 99)
+    for program_path, program_groups in memberships.items():
+        must_fail = any(group.must_fail for group in program_groups)
         try:
-            program, compilation, cycles = _compile_and_check(program_path, compiler_filepath)
-            baseline_compilation = machine.serial_compile(program)
-            baseline = machine.check_compilation(program, baseline_compilation)
-            speedup = baseline / cycles
-            words = machine.scratch_footprint(program, compilation)
-            baseline_words = machine.scratch_footprint(program, baseline_compilation)
-            reduction = baseline_words / words
+            result = _calculate_reduction_and_speedup(program_path, compiler_filepath, verbose=verbose)
         except (ValueError, subprocess.TimeoutExpired):
-            if not continue_on_error:
+            if not must_fail:
                 raise
-            failures += 1
             if verbose:
-                print(f"{program_path.stem:30} {'ERROR':>8}")
-            continue
-        speedups.append(speedup)
-        reductions.append(reduction)
-        if is_original:
-            original_speedups.append(speedup)
-            original_reductions.append(reduction)
-        if verbose:
-            print(f"{program['name']:30} {cycles:8d} {baseline:9d} {speedup:8.3f}x {words:8d} {reduction:9.3f}x")
+                print(f"{program_path.name:40} {'ERROR':>8}")
+        else:
+            if must_fail:
+                raise ValueError(f"{program_path.name}: expected failure, but evaluation succeeded")
+            results[program_path.name] = result
 
-    metrics = _aggregate_scores(speedups, reductions)
+    group_metrics: dict[str, dict[str, float]] = {}
     if verbose:
-        print("-" * 60)
-        summaries = (
-            ("all programs", len(speedups), len(program_paths), metrics),
-            ("original programs 1-8", len(original_speedups), original_count, _aggregate_scores(original_speedups, original_reductions)),
-        )
-        for label, passed, total, subset_metrics in summaries:
-            print(f"{label} ({passed}/{total} successful):")
-            if subset_metrics is None:
+        print("-" * 99)
+    for group in groups:
+        subset = [results[name] for name in sorted(group.filenames) if name in results]
+        metrics = _aggregate_scores([speedup for _, speedup in subset], [reduction for reduction, _ in subset])
+        if metrics is not None:
+            group_metrics[group.name] = metrics
+        if verbose:
+            print(f"{group.name} ({len(subset)}/{len(group.filenames)} successful):")
+            if metrics is None:
                 print("  Score unavailable: no successful programs.")
-                continue
-            print(f"  geometric-mean speedup: {subset_metrics['cycle_speedup']:.3f}x")
-            print(f"  geometric-mean scratch reduction: {subset_metrics['scratch_reduction']:.3f}x")
-            print(f"  combined score: {subset_metrics['combined_score']:.3f}x")
-        if failures:
-            print(f"{failures} program(s) failed; scores exclude failed programs.")
-    return None if failures else metrics
+            else:
+                print(f"  geometric-mean speedup: {metrics['cycle_speedup']:.3f}x")
+                print(f"  geometric-mean scratch reduction: {metrics['scratch_reduction']:.3f}x")
+                print(f"  combined score: {metrics['combined_score']:.3f}x")
+    return group_metrics["all successful programs"]
 
 
 def eval(*, compiler_filepath: str | Path = COMPILER_PATH, verbose: bool = False, stream: TextIO | None = None) -> dict[str, float] | None:
@@ -160,7 +202,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if test(compiler_filepath=args.compiler_filepath).wasSuccessful() else 1
     if args.command == "eval":
         return 0 if eval(compiler_filepath=args.compiler_filepath, verbose=True) is not None else 1
-    return 0 if score(compiler_filepath=args.compiler_filepath, verbose=True, continue_on_error=True) is not None else 1
+    score(compiler_filepath=args.compiler_filepath, verbose=True)
+    return 0
 
 
 if __name__ == "__main__":
