@@ -47,7 +47,7 @@ class PublicProgramTests(unittest.TestCase):
 
     def test_compiler_on_all_public_programs(self) -> None:
         program_paths = sorted(PROGRAM_DIR.glob("*.json"))
-        self.assertEqual(len(program_paths), 9)
+        self.assertEqual(len(program_paths), 11)
         for program_path in program_paths:
             with self.subTest(program=program_path.name):
                 _compile_and_check(program_path, self.compiler_filepath)
