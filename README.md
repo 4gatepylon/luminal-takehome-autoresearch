@@ -10,8 +10,8 @@ virtual value to the machine's scratchpad and schedule every operation into
 VLIW bundles. Correctness is required; shorter schedules and smaller scratch footprints score better.
 
 The starter compiler is deliberately simple and serial. It handles programs
-01–17 and 20–23; programs 18–19 intentionally exceed its scratch allocation capacity and
-require scratch reuse. You can improve the compiler incrementally.
+01–17 and 20–23; programs 18–19 and 24 intentionally exceed its scratch allocation
+capacity and require scratch reuse. You can improve the compiler incrementally.
 
 ## Candidate task
 
@@ -98,7 +98,8 @@ live intervals do not overlap. Programs 01–17 and 20–23 fit without spilling
 the starter's allocation. Program 18 needs 793 words with separate storage per
 result but fits in 41 words with scratch reuse. Program 19 needs 504 words with
 separate storage but fits in 24 words by interleaving loads and computation and
-reusing scratch. Reducing scratch use is part of the challenge.
+reusing scratch. Program 24 likewise fits in 24 words despite needing 1,016
+words with separate storage. Reducing scratch use is part of the challenge.
 
 A value's live interval starts when its result writes scratch, at issue cycle
 plus latency, and ends at its last consumer's issue cycle, inclusive. An unused
@@ -209,6 +210,7 @@ traffic, and inputs for optimization experiments. All arithmetic wraps modulo
 | [21_scalar_vector_sum.json](programs/21_scalar_vector_sum.json) | Loads 32 elements individually and sums corresponding lanes of four eight-element blocks using 24 scalar adds, then stores eight outputs. Exposes vectorization into four vector loads, three vector adds, and one vector store, plus reassociation into a balanced reduction. Shares the first four input blocks of program 20's cases. |
 | [22_constant_folding.json](programs/22_constant_folding.json) | Computes `z = 3 * 4`, `c = 6 * 9`, and `t = c + z`, then loads runtime `alpha` and stores `alpha * t`. Exposes constant folding through multiple arithmetic nodes into `66 * alpha`. Cases cover zero, one, ordinary values, and 32-bit overflow boundaries. |
 | [23_store_load_forwarding.json](programs/23_store_load_forwarding.json) | Loads eight-lane vectors `A` and `B`, stores their sum and difference back into `A` and `B`, reloads them, stores their product and XOR back, then reloads again and adds them into `out`. Exposes elimination of four redundant reloads by forwarding the stored values. Correctness includes final contents of `A` and `B` as well as `out`. |
+| [24_pairwise_vector_reduction.json](programs/24_pairwise_vector_reduction.json) | Loads 64 eight-lane vectors from 64 separate buffers and stores the lane-wise sum of the 32 products `v[2*i] * v[2*i+1]`. Source order places all 64 loads before the products and a left-associated sum. Separate storage needs 1,016 words; an interleaved schedule with scratch reuse fits in 24 words while retaining every operation and storing only the final output. Exercises scratch pressure and load/computation scheduling. |
 
 Programs 09–18 and 22 expose opportunities for dead-code elimination and algebraic
 simplification; programs 20–21 expose scalar-to-vector conversion, and program 23
@@ -218,7 +220,7 @@ and preserves its dependencies. Accepting eliminated operations, rewritten
 expressions, or vectorized operations requires changes to the compiler/grader
 contract.
 
-Programs 18–19 intentionally fail with both the starter compiler and the frozen
+Programs 18–19 and 24 intentionally fail with both the starter compiler and the frozen
 serial baseline, which allocate separate storage for every result. Consequently,
 the default public correctness suite fails on these programs, and full-suite
 scoring requires a baseline allocation change even after the candidate compiler
@@ -238,7 +240,7 @@ program these ratios are `baseline_cycles / cycles` and
 `baseline_scratch_words / scratch_words`. The combined score is
 `sqrt(cycle_speedup_geomean * scratch_reduction_geomean)`, giving equal weight
 to both objectives. On programs 01–17 and 20–23 the starter scores 1.000x on each metric;
-programs 18–19 currently block full-suite scoring as described above. Public scoring
+programs 18–19 and 24 currently block full-suite scoring as described above. Public scoring
 uses the same formula on the visible programs; the private grader reports
 the final combined result on all public and hidden programs. We also review compiler structure, clarity, and the
 tradeoffs in your scheduling heuristic.
