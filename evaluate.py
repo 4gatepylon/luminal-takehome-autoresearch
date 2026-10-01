@@ -7,9 +7,11 @@ Candidate imports, compilation, and CLI execution stay in a separate process.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping, Set
 import json
 import math
 from pathlib import Path
+import subprocess
 import sys
 from typing import Any, Final, TextIO
 import unittest
@@ -20,6 +22,63 @@ from sandbox import run_in_sandbox
 
 COMPILER_PATH: Final[Path] = Path("work/compiler.py")
 PROGRAM_DIR: Final[Path] = Path("programs")
+EXPECTED_PROGRAM_COUNT: Final[int] = 29
+ORIGINAL_PROGRAM_FILENAMES: Final[frozenset[str]] = frozenset({
+    "01_scalar_pipeline.json",
+    "02_scalar_dual_chain.json",
+    "03_vector_axpy.json",
+    "04_vector_bitmix.json",
+    "05_mixed_broadcast.json",
+    "06_parallel_memory.json",
+    "07_scalar_selects.json",
+    "08_vector_reduction.json",
+})
+EXPECTED_FAILURE_PROGRAM_FILENAMES: Final[frozenset[str]] = frozenset({
+    "18_copy_propagation.json",
+    "19_interleaved_vector_reductions.json",
+    "24_pairwise_vector_reduction.json",
+    "25_sum_217_vectors.json",
+    "26_sum_31_vectors.json",
+})
+# Reporting groups overlap; expected failures are excluded from every group.
+PROGRAM_GROUPS: Final[Mapping[str, frozenset[str]]] = {
+    "original": ORIGINAL_PROGRAM_FILENAMES,
+    # At least eight memory loads, accounting for at least one third of operations.
+    "load_heavy": frozenset({
+        "06_parallel_memory.json", "07_scalar_selects.json", "08_vector_reduction.json",
+        "20_vectorization_factoring.json", "21_scalar_vector_sum.json",
+        "27_sum_17_scalars.json", "28_sum_16_scalars.json", "29_sum_64_scalars.json",
+    }),
+    # Repeated expressions, constant folding, identities, and distributive factoring.
+    "algebraic_simplification": frozenset({
+        "10_repeated_addition.json", "11_repeated_multiplication.json", "12_algebraic_associativity.json",
+        "13_constant_condition.json", "15_power_of_two_multiplication.json", "16_algebraic_identities.json",
+        "17_non_power_of_two_factoring.json", "20_vectorization_factoring.json", "22_constant_folding.json",
+    }),
+}
+
+
+def _identify_program_groups(program_paths: list[Path], program_groups: Mapping[str, Set[str]]) -> dict[str, frozenset[str]]:
+    """Validate program expectations and inventory, then define reporting groups."""
+    filenames = frozenset(path.name for path in program_paths)
+    # The original eight programs are individually required to succeed.
+    conflicts = ORIGINAL_PROGRAM_FILENAMES & EXPECTED_FAILURE_PROGRAM_FILENAMES
+    if conflicts:
+        raise ValueError(f"Programs required to both fail and succeed: {', '.join(sorted(conflicts))}")
+    missing = (ORIGINAL_PROGRAM_FILENAMES | EXPECTED_FAILURE_PROGRAM_FILENAMES) - filenames
+    if missing:
+        raise ValueError(f"Missing required programs: {', '.join(sorted(missing))}")
+    if len(program_paths) != EXPECTED_PROGRAM_COUNT:
+        raise ValueError(f"Expected {EXPECTED_PROGRAM_COUNT} program files, found {len(program_paths)}")
+    groups = {"all programs": filenames - EXPECTED_FAILURE_PROGRAM_FILENAMES}
+    for group_name, members in program_groups.items():
+        if group_name == "all programs":
+            raise ValueError("The 'all programs' group is automatic and cannot be redefined")
+        missing = members - filenames
+        if missing:
+            raise ValueError(f"Group {group_name!r} references missing programs: {', '.join(sorted(missing))}")
+        groups[group_name] = frozenset(members) - EXPECTED_FAILURE_PROGRAM_FILENAMES
+    return groups
 
 
 def _compile_and_check(program_path: Path, compiler_filepath: str | Path) -> tuple[dict[str, Any], dict[str, Any], int]:
@@ -60,42 +119,73 @@ def test(*, compiler_filepath: str | Path = COMPILER_PATH, verbosity: int = 2, s
     return unittest.TextTestRunner(stream=stream, verbosity=verbosity).run(suite)
 
 
-def score(*, compiler_filepath: str | Path = COMPILER_PATH, program_dir: Path = PROGRAM_DIR, verbose: bool = False) -> dict[str, float]:
-    """Validate sandboxed compiler output and return unrounded score multipliers."""
-    speedups: list[float] = []
-    reductions: list[float] = []
+def _aggregate_scores(results: list[tuple[float, float]]) -> dict[str, float] | None:
+    """Compute geometric means over a successful subset, or None if it is empty."""
+    if not results:
+        return None
+    reductions, speedups = zip(*results)
+    cycle_mean = math.prod(speedups) ** (1 / len(speedups))
+    scratch_mean = math.prod(reductions) ** (1 / len(reductions))
+    return dict(cycle_speedup=cycle_mean, scratch_reduction=scratch_mean, combined_score=math.sqrt(cycle_mean * scratch_mean))
+
+
+def _calculate_reduction_and_speedup(program_path: Path, compiler_filepath: str | Path, *, verbose: bool = False) -> tuple[float, float]:
+    """Compile and validate once, then return scratch reduction and cycle speedup."""
+    program, compilation, cycles = _compile_and_check(program_path, compiler_filepath)
+    baseline_compilation = machine.serial_compile(program)
+    baseline = machine.check_compilation(program, baseline_compilation)
+    words = machine.scratch_footprint(program, compilation)
+    baseline_words = machine.scratch_footprint(program, baseline_compilation)
+    reduction = baseline_words / words
+    speedup = baseline / cycles
+    if verbose:
+        print(f"{program_path.name:40} {cycles:8d} {baseline:9d} {speedup:8.3f}x {words:8d} {reduction:9.3f}x")
+    return reduction, speedup
+
+
+def score(*, compiler_filepath: str | Path = COMPILER_PATH, program_dir: Path = PROGRAM_DIR,
+    verbose: bool = False, program_groups: Mapping[str, Set[str]] = PROGRAM_GROUPS,
+) -> dict[str, float]:
+    """Evaluate each program once, enforce its expected outcome, and report overlapping groups."""
+    program_paths = sorted(path for path in program_dir.glob("*.json") if path.is_file())
+    groups = _identify_program_groups(program_paths, program_groups)
+    results: dict[str, tuple[float, float]] = {}
     if verbose:
         print("Luminal Compiler Take Home — compiler engineering public benchmark")
-        print(f"{'program':30} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
-        print("-" * 60)
-    for program_path in sorted(program_dir.glob("*.json")):
-        program, compilation, cycles = _compile_and_check(program_path, compiler_filepath)
-        baseline_compilation = machine.serial_compile(program)
-        baseline = machine.check_compilation(program, baseline_compilation)
-        speedup = baseline / cycles
-        speedups.append(speedup)
-        words = machine.scratch_footprint(program, compilation)
-        baseline_words = machine.scratch_footprint(program, baseline_compilation)
-        reduction = baseline_words / words
-        reductions.append(reduction)
-        if verbose:
-            print(f"{program['name']:30} {cycles:8d} {baseline:9d} {speedup:8.3f}x {words:8d} {reduction:9.3f}x")
+        print(f"{'program':40} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
+        print("-" * 99)
+    for program_path in program_paths:
+        must_fail = program_path.name in EXPECTED_FAILURE_PROGRAM_FILENAMES
+        try:
+            result = _calculate_reduction_and_speedup(program_path, compiler_filepath, verbose=verbose)
+        except (ValueError, subprocess.TimeoutExpired):
+            if verbose:
+                print(f"{program_path.name:40} {'ERROR':>8}")
+            if not must_fail:
+                raise
+        else:
+            if must_fail:
+                raise ValueError(f"{program_path.name}: expected failure, but evaluation succeeded")
+            results[program_path.name] = result
 
-    if not speedups:
-        raise ValueError(f"No benchmark programs found in {program_dir}")
-    geometric_mean = math.prod(speedups) ** (1 / len(speedups))
-    scratch_mean = math.prod(reductions) ** (1 / len(reductions))
-    metrics = {
-        "cycle_speedup": geometric_mean,
-        "scratch_reduction": scratch_mean,
-        "combined_score": math.sqrt(geometric_mean * scratch_mean),
+    group_metrics = {
+        name: _aggregate_scores([results[filename] for filename in sorted(members) if filename in results])
+        for name, members in groups.items()
     }
     if verbose:
-        print("-" * 60)
-        print(f"public geometric-mean speedup: {metrics['cycle_speedup']:.3f}x")
-        print(f"public geometric-mean scratch reduction: {metrics['scratch_reduction']:.3f}x")
-        print(f"public combined score: {metrics['combined_score']:.3f}x")
-    return metrics
+        print("-" * 99)
+        failures = len(program_paths) - len(results)
+        if failures:
+            print(f"{failures} program(s) failed; excluded from all scores.")
+        for group_name, metrics in group_metrics.items():
+            print(f"{group_name} ({len(groups[group_name])} successful programs):")
+            if metrics is None:
+                print("  Score unavailable: no successful programs.")
+            else:
+                print(f"  geometric-mean speedup: {metrics['cycle_speedup']:.3f}x")
+                print(f"  geometric-mean scratch reduction: {metrics['scratch_reduction']:.3f}x")
+                print(f"  combined score: {metrics['combined_score']:.3f}x")
+    return group_metrics["all programs"]
 
 
 def eval(*, compiler_filepath: str | Path = COMPILER_PATH, verbose: bool = False, stream: TextIO | None = None) -> dict[str, float] | None:

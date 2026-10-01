@@ -45,6 +45,14 @@ make score  # public benchmark
 make eval   # tests, then score only if tests pass
 ```
 
+`make score` expects programs 18–19 and 24–26 to fail; their exact filenames, the
+original eight, and group membership are documented in `evaluate.py`.
+The overlapping `original`, `load_heavy`, and `algebraic_simplification` groups
+provide performance breakdowns, with geometric means over non-failing programs
+and expected failures excluded from every group, including the overall aggregate.
+Each program is evaluated once, failures are reported and counted, and unexpected
+outcomes, missing required files, or a program count other than 29 raise an error.
+
 The same functions are available from Python:
 
 ```python
