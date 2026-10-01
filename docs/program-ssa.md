@@ -130,8 +130,8 @@ Run from the repository root with Python 3.10+:
 
 ```sh
 export PYTHONPATH="$PWD"
-python3 -B -m program.representations.ssa to-ssa programs/json/03_vector_axpy.json -o example.ssa
-python3 -B -m program.representations.ssa to-json example.ssa -o example.json
+python3 -B -m program.representations.ssa json2ssa programs/json/03_vector_axpy.json -o example.ssa
+python3 -B -m program.representations.ssa ssa2json example.ssa -o example.json
 ```
 
 Omit `-o` to emit the converted file to stdout. SSA input/output file paths must
@@ -147,6 +147,14 @@ source = representation.encode(program)
 restored = representation.decode(source)
 assert restored == program
 ```
+
+### Regenerating all companions
+
+Run `make json2ssa INPUT=all` to check `programs/ssa/` against `programs/json/`.
+If every SSA file exists and matches byte-for-byte, nothing is written.
+Unaccounted files in `ssa/` always raise an error, even with clobber.
+Missing or changed SSA files raise unless `CLOBBER=1` is set, then regenerate after validation.
+The direct CLI is `PYTHONPATH="$PWD" python3 -B -m program.representations.ssa json2ssa all [--clobber]`.
 
 ## Verification
 
@@ -170,7 +178,8 @@ decoded data mismatch fail evaluation, including for programs whose compiler
 failure is expected. This comparison covers the full program, including cases
 and metadata; SSA whitespace and comments do not affect it. Evaluation does not
 regenerate or repair files automatically. After changing a JSON fixture, use
-`to-ssa` to update its companion file. Integration tests cover each entry point
+`json2ssa all --clobber` to update its companions, or `json2ssa <path>` for a single file.
+Integration tests cover each entry point
 and verify that failed checks prevent compiler execution.
 
 Custom evaluation inputs follow the same layout: pass the `json/` directory as
