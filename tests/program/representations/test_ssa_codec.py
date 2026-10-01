@@ -87,6 +87,17 @@ class RoundTripTests(unittest.TestCase):
         self.assertIn("result_select = a if { condition } else b", source)
         self.assertIn("result_vselect = va if { vc } else vb", source)
 
+    def test_expected_output_modes_round_trip_with_aliases(self) -> None:
+        program = scalar_program()
+        program["buffers"]["input data"] = program["buffers"].pop("a")
+        program["operations"][0]["buffer"] = "input data"
+        inputs = {"input data": [7], "out": [0]}
+        program["cases"] = [inputs, {"inputs": inputs}]
+        for mode in ("agree_with_reference", "ignore_reference"):
+            program["cases"].append({"inputs": inputs, "expected": {"mode": mode, "buffers": {"out": [21]}}})
+        self.assert_round_trip(program)
+        self.assertEqual(JsonRepresentation().decode(JsonRepresentation().encode(program)), program)
+
     def test_extra_fields_empty_args_and_multiple_cases(self) -> None:
         program = scalar_program()
         program["description"] = {"nested": [True, None, 1.25, "a\nb"], "operations": "metadata"}
@@ -302,6 +313,12 @@ class ValidationTests(unittest.TestCase):
         ):
             with self.subTest(header=header), self.assertRaises(SSAError):
                 SsaRepresentation().decode(self.source.replace("lang: ssa-v1", "lang: ssa-v1\n" + header))
+
+    def test_invalid_expected_policy_is_rejected_with_case_line(self) -> None:
+        case = {"inputs": {"a": [7], "out": [0]}, "expected": {"mode": "typo", "buffers": {"out": [21]}}}
+        source = self.source.replace('{"a":[7],"out":[0]}', json.dumps(case))
+        with self.assertRaisesRegex(SSAError, "line [0-9]+: case 0 expected mode"):
+            SsaRepresentation().decode(source)
 
     def test_store_cannot_acquire_a_destination_through_metadata(self) -> None:
         for dest in ('"extra"', "[]", "{}"):

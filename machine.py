@@ -191,17 +191,48 @@ def _validate_memory_operation(program: dict, operation: dict) -> None:
 
 
 def validate_case(program: dict, case: dict, case_index: int | None = None) -> None:
+    """Validate legacy input maps or inputs with an optional expected-output policy."""
     label = "case" if case_index is None else f"case {case_index}"
     if not isinstance(case, dict):
         raise ProgramError(f"{label} must be an object")
+    inputs = _case_inputs(case)
+    if inputs is case:
+        _validate_case_memory(program, case, label)
+        return
+    extra = case.keys() - {"inputs", "expected"}
+    if extra:
+        raise ProgramError(f"{label} has unknown fields: {sorted(extra)}")
+    _validate_case_memory(program, inputs, f"{label} inputs")
+    if "expected" in case:
+        expected = case["expected"]
+        if not isinstance(expected, dict) or expected.keys() != {"mode", "buffers"}:
+            raise ProgramError(f"{label} expected requires exactly 'mode' and 'buffers'")
+        if expected["mode"] not in ("agree_with_reference", "ignore_reference"):
+            raise ProgramError(f"{label} expected mode must be 'agree_with_reference' or 'ignore_reference'")
+        buffers = expected["buffers"]
+        if not isinstance(buffers, dict):
+            raise ProgramError(f"{label} expected buffers must be an object")
+        written = {op["buffer"] for op in program["operations"] if op["op"] in STORE_OPS}
+        missing = written - buffers.keys()
+        if missing:
+            raise ProgramError(f"{label} expected is missing written buffers: {sorted(missing)}")
+        _validate_case_memory(program, inputs | buffers, f"{label} expected")
+
+
+def _case_inputs(case: dict) -> dict:
+    # Lists remain legacy buffer contents, even for a buffer named inputs.
+    return case["inputs"] if isinstance(case.get("inputs"), dict) else case
+
+
+def _validate_case_memory(program: dict, memory: dict, label: str) -> None:
     expected_buffers = set(program["buffers"])
-    actual_buffers = set(case)
+    actual_buffers = set(memory)
     if actual_buffers != expected_buffers:
         missing = sorted(expected_buffers - actual_buffers)
         extra = sorted(actual_buffers - expected_buffers)
         raise ProgramError(f"{label} buffer mismatch: missing={missing}, extra={extra}")
     for name, length in program["buffers"].items():
-        values = case[name]
+        values = memory[name]
         if not isinstance(values, list) or len(values) != length:
             raise ProgramError(f"{label} buffer {name!r} must contain {length} words")
         if any(not _plain_int(value) for value in values):
@@ -448,7 +479,7 @@ def _collect_issue_cycles(program: dict, bundles: list) -> dict[int, int]:
 def run_reference(program: dict, case: dict) -> dict[str, list[int]]:
     validate_program(program)
     validate_case(program, case)
-    memory = _copy_case(case)
+    memory = _copy_memory(_case_inputs(case))
     values: dict[str, int | list[int]] = {}
 
     for operation in program["operations"]:
@@ -463,7 +494,7 @@ def run_reference(program: dict, case: dict) -> dict[str, list[int]]:
 def run_compilation(program: dict, compilation: dict, case: dict) -> dict[str, list[int]]:
     check_compilation(program, compilation)
     validate_case(program, case)
-    memory = _copy_case(case)
+    memory = _copy_memory(_case_inputs(case))
     scratch = [0] * SCRATCH_WORDS
     allocations = compilation["scratch"]
     operations = program["operations"]
@@ -508,18 +539,31 @@ def run_compilation(program: dict, compilation: dict, case: dict) -> dict[str, l
 
 
 def check_case(program: dict, compilation: dict, case: dict) -> None:
-    expected = run_reference(program, case)
+    """Compare final memory using the case's explicit policy or reference fallback."""
     actual = run_compilation(program, compilation, case)
+    inputs = _case_inputs(case)
+    if inputs is case or "expected" not in case:
+        expected = run_reference(program, case)
+        source = "reference output"
+    else:
+        expectation = case["expected"]
+        expected = _copy_memory(inputs | expectation["buffers"])
+        source = "explicit expected output"
+        if expectation["mode"] == "agree_with_reference":
+            reference = run_reference(program, case)
+            if reference != expected:
+                mismatches = [buffer for buffer in program["buffers"] if reference[buffer] != expected[buffer]]
+                raise CompileError(f"reference output disagrees with explicit expected output in buffers {mismatches}")
     if actual != expected:
         mismatches = []
         for buffer in program["buffers"]:
             if actual[buffer] != expected[buffer]:
                 mismatches.append(buffer)
-        raise CompileError(f"incorrect final memory in buffers {mismatches}")
+        raise CompileError(f"incorrect final memory in buffers {mismatches} (compared with {source})")
 
 
-def _copy_case(case: dict) -> dict[str, list[int]]:
-    return {name: [u32(value) for value in words] for name, words in deepcopy(case).items()}
+def _copy_memory(memory: dict) -> dict[str, list[int]]:
+    return {name: [u32(value) for value in words] for name, words in deepcopy(memory).items()}
 
 
 def _evaluate(opcode: str, args: list, operation: dict, memory: dict):

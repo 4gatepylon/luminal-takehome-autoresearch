@@ -37,6 +37,20 @@ Buffers are JSONL with one single-entry object per buffer. Cases are JSONL with
 one complete case object per line. Cases use the original JSON buffer names,
 including when the program uses aliases.
 
+The same optional expected-output policy as JSON is supported, on one line:
+
+```json
+{"inputs":{"a":[1,1,1,1,1,1,1,1],"out":[0,0,0,0,0,0,0,0]},"expected":{"mode":"agree_with_reference","buffers":{"out":[3,3,3,3,3,3,3,3]}}}
+```
+
+`agree_with_reference` requires the expectation, reference output, and compiled
+output to agree. `ignore_reference` compares compiled output with the expectation
+without running the reference interpreter. Omit `expected` for reference-based
+regression testing. `expected.buffers` must include complete final contents of
+all written buffers; omitted read-only buffers must remain unchanged. Conversion
+preserves each case form exactly, including original buffer names in both
+`inputs` and `expected.buffers`. See [the case contract](../README.md#optional-expected-outputs).
+
 Blank lines and lines whose first non-whitespace character is `#` are ignored
 in every section. Inline comments are unsupported. A `#` inside a JSON string
 is string data. Within the program, all whitespace, including newlines, is

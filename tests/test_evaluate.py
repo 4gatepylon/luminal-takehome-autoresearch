@@ -1,6 +1,7 @@
 """Regression checks for filepath selection and the compiler/grader boundary."""
 
 from io import StringIO
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -9,6 +10,7 @@ from unittest.mock import patch
 
 import evaluate
 import machine
+from tests.test_machine import micro_program
 
 
 class DefaultCompilerTests(unittest.TestCase):
@@ -48,6 +50,24 @@ class EvaluationTests(unittest.TestCase):
         )
         with self.assertRaises(machine.CompileError):
             evaluate.score(compiler_filepath=self.compiler_path)
+
+    def test_sandboxed_compiler_respects_both_expected_output_modes(self) -> None:
+        self.compiler_path.write_text(
+            "import json\nimport sys\nimport machine\n"
+            "json.dump(machine.serial_compile(machine.load_program(sys.argv[1])), sys.stdout)\n"
+        )
+        path = self.compiler_path.with_name("program.json")
+        for mode in ("agree_with_reference", "ignore_reference"):
+            with self.subTest(mode=mode):
+                program = micro_program()
+                expectation = {"mode": mode, "buffers": {"out": [42]}}
+                program["cases"].append({"inputs": {"out": [0]}, "expected": expectation})
+                path.write_text(json.dumps(program))
+                evaluate._compile_and_check(path, self.compiler_path)
+                expectation["buffers"]["out"] = [43]
+                path.write_text(json.dumps(program))
+                with self.assertRaisesRegex(machine.CompileError, "explicit expected output"):
+                    evaluate._compile_and_check(path, self.compiler_path)
 
     def test_failed_tests_prevent_scoring_and_preserve_diagnostics(self) -> None:
         self.compiler_path.write_text("raise RuntimeError('candidate failure detail')\n")

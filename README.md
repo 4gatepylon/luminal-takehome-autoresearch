@@ -328,6 +328,52 @@ Programs use the following JSON shape:
 Operations are listed in SSA dependency order. IDs are consecutive starting at
 zero. Every argument names a result defined by an earlier operation.
 
+### Optional expected outputs
+
+Existing cases are initial-memory maps and use regression testing against the
+reference interpreter. A case can instead wrap its initial memory in `inputs`
+and supply an expected-output policy. For the vector-copy program above:
+
+```json
+{
+  "inputs": {
+    "x": [1, 2, 3, 4, 5, 6, 7, 8],
+    "out": [0, 0, 0, 0, 0, 0, 0, 0]
+  },
+  "expected": {
+    "mode": "agree_with_reference",
+    "buffers": {"out": [1, 2, 3, 4, 5, 6, 7, 8]}
+  }
+}
+```
+
+| Expected-output policy | Correctness check |
+| --- | --- |
+| No `expected` field | Compiled output must equal reference output. |
+| `agree_with_reference` | Supplied expectation, reference output, and compiled output must all agree. |
+| `ignore_reference` | Compiled output must equal the supplied expectation; the reference interpreter is not run. |
+
+`inputs` must contain every declared buffer. `expected.buffers` must specify the
+complete final contents of every buffer targeted by a `store` or `vstore`,
+including unchanged words in partially written buffers. Omitted read-only
+buffers are checked against their initial contents. Full final-memory maps are
+also accepted. Words are normalized modulo `2**32`, just like execution inputs.
+
+`expected` requires exactly `mode` and `buffers`; there is no implicit mode.
+Unknown modes, unknown fields or buffers, missing written buffers, wrong lengths,
+non-integer words (including booleans), and `null` expectations are rejected.
+Omitting `expected` from an `inputs` wrapper retains reference-based testing.
+Legacy cases and either policy can be mixed in one program. Buffer names
+`inputs` and `expected` remain legal: the wrapper has an object-valued `inputs`,
+whereas buffer contents are lists. Both JSON and SSA preserve these forms.
+
+Explicit expectations are intended for independently hand-verified answers,
+including programs that exceed the default serial compiler's scratch capacity.
+The reference interpreter is distinct from that compiler and has no scratch
+allocation limit. Neither mode bypasses schedule validation or provides a
+performance baseline. Existing benchmark cases are unchanged; adding expectations
+to them is separate from support for this format.
+
 ## Memory ordering
 
 Memory ranges are known statically. Loads may reorder freely unless they overlap
@@ -394,8 +440,9 @@ supports scratch reuse. These fixtures do not change the compiler or baseline.
 
 ## Evaluation
 
-Every public and hidden case is interpreted directly from the input IR to
-produce its reference memory image. The frozen grader then validates scratch
+Cases without expected outputs use a reference memory image interpreted from
+the input IR. Explicit expectations follow the policy described above, either
+requiring reference agreement or skipping reference execution. The frozen grader validates scratch
 allocations, dependencies, engine limits, latencies, memory ordering, and final
 memory. Modifying or bypassing the public simulator cannot change hidden results.
 
