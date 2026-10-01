@@ -1,0 +1,97 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Luminal SSA",
+  "scopeName": "source.luminal-ssa",
+  "patterns": [
+    { "include": "#comment" },
+    {
+      "match": "^\\s*(lang)(:)\\s*(ssa-v1)\\s*$",
+      "captures": {
+        "1": { "name": "keyword.other.header.ssa" },
+        "2": { "name": "punctuation.separator.ssa" },
+        "3": { "name": "constant.language.version.ssa" }
+      }
+    },
+    {
+      "begin": "^\\s*(name|aliases|metadata)(:)\\s*",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.header.ssa" },
+        "2": { "name": "punctuation.separator.ssa" }
+      },
+      "end": "$",
+      "patterns": [{ "include": "#json" }]
+    },
+    {
+      "begin": "^\\s*================ BUFFERS ================\\s*$",
+      "beginCaptures": { "0": { "name": "entity.name.section.ssa" } },
+      "end": "(?=^\\s*================ (?:PROGRAM|CASES) ================\\s*$)",
+      "contentName": "meta.buffers.ssa",
+      "patterns": [{ "include": "#comment" }, { "include": "#json" }]
+    },
+    {
+      "begin": "^\\s*================ PROGRAM ================\\s*$",
+      "beginCaptures": { "0": { "name": "entity.name.section.ssa" } },
+      "end": "(?=^\\s*================ CASES ================\\s*$)",
+      "contentName": "meta.program.ssa",
+      "patterns": [{ "include": "#program" }]
+    },
+    {
+      "begin": "^\\s*================ CASES ================\\s*$",
+      "beginCaptures": { "0": { "name": "entity.name.section.ssa" } },
+      "end": "(?!)",
+      "contentName": "meta.cases.ssa",
+      "patterns": [{ "include": "#comment" }, { "include": "#json" }]
+    }
+  ],
+  "repository": {
+    "comment": { "match": "^\\s*#.*$", "name": "comment.line.number-sign.ssa" },
+    "program": {
+      "patterns": [
+        { "include": "#comment" },
+        {
+          "begin": "@",
+          "beginCaptures": { "0": { "name": "punctuation.definition.metadata.ssa" } },
+          "end": "(?<=\\})",
+          "patterns": [{ "include": "#comment" }, { "include": "#json" }]
+        },
+        { "match": "\\b(if|else)\\b", "name": "keyword.control.conditional.ssa" },
+        { "match": "\\b(buff|const)\\b", "name": "support.function.builtin.ssa" },
+        { "match": "\\.\\.\\.|<<|>>|==|[=+*^&|<\\-]", "name": "keyword.operator.ssa" },
+        { "match": "\\b[0-9]+\\b", "name": "constant.numeric.integer.ssa" },
+        { "match": "[_\\p{XID_Start}][\\p{XID_Continue}]*", "name": "variable.other.ssa" },
+        { "match": "[\\[\\]{}()]", "name": "punctuation.section.ssa" },
+        { "match": ":", "name": "punctuation.separator.slice.ssa" },
+        { "match": "#.*$", "name": "invalid.illegal.inline-comment.ssa" },
+        { "match": "[^\\s]", "name": "invalid.illegal.ssa" }
+      ]
+    },
+    "json": {
+      "patterns": [
+        {
+          "begin": "\\{",
+          "beginCaptures": { "0": { "name": "punctuation.definition.dictionary.begin.json" } },
+          "end": "\\}",
+          "endCaptures": { "0": { "name": "punctuation.definition.dictionary.end.json" } },
+          "patterns": [{ "include": "#json" }]
+        },
+        {
+          "begin": "\\[",
+          "beginCaptures": { "0": { "name": "punctuation.definition.array.begin.json" } },
+          "end": "\\]",
+          "endCaptures": { "0": { "name": "punctuation.definition.array.end.json" } },
+          "patterns": [{ "include": "#json" }]
+        },
+        {
+          "begin": "\"",
+          "end": "\"",
+          "name": "string.quoted.double.json",
+          "patterns": [{ "match": "\\\\(?:[\"\\\\/bfnrt]|u[0-9a-fA-F]{4})", "name": "constant.character.escape.json" }]
+        },
+        { "match": "-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?", "name": "constant.numeric.json" },
+        { "match": "\\b(true|false|null)\\b", "name": "constant.language.json" },
+        { "match": "[:,]", "name": "punctuation.separator.json" },
+        { "match": "[^\\s]", "name": "invalid.illegal.json" }
+      ]
+    }
+  }
+}

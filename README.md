@@ -13,6 +13,21 @@ The starter compiler is deliberately simple and serial. It is correct for all
 supported programs, so you can improve it incrementally and measure every
 change.
 
+## Readable program files
+
+Each public JSON program has a matching `.ssa` file in `programs/` for reading,
+editing, and debugging. Convert in either direction from the repository root:
+
+```sh
+PYTHONPATH="$PWD" python3 -B program_ssa.py to-ssa programs/03_vector_axpy.json -o example.ssa
+PYTHONPATH="$PWD" python3 -B program_ssa.py to-json example.ssa -o example.json
+```
+
+The converter preserves the complete program JSON data, including cases and
+extra metadata. See [the format and CLI guide](docs/program-ssa.md) for syntax,
+round-trip guarantees, and tests. [The VS Code extension](vscode/ssa/README.md)
+adds syntax highlighting for `.ssa` files.
+
 ## Candidate task
 
 Implement scheduling and scratch allocation in `compile_program()` in `work/compiler.py`.

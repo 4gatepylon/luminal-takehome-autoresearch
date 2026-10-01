@@ -1,9 +1,15 @@
 PYTHON ?= python3
 PYTHON_BIN ?= $(PYTHON)
 
-.PHONY: test test-compiler score eval format
+.PHONY: test test-compiler test-ssa test-ssa-highlighting score eval format
 
-test: test-compiler
+test: test-compiler test-ssa
+
+test-ssa:
+	PYTHONPATH="$(CURDIR)" $(PYTHON_BIN) -B -m unittest tests.test_program_ssa -v
+
+test-ssa-highlighting:
+	npm test --prefix vscode/ssa
 
 test-compiler:
 	$(PYTHON_BIN) -B evaluate.py test
