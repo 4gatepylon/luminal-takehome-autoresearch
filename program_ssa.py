@@ -390,13 +390,56 @@ def parse_program(source: str) -> dict:
     return program
 
 
+def regenerate_programs(directory: Path, *, clobber: bool = False) -> tuple[int, int]:
+    """Generate companions after preflight; return (files written, unchanged)."""
+    if not directory.is_dir():
+        raise SSAError(f"not a program directory: {directory}")
+    paths = sorted(path for path in directory.rglob("*.json") if path.is_file())
+    if not paths:
+        raise SSAError(f"no JSON programs found in {directory}")
+
+    pending: list[tuple[Path, bytes]] = []
+    unchanged = 0
+    for path in paths:
+        try:
+            source = format_program(_json(path.read_text(encoding="utf-8"), 1)).encode("utf-8")
+            output = path.with_suffix(".ssa")
+            if output.exists() or output.is_symlink():
+                if output.read_bytes() == source:
+                    unchanged += 1
+                    continue
+                if not clobber:
+                    raise SSAError(f"{output} exists and differs from generated SSA; rerun with --clobber to overwrite")
+            pending.append((output, source))
+        except (OSError, ValueError, TypeError, KeyError) as error:
+            raise SSAError(f"{path}: {error}") from error
+
+    # Validate the entire batch before writing, including when clobbering.
+    for output, source in pending:
+        # Exclusive creation prevents overwriting a file created after preflight.
+        with output.open("wb" if clobber else "xb") as handle:
+            handle.write(source)
+    return len(pending), unchanged
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("to-ssa", "to-json"))
-    parser.add_argument("input", type=Path)
-    parser.add_argument("-o", "--output", type=Path, help="output file (default: stdout); SSA files must end in .ssa")
+    commands = parser.add_subparsers(dest="command", required=True)
+    for command in ("to-ssa", "to-json"):
+        convert = commands.add_parser(command, help=f"convert one file {command}")
+        convert.add_argument("input", type=Path)
+        convert.add_argument("-o", "--output", type=Path, help="output file (default: stdout); SSA files must end in .ssa")
+    regenerate = commands.add_parser("regenerate", help="generate .ssa companions for every JSON program in a directory")
+    regenerate.add_argument(
+        "input", type=Path, nargs="?", default=Path("programs"), metavar="directory", help="directory to search recursively (default: programs)"
+    )
+    regenerate.add_argument("--clobber", action="store_true", help="overwrite existing .ssa files that differ from generated output")
     args = parser.parse_args(argv)
     try:
+        if args.command == "regenerate":
+            written, unchanged = regenerate_programs(args.input, clobber=args.clobber)
+            print(f"Wrote {written} SSA file(s); {unchanged} already up to date.")
+            return 0
         if args.command == "to-ssa" and args.output and args.output.suffix != ".ssa":
             raise SSAError("SSA output files must end in .ssa")
         if args.command == "to-json" and args.input.suffix != ".ssa":

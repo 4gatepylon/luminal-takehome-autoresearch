@@ -23,6 +23,19 @@ PYTHONPATH="$PWD" python3 -B program_ssa.py to-ssa programs/03_vector_axpy.json 
 PYTHONPATH="$PWD" python3 -B program_ssa.py to-json example.ssa -o example.json
 ```
 
+Regenerate every `.ssa` companion with:
+
+```sh
+PYTHONPATH="$PWD" python3 -B program_ssa.py regenerate
+# Explicitly replace existing files that differ from generated output:
+PYTHONPATH="$PWD" python3 -B program_ssa.py regenerate --clobber
+```
+
+Matching files are left untouched. Without `--clobber`, any differing file
+causes an error before any files are written; missing companions are created
+only after all programs pass validation. The command searches `programs/`
+recursively, or an optional directory argument.
+
 The converter preserves the complete program JSON data, including cases and
 extra metadata. Evaluation (`test`, `score`, and `eval`) checks that every JSON
 program has a matching `.ssa` file and that its decoded data equals the JSON

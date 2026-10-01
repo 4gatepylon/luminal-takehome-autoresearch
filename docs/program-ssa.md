@@ -139,6 +139,26 @@ end in `.ssa`. Parse and validation errors go to stderr, return exit code 1,
 and include source-line context where available. Conversion finishes before
 the output file is opened, so invalid input does not overwrite existing output.
 
+### Regenerating all companions
+
+```sh
+PYTHONPATH="$PWD" python3 -B program_ssa.py regenerate
+PYTHONPATH="$PWD" python3 -B program_ssa.py regenerate --clobber
+# An optional directory replaces the default programs/ search root:
+PYTHONPATH="$PWD" python3 -B program_ssa.py regenerate path/to/programs --clobber
+```
+
+The command searches recursively for `.json` programs and generates companions
+beside them. Existing files are compared byte-for-byte with canonical generated
+SSA, including whitespace, comments, and line endings. Matching files are never
+rewritten, and an entirely up-to-date directory exits successfully without writes.
+Without `--clobber`, a differing file produces an error with its path and leaves
+the entire batch untouched. With `--clobber`, differing files are replaced.
+Missing companions are created in either mode, after all input programs and
+existing outputs have been checked. Invalid input, an empty directory, or a
+missing directory is an error. Preflight failures cause no writes; filesystem
+errors during writing can leave earlier files in the batch written.
+
 ```python
 from program_ssa import format_program, parse_program
 
@@ -169,7 +189,8 @@ decoded data mismatch fail evaluation, including for programs whose compiler
 failure is expected. This comparison covers the full program, including cases
 and metadata; SSA whitespace and comments do not affect it. Evaluation does not
 regenerate or repair files automatically. After changing a JSON fixture, use
-`to-ssa` to update its companion file. Integration tests cover each entry point
+`regenerate --clobber` to update its companions, or `to-ssa` for a single file.
+Integration tests cover each entry point
 and verify that failed checks prevent compiler execution.
 
 The highlighting tests use VS Code's TextMate tokenizer and Oniguruma engine to
