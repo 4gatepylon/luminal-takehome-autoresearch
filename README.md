@@ -98,7 +98,7 @@ special-case public filenames, operation IDs, or constants will not generalize.
 On macOS, install Graphviz once with `brew install graphviz`, then run from the repository root:
 
 ```sh
-PYTHONPATH="$PWD" python3 -B visualize_ssa.py programs/03_vector_axpy.json -o axpy.svg
+PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag programs/03_vector_axpy.json -o axpy.svg
 open -a Safari axpy.svg
 ```
 
@@ -108,22 +108,34 @@ boxes are vectors. Small operation junctions connect inputs to results, with
 operand numbers at incoming arrows. Orange nodes show memory loads and stores.
 Hover over operations for their opcode, ID, and latency.
 
-Rows follow topological dataflow depth, computed by `lib/dag.py`. They do not
+Rows follow topological dataflow depth, computed internally by the package. They do not
 represent scheduled cycles, and this MVP omits memory-order dependencies.
 The tool reads JSON without executing the program or candidate compiler.
+
+The package exports only `program_dot(validated_program) -> str` for Python callers:
+
+```python
+from machine import load_program
+from visualize_ssa_as_dag import program_dot
+
+dot_source = program_dot(load_program("programs/03_vector_axpy.json"))
+```
+
+Topological sorting, DOT formatting, Graphviz execution, and CLI handling live in
+separate private modules inside `visualize_ssa_as_dag/`.
 
 Generate all public diagrams in the workspace's ignored context directory:
 
 ```sh
 mkdir -p .context/ssa
 for program in programs/*.json; do
-  PYTHONPATH="$PWD" python3 -B visualize_ssa.py "$program" \
+  PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag "$program" \
     -o ".context/ssa/$(basename "${program%.json}").svg"
 done
 ```
 
 Run the graph tests with
-`PYTHONPATH="$PWD" python3 -B -m unittest tests.test_dag tests.test_visualize_ssa`.
+`PYTHONPATH="$PWD" python3 -B -m unittest discover -s tests/visualize_ssa_as_dag -t .`.
 
 ## Machine model
 

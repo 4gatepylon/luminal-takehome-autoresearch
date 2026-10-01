@@ -7,7 +7,7 @@ import unittest
 import xml.etree.ElementTree as ET
 
 from machine import load_program
-from visualize_ssa import program_dot
+from visualize_ssa_as_dag import program_dot
 
 
 @unittest.skipUnless(shutil.which("dot"), "Graphviz is not installed")

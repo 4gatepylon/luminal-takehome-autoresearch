@@ -1,31 +1,25 @@
-#!/usr/bin/env python3
-"""Render a program's SSA values and operation junctions as a Graphviz SVG."""
+"""Build DOT diagrams from validated SSA programs."""
 
-import argparse
 import json
-from pathlib import Path
-import shutil
-import subprocess
-import sys
 
-from lib.dag import topological_layers
-from machine import OP_SPECS, ProgramError, load_program, memory_width, producer_map
+from machine import OP_SPECS, memory_width, producer_map
+from visualize_ssa_as_dag._topology import topological_layers
 
 
-SYMBOLS = {
+_SYMBOLS = {
     "add": "+", "sub": "−", "mul": "×", "xor": "⊕", "and": "&",
     "or": "|", "shl": "≪", "shr": "≫", "eq": "=", "lt": "<",
     "select": "select", "splat": "splat",
 }
-COLORS = {"scalar": "#dbeafe", "vector": "#dcfce7"}
+_COLORS = {"scalar": "#dbeafe", "vector": "#dcfce7"}
 
 
-def quote(text: str) -> str:
+def _quote(text: str) -> str:
     """Quote literal DOT strings, including backslashes in SSA names."""
     return json.dumps(text, ensure_ascii=False)
 
 
-def memory_label(operation: dict) -> str:
+def _memory_label(operation: dict) -> str:
     start = operation["offset"]
     width = memory_width(operation)
     index = str(start) if width == 1 else f"{start}:{start + width}"
@@ -47,13 +41,18 @@ def program_dot(program: dict) -> str:
         for arg in operation.get("args", [])
     ]
     layers = topological_layers([op["id"] for op in operations], dependencies)
+    title = (
+        f"{program['name']}\n"
+        "SSA dataflow · blue: scalar · green: vector · orange: memory\n"
+        "Layers show dependency depth, not cycles; memory ordering omitted"
+    )
     # Bound layout optimization so wide reduction graphs render promptly.
     lines = [
         "digraph SSA {",
         '  graph [rankdir=TB, bgcolor="white", pad=0.35, nodesep=0.4,',
         '         nslimit=2, nslimit1=2,',
         '         ranksep="0.5 equally", splines=true, fontname="Helvetica",',
-        f'         labelloc=t, fontsize=18, label={quote(program["name"] + chr(10) + "SSA dataflow · blue: scalar · green: vector · orange: memory" + chr(10) + "Layers show dependency depth, not cycles; memory ordering omitted")}];',
+        f"         labelloc=t, fontsize=18, label={_quote(title)}];",
         '  node [fontname="Helvetica", fontsize=12, color="#64748b", penwidth=1.2];',
         '  edge [color="#64748b", arrowsize=0.65, fontname="Helvetica", fontsize=9];',
     ]
@@ -65,28 +64,29 @@ def program_dot(program: dict) -> str:
         if opcode == "const":
             label = f"const {operation['value']}"
         elif "buffer" in operation:
-            label = f"{opcode} {memory_label(operation)}"
+            label = f"{opcode} {_memory_label(operation)}"
         else:
             scalar_opcode = opcode[1:] if opcode.startswith("v") else opcode
-            label = SYMBOLS.get(scalar_opcode, opcode)
+            label = _SYMBOLS.get(scalar_opcode, opcode)
         memory = "buffer" in operation
         lines.append(
-            f"  op{op_id} [label={quote(label)}, tooltip={quote(tooltip)}, "
+            f"  op{op_id} [label={_quote(label)}, tooltip={_quote(tooltip)}, "
             f'shape={"box" if memory or opcode == "const" else "ellipse"}, '
             f'style="filled,rounded", fillcolor="{"#ffedd5" if memory else "#f1f5f9"}"];'
         )
         if kind is not None:
             label = f"{operation['dest']}\n{'u32 × 8' if kind == 'vector' else 'u32'}"
             lines.append(
-                f"  v{op_id} [label={quote(label)}, shape=box, "
-                f'style="filled,rounded", fillcolor="{COLORS[kind]}"];'
+                f"  v{op_id} [label={_quote(label)}, shape=box, "
+                f'style="filled,rounded", fillcolor="{_COLORS[kind]}"];'
             )
             lines.append(f"  op{op_id} -> v{op_id};")
         for index, arg in enumerate(operation.get("args", [])):
             # Keep repeated operands as distinct edges; order matters for select/sub.
+            tooltip = _quote(f"{arg} (operand {index + 1})")
             lines.append(
                 f"  v{producers[arg]} -> op{op_id} "
-                f'[headlabel="{index + 1}", tooltip={quote(arg + " (operand " + str(index + 1) + ")")}];'
+                f'[headlabel="{index + 1}", tooltip={tooltip}];'
             )
 
     for layer in layers:
@@ -96,37 +96,3 @@ def program_dot(program: dict) -> str:
             lines.append("  { rank=same; " + "; ".join(values) + "; }")
     lines.append("}")
     return "\n".join(lines) + "\n"
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("program", type=Path, help="program JSON in this repository's SSA format")
-    parser.add_argument("-o", "--output", type=Path, help="output .svg or .dot (default: <program>.svg)")
-    args = parser.parse_args()
-    output = args.output or args.program.with_suffix(".svg")
-    if output.suffix.lower() not in {".svg", ".dot"}:
-        parser.error("output must have an .svg or .dot extension")
-    dot_path = output.with_suffix(".dot")
-    if args.program.resolve() in {output.resolve(), dot_path.resolve()}:
-        parser.error("output must not overwrite the input program")
-    try:
-        source = program_dot(load_program(args.program))
-        if output.suffix.lower() == ".svg":
-            dot = shutil.which("dot")
-            if dot is None:
-                raise ValueError("Graphviz is required: on macOS, brew install graphviz (or use -o graph.dot)")
-            rendered = subprocess.run(
-                [dot, "-Tsvg"], input=source, text=True, capture_output=True,
-                check=True, timeout=30,
-            ).stdout
-            output.write_text(rendered, encoding="utf-8")
-        dot_path.write_text(source, encoding="utf-8")
-    except (OSError, ValueError, ProgramError, subprocess.SubprocessError) as exc:
-        print(f"visualize_ssa: {exc}", file=sys.stderr)
-        return 1
-    print(f"Wrote {output}" + (f" and {dot_path}" if output != dot_path else ""))
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -2,7 +2,7 @@
 
 import unittest
 
-from lib.dag import topological_layers
+from visualize_ssa_as_dag._topology import topological_layers
 
 
 class TopologicalLayersTests(unittest.TestCase):
