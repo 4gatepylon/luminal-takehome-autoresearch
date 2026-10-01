@@ -13,6 +13,23 @@ The starter compiler is deliberately simple and serial. It handles programs
 01–17, 20–23, and 27–29; programs 18–19 and 24–26 intentionally exceed its scratch allocation
 capacity and require scratch reuse. You can improve the compiler incrementally.
 
+## Readable program files
+
+Each public JSON program has a matching `.ssa` file in `programs/` for reading,
+editing, and debugging. Convert in either direction from the repository root:
+
+```sh
+PYTHONPATH="$PWD" python3 -B program_ssa.py to-ssa programs/03_vector_axpy.json -o example.ssa
+PYTHONPATH="$PWD" python3 -B program_ssa.py to-json example.ssa -o example.json
+```
+
+The converter preserves the complete program JSON data, including cases and
+extra metadata. Evaluation (`test`, `score`, and `eval`) checks that every JSON
+program has a matching `.ssa` file and that its decoded data equals the JSON
+exactly before running any compiler. See [the format and CLI guide](docs/program-ssa.md) for syntax,
+round-trip guarantees, and tests. [The VS Code extension](vscode/ssa/README.md)
+adds syntax highlighting for `.ssa` files.
+
 ## Candidate task
 
 Implement scheduling and scratch allocation in `compile_program()` in `work/compiler.py`.

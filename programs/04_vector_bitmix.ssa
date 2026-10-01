@@ -1,0 +1,26 @@
+lang: ssa-v1
+name: "vector_bitmix"
+
+================ BUFFERS ================
+{"data":16}
+{"mask":16}
+{"out":16}
+
+================ PROGRAM ================
+shift = const(5)
+vshift = ...shift
+data0 = buff[data][0:8]
+mask0 = buff[mask][0:8]
+data1 = buff[data][8:16]
+mask1 = buff[mask][8:16]
+mixed0 = data0 ^ mask0
+mixed1 = data1 ^ mask1
+shifted0 = mixed0 << vshift
+shifted1 = mixed1 << vshift
+result0 = shifted0 + data0
+result1 = shifted1 + data1
+buff[out][0:8] = result0
+buff[out][8:16] = result1
+
+================ CASES ================
+{"data":[3,5,8,13,21,34,55,89,144,233,377,610,987,1597,2584,4181],"mask":[4294967295,0,17,31,63,127,255,511,1023,2047,4095,8191,16383,32767,65535,131071],"out":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}

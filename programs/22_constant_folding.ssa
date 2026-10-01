@@ -1,0 +1,28 @@
+lang: ssa-v1
+name: "constant_folding"
+
+================ BUFFERS ================
+{"alpha":1}
+{"out":1}
+
+================ PROGRAM ================
+x = const(3)
+y = const(4)
+z = x * y
+a = const(6)
+b = const(9)
+c = a * b
+t = c + z
+alpha0 = buff[alpha][0]
+beta = alpha0 * t
+buff[out][0] = beta
+
+================ CASES ================
+{"alpha":[0],"out":[99]}
+{"alpha":[1],"out":[99]}
+{"alpha":[3],"out":[99]}
+{"alpha":[65075262],"out":[99]}
+{"alpha":[65075263],"out":[99]}
+{"alpha":[2147483648],"out":[99]}
+{"alpha":[2147483649],"out":[99]}
+{"alpha":[4294967295],"out":[99]}

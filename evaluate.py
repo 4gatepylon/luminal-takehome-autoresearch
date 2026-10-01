@@ -17,6 +17,7 @@ from typing import Any, Final, TextIO
 import unittest
 
 import machine
+from program_ssa import parse_program
 from sandbox import run_in_sandbox
 
 
@@ -81,6 +82,19 @@ def _identify_program_groups(program_paths: list[Path], program_groups: Mapping[
     return groups
 
 
+def _validate_ssa_equivalents(program_paths: list[Path]) -> None:
+    """Require a matching SSA file for every JSON program, before compilation."""
+    for program_path in program_paths:
+        ssa_path = program_path.with_suffix(".ssa")
+        try:
+            program = machine.load_program(program_path)
+            restored = parse_program(ssa_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            raise ValueError(f"{program_path}: cannot validate SSA equivalent {ssa_path}: {error}") from error
+        if restored != program:
+            raise ValueError(f"{ssa_path}: decoded program does not exactly match {program_path}")
+
+
 def _compile_and_check(program_path: Path, compiler_filepath: str | Path) -> tuple[dict[str, Any], dict[str, Any], int]:
     """Run one compiler CLI with a 20-second limit and validate its JSON in the parent."""
     program = machine.load_program(program_path)
@@ -107,6 +121,7 @@ class PublicProgramTests(unittest.TestCase):
     def test_compiler_on_all_public_programs(self) -> None:
         program_paths = sorted(PROGRAM_DIR.glob("*.json"))
         self.assertTrue(program_paths, "No public programs found")
+        _validate_ssa_equivalents(program_paths)
         for program_path in program_paths:
             with self.subTest(program=program_path.name):
                 _compile_and_check(program_path, self.compiler_filepath)
@@ -149,6 +164,8 @@ def score(*, compiler_filepath: str | Path = COMPILER_PATH, program_dir: Path = 
     """Evaluate each program once, enforce its expected outcome, and report overlapping groups."""
     program_paths = sorted(path for path in program_dir.glob("*.json") if path.is_file())
     groups = _identify_program_groups(program_paths, program_groups)
+    # Keep data-integrity failures outside the expected compiler-failure handling.
+    _validate_ssa_equivalents(program_paths)
     results: dict[str, tuple[float, float]] = {}
     if verbose:
         print("Luminal Compiler Take Home — compiler engineering public benchmark")
