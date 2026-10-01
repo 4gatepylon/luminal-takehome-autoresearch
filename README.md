@@ -181,7 +181,7 @@ provably disjoint ranges may reorder.
 
 ## Program descriptions
 
-> WARNING: these are AI-generated and only lightly-reviewed (i.e. a human reviewed 1-3 of them uniformly at random). You should carefully confirm them with the code.
+> WARNING: these descriptions are AI-generated and only lightly-reviewed (i.e. a human reviewed 1-3 of them uniformly at random). You should carefully confirm them with the code.
 
 The public programs below cover scalar and vector dependency chains, memory
 traffic, and inputs for optimization experiments. All arithmetic wraps modulo
@@ -232,6 +232,8 @@ serial baseline, which allocate separate storage for every result. Consequently,
 the default public correctness suite fails on these programs, and full-suite
 scoring requires a baseline allocation change even after the candidate compiler
 supports scratch reuse. These fixtures do not change the compiler or baseline.
+
+> NOTE: programs 1-8 inclusive are the original ones. The others were made by Adriano + AI (often with relatively minimal review, since we can regression-test on the original compiler anyways).
 
 ## Evaluation
 
