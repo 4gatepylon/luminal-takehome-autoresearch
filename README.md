@@ -45,25 +45,13 @@ make score  # public benchmark
 make eval   # tests, then score only if tests pass
 ```
 
-`make score` requires exactly 29 program files. `evaluate.py` lists the exact
-filenames of the original eight programs and the five expected failures
-(18–19 and 24–26); all of those files must be present. The original programs
-must succeed and cannot also be labeled as expected failures.
-
-Each program is compiled and evaluated once. Expected failures print `ERROR`;
-an unexpected success or a failure in any other program raises an error.
-Groups only select programs for reporting; each program's expected outcome is
-independent of its group membership. The all-programs group includes both
-successful programs and expected failures, and the original eight form an
-overlapping group. Each group's geometric-mean speedup, scratch reduction, and
-combined score use only its successful programs, with a success count shown.
-The command succeeds only when every outcome matches its expectation.
-`make test` and `make eval` retain their correctness checks and diagnostics.
-
-Add named breakdowns such as `io_heavy` to `PROGRAM_GROUPS` in `evaluate.py`,
-or pass a mapping of names to filename sets through `score(program_groups=...)`.
-The all-programs summary is automatic. Every group member must exist, and adding
-groups reuses the same evaluation results without recompiling programs.
+`make score` expects programs 18–19 and 24–26 to fail; their exact filenames, the
+original eight, and group membership are documented in `evaluate.py`.
+The overlapping `original`, `load_heavy`, and `algebraic_simplification` groups
+provide performance breakdowns, with geometric means over non-failing programs
+and expected failures excluded from every group, including the overall aggregate.
+Each program is evaluated once, failures are reported and counted, and unexpected
+outcomes, missing required files, or a program count other than 29 raise an error.
 
 The same functions are available from Python:
 

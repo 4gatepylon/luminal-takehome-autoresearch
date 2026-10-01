@@ -40,15 +40,25 @@ EXPECTED_FAILURE_PROGRAM_FILENAMES: Final[frozenset[str]] = frozenset({
     "25_sum_217_vectors.json",
     "26_sum_31_vectors.json",
 })
-# Reporting groups may overlap and contain both expected successes and failures.
+# Reporting groups overlap; expected failures are excluded from every group.
 PROGRAM_GROUPS: Final[Mapping[str, frozenset[str]]] = {
-    "original programs 1-8": ORIGINAL_PROGRAM_FILENAMES,
+    "original": ORIGINAL_PROGRAM_FILENAMES,
+    # At least eight memory loads, accounting for at least one third of operations.
+    "load_heavy": frozenset({
+        "06_parallel_memory.json", "07_scalar_selects.json", "08_vector_reduction.json",
+        "20_vectorization_factoring.json", "21_scalar_vector_sum.json",
+        "27_sum_17_scalars.json", "28_sum_16_scalars.json", "29_sum_64_scalars.json",
+    }),
+    # Repeated expressions, constant folding, identities, and distributive factoring.
+    "algebraic_simplification": frozenset({
+        "10_repeated_addition.json", "11_repeated_multiplication.json", "12_algebraic_associativity.json",
+        "13_constant_condition.json", "15_power_of_two_multiplication.json", "16_algebraic_identities.json",
+        "17_non_power_of_two_factoring.json", "20_vectorization_factoring.json", "22_constant_folding.json",
+    }),
 }
 
 
-def _identify_program_groups(
-    program_paths: list[Path], program_groups: Mapping[str, Set[str]],
-) -> dict[str, frozenset[str]]:
+def _identify_program_groups(program_paths: list[Path], program_groups: Mapping[str, Set[str]]) -> dict[str, frozenset[str]]:
     """Validate program expectations and inventory, then define reporting groups."""
     filenames = frozenset(path.name for path in program_paths)
     # The original eight programs are individually required to succeed.
@@ -60,14 +70,14 @@ def _identify_program_groups(
         raise ValueError(f"Missing required programs: {', '.join(sorted(missing))}")
     if len(program_paths) != EXPECTED_PROGRAM_COUNT:
         raise ValueError(f"Expected {EXPECTED_PROGRAM_COUNT} program files, found {len(program_paths)}")
-    groups = {"all programs": filenames}
+    groups = {"all programs": filenames - EXPECTED_FAILURE_PROGRAM_FILENAMES}
     for group_name, members in program_groups.items():
         if group_name == "all programs":
             raise ValueError("The 'all programs' group is automatic and cannot be redefined")
         missing = members - filenames
         if missing:
             raise ValueError(f"Group {group_name!r} references missing programs: {', '.join(sorted(missing))}")
-        groups[group_name] = frozenset(members)
+        groups[group_name] = frozenset(members) - EXPECTED_FAILURE_PROGRAM_FILENAMES
     return groups
 
 
@@ -109,22 +119,17 @@ def test(*, compiler_filepath: str | Path = COMPILER_PATH, verbosity: int = 2, s
     return unittest.TextTestRunner(stream=stream, verbosity=verbosity).run(suite)
 
 
-def _aggregate_scores(speedups: list[float], reductions: list[float]) -> dict[str, float] | None:
+def _aggregate_scores(results: list[tuple[float, float]]) -> dict[str, float] | None:
     """Compute geometric means over a successful subset, or None if it is empty."""
-    if not speedups:
+    if not results:
         return None
+    reductions, speedups = zip(*results)
     cycle_mean = math.prod(speedups) ** (1 / len(speedups))
     scratch_mean = math.prod(reductions) ** (1 / len(reductions))
-    return {
-        "cycle_speedup": cycle_mean,
-        "scratch_reduction": scratch_mean,
-        "combined_score": math.sqrt(cycle_mean * scratch_mean),
-    }
+    return dict(cycle_speedup=cycle_mean, scratch_reduction=scratch_mean, combined_score=math.sqrt(cycle_mean * scratch_mean))
 
 
-def _calculate_reduction_and_speedup(
-    program_path: Path, compiler_filepath: str | Path, *, verbose: bool = False,
-) -> tuple[float, float]:
+def _calculate_reduction_and_speedup(program_path: Path, compiler_filepath: str | Path, *, verbose: bool = False) -> tuple[float, float]:
     """Compile and validate once, then return scratch reduction and cycle speedup."""
     program, compilation, cycles = _compile_and_check(program_path, compiler_filepath)
     baseline_compilation = machine.serial_compile(program)
@@ -138,16 +143,10 @@ def _calculate_reduction_and_speedup(
     return reduction, speedup
 
 
-def score(
-    *, compiler_filepath: str | Path = COMPILER_PATH, program_dir: Path = PROGRAM_DIR,
+def score(*, compiler_filepath: str | Path = COMPILER_PATH, program_dir: Path = PROGRAM_DIR,
     verbose: bool = False, program_groups: Mapping[str, Set[str]] = PROGRAM_GROUPS,
 ) -> dict[str, float]:
-    """Enforce per-program outcomes and return metrics for all successful programs.
-
-    program_groups maps reporting labels to exact filename sets. Groups may
-    overlap and mix expected outcomes; verbose output reports each separately.
-    The all-programs summary is always included. Each program is evaluated once.
-    """
+    """Evaluate each program once, enforce its expected outcome, and report overlapping groups."""
     program_paths = sorted(path for path in program_dir.glob("*.json") if path.is_file())
     groups = _identify_program_groups(program_paths, program_groups)
     results: dict[str, tuple[float, float]] = {}
@@ -160,25 +159,26 @@ def score(
         try:
             result = _calculate_reduction_and_speedup(program_path, compiler_filepath, verbose=verbose)
         except (ValueError, subprocess.TimeoutExpired):
-            if not must_fail:
-                raise
             if verbose:
                 print(f"{program_path.name:40} {'ERROR':>8}")
+            if not must_fail:
+                raise
         else:
             if must_fail:
                 raise ValueError(f"{program_path.name}: expected failure, but evaluation succeeded")
             results[program_path.name] = result
 
-    group_metrics: dict[str, dict[str, float]] = {}
+    group_metrics = {
+        name: _aggregate_scores([results[filename] for filename in sorted(members) if filename in results])
+        for name, members in groups.items()
+    }
     if verbose:
         print("-" * 99)
-    for group_name, filenames in groups.items():
-        subset = [results[name] for name in sorted(filenames) if name in results]
-        metrics = _aggregate_scores([speedup for _, speedup in subset], [reduction for reduction, _ in subset])
-        if metrics is not None:
-            group_metrics[group_name] = metrics
-        if verbose:
-            print(f"{group_name} ({len(subset)}/{len(filenames)} successful):")
+        failures = len(program_paths) - len(results)
+        if failures:
+            print(f"{failures} program(s) failed; excluded from all scores.")
+        for group_name, metrics in group_metrics.items():
+            print(f"{group_name} ({len(groups[group_name])} successful programs):")
             if metrics is None:
                 print("  Score unavailable: no successful programs.")
             else:
