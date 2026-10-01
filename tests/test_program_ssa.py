@@ -62,14 +62,19 @@ class RoundTripTests(unittest.TestCase):
         return source
 
     def test_every_existing_json_program_and_checked_in_ssa(self) -> None:
-        paths = sorted(Path("programs").rglob("*.json"))
+        paths = sorted(Path("programs/json").glob("*.json"))
         self.assertTrue(paths, "no existing programs were tested")
+        self.assertEqual(
+            {path.stem for path in paths},
+            {path.stem for path in Path("programs/ssa").glob("*.ssa")},
+        )
         for path in paths:
             with self.subTest(program=path):
                 original = json.loads(path.read_text(encoding="utf-8"))
                 source = self.assert_round_trip(original)
-                self.assertEqual(path.with_suffix(".ssa").read_text(encoding="utf-8"), source)
-                self.assertEqual(parse_program(path.with_suffix(".ssa").read_text(encoding="utf-8")), original)
+                ssa_path = Path("programs/ssa") / path.with_suffix(".ssa").name
+                self.assertEqual(ssa_path.read_text(encoding="utf-8"), source)
+                self.assertEqual(parse_program(ssa_path.read_text(encoding="utf-8")), original)
 
     def test_all_supported_opcodes(self) -> None:
         program = all_opcodes_program()

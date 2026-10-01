@@ -34,7 +34,7 @@ class GalleryTests(unittest.TestCase):
             index.write_text("existing gallery", encoding="utf-8")
             with patch("visualize_ssa_as_dag._gallery.render_svg") as render:
                 with self.assertRaisesRegex(ValueError, "--clobber"):
-                    write_gallery(Path("programs"), output)
+                    write_gallery(Path("programs/json"), output)
                 render.assert_not_called()
             self.assertEqual(index.read_text(encoding="utf-8"), "existing gallery")
             self.assertEqual(list(output.iterdir()), [index])
@@ -53,7 +53,7 @@ class GalleryTests(unittest.TestCase):
             source = root / "programs"
             source.mkdir()
             output = root / "gallery"
-            program = load_program("programs/03_vector_axpy.json")
+            program = load_program("programs/json/03_vector_axpy.json")
             program["name"] = '<script>alert("x")</script> & vectors'
             filename = '01 vector # & "demo".json'
             (source / filename).write_text(json.dumps(program), encoding="utf-8")

@@ -130,7 +130,7 @@ Run from the repository root with Python 3.10+:
 
 ```sh
 export PYTHONPATH="$PWD"
-python3 -B program_ssa.py to-ssa programs/03_vector_axpy.json -o example.ssa
+python3 -B program_ssa.py to-ssa programs/json/03_vector_axpy.json -o example.ssa
 python3 -B program_ssa.py to-json example.ssa -o example.json
 ```
 
@@ -157,8 +157,8 @@ make test-ssa-highlighting
 ```
 
 The Python tests are grouped into round trips, authoring, validation, and CLI
-behavior. They discover every JSON file beneath `programs/`, assert complete
-JSON → SSA → JSON equality, and verify its checked-in `.ssa` counterpart. They
+behavior. They discover every JSON file in `programs/json/`, compare it with
+the matching file in `programs/ssa/`, and assert complete JSON → SSA → JSON equality. They
 also cover every opcode, canonical formatting, multiline statements, edits,
 comments, aliases, escaping, metadata, invalid input, and scalar/vector
 selection semantics. The original JSON fixtures are unchanged.
@@ -171,6 +171,9 @@ and metadata; SSA whitespace and comments do not affect it. Evaluation does not
 regenerate or repair files automatically. After changing a JSON fixture, use
 `to-ssa` to update its companion file. Integration tests cover each entry point
 and verify that failed checks prevent compiler execution.
+
+Custom evaluation inputs follow the same layout: pass the `json/` directory as
+`program_dir`, with matching files in the sibling `ssa/` directory.
 
 The highlighting tests use VS Code's TextMate tokenizer and Oniguruma engine to
 check every `.ssa` example, syntax scopes, nested JSON metadata, and section

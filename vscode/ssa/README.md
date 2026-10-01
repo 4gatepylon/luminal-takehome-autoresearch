@@ -19,7 +19,7 @@ mkdir -p "$HOME/$VSCODE/extensions"
 ln -s "$PWD/vscode/ssa" "$HOME/$VSCODE/extensions/local.luminal-ssa-0.1.0"
 ```
 
-Then run **Developer: Reload Window** in your editor and open any `programs/*.ssa`
+Then run **Developer: Reload Window** in your editor and open any `programs/ssa/*.ssa`
 file. The language mode should be **Luminal SSA**. This is a local installation;
 it does not publish anything or require installing Node dependencies. Keep the
 repository checkout available while using the symlink. To remove this local
@@ -28,7 +28,7 @@ installation, remove the symlink and reload your editor.
 Alternatively, preview without installing using the VS Code CLI:
 
 ```sh
-code --extensionDevelopmentPath="$PWD/vscode/ssa" "$PWD/programs/03_vector_axpy.ssa"
+code --extensionDevelopmentPath="$PWD/vscode/ssa" "$PWD/programs/ssa/03_vector_axpy.ssa"
 ```
 
 The extension is declarative: no runtime JavaScript, language server, or build

@@ -18,10 +18,14 @@ class EvaluationFormatTests(unittest.TestCase):
         Path(".context").mkdir(exist_ok=True)
         temporary = tempfile.TemporaryDirectory(dir=".context")
         self.addCleanup(temporary.cleanup)
-        self.program_dir = Path(temporary.name)
-        for source in sorted(Path("programs").glob("*.json")):
+        self.program_dir = Path(temporary.name) / "json"
+        self.ssa_dir = Path(temporary.name) / "ssa"
+        self.program_dir.mkdir()
+        self.ssa_dir.mkdir()
+        for source in sorted(Path("programs/json").glob("*.json")):
             copy2(source, self.program_dir / source.name)
-            copy2(source.with_suffix(".ssa"), self.program_dir / source.with_suffix(".ssa").name)
+            ssa_name = source.with_suffix(".ssa").name
+            copy2(Path("programs/ssa") / ssa_name, self.ssa_dir / ssa_name)
 
     def assert_rejected_before_compilation(self, filename: str, message: str) -> None:
         with patch("evaluate.PROGRAM_DIR", self.program_dir), patch("evaluate.run_in_sandbox") as compiler:
@@ -39,16 +43,16 @@ class EvaluationFormatTests(unittest.TestCase):
             compiler.assert_not_called()
 
     def test_every_repository_program_has_an_exact_ssa_equivalent(self) -> None:
-        evaluate._validate_ssa_equivalents(sorted(Path("programs").glob("*.json")))
+        evaluate._validate_ssa_equivalents(sorted(Path("programs/json").glob("*.json")))
 
     def test_missing_ssa_blocks_all_entry_points_before_compilation(self) -> None:
         # Removing the last file verifies that the whole inventory is checked first.
-        path = max(self.program_dir.glob("*.ssa"))
+        path = max(self.ssa_dir.glob("*.ssa"))
         path.unlink()
         self.assert_rejected_before_compilation(path.name, "cannot validate SSA equivalent")
 
     def test_malformed_ssa_blocks_all_entry_points_before_compilation(self) -> None:
-        path = self.program_dir / "01_scalar_pipeline.ssa"
+        path = self.ssa_dir / "01_scalar_pipeline.ssa"
         path.write_text("invalid SSA", encoding="utf-8")
         self.assert_rejected_before_compilation(path.name, "cannot validate SSA equivalent")
 
@@ -72,7 +76,7 @@ class EvaluationFormatTests(unittest.TestCase):
                     next(iter(changed["cases"][0].values()))[0] += 1
                 else:
                     changed["note"] = "extra field"
-                ssa_path = json_path.with_suffix(".ssa")
+                ssa_path = self.ssa_dir / json_path.with_suffix(".ssa").name
                 ssa_path.write_text(format_program(changed), encoding="utf-8")
                 self.assert_rejected_before_compilation(ssa_path.name, "does not exactly match")
 
@@ -81,12 +85,12 @@ class EvaluationFormatTests(unittest.TestCase):
         json_path = self.program_dir / filename
         program = machine.load_program(json_path)
         program["name"] += "_edited"
-        ssa_path = json_path.with_suffix(".ssa")
+        ssa_path = self.ssa_dir / json_path.with_suffix(".ssa").name
         ssa_path.write_text(format_program(program), encoding="utf-8")
         self.assert_rejected_before_compilation(ssa_path.name, "does not exactly match")
 
     def test_comments_and_layout_do_not_change_program_equality(self) -> None:
-        path = self.program_dir / "01_scalar_pipeline.ssa"
+        path = self.ssa_dir / "01_scalar_pipeline.ssa"
         source = path.read_text(encoding="utf-8")
         path.write_text("# handwritten comment\n\n" + source, encoding="utf-8")
         evaluate._validate_ssa_equivalents(sorted(self.program_dir.glob("*.json")))
