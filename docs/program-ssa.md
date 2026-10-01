@@ -161,7 +161,6 @@ The direct CLI is `PYTHONPATH="$PWD" python3 -B -m program.representations.ssa j
 ```sh
 PYTHONPATH="$PWD" make test-ssa
 PYTHONPATH="$PWD" make test
-npm ci --prefix program/visualizations/vscode
 make test-ssa-highlighting
 ```
 
@@ -185,7 +184,8 @@ and verify that failed checks prevent compiler execution.
 Custom evaluation inputs follow the same layout: pass the `json/` directory as
 `program_dir`, with matching files in the sibling `ssa/` directory.
 
-The highlighting tests use VS Code's TextMate tokenizer and Oniguruma engine to
+The highlighting target installs its locked npm test dependencies automatically.
+The tests use VS Code's TextMate tokenizer and Oniguruma engine to
 check every `.ssa` example, syntax scopes, nested JSON metadata, and section
 transitions. The extension and its installation instructions are in
 [`program/visualizations/vscode`](../program/visualizations/vscode/README.md).
