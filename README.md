@@ -24,18 +24,19 @@ PYTHONPATH="$PWD" python3 -B program_ssa.py to-ssa programs/json/03_vector_axpy.
 PYTHONPATH="$PWD" python3 -B program_ssa.py to-json example.ssa -o example.json
 ```
 
-Regenerate every `.ssa` companion with:
+From the repository root:
 
 ```sh
-PYTHONPATH="$PWD" python3 -B program_ssa.py regenerate
-# Explicitly replace existing files that differ from generated output:
-PYTHONPATH="$PWD" python3 -B program_ssa.py regenerate --clobber
+make generate-ssa             # Generate missing SSA files; verify existing files
+make generate-ssa CLOBBER=1   # Replace files that differ from generated output
+make generate-website         # Build the Graphviz/SVG gallery in dag-gallery/
+make setup-cursor             # Install highlighting, then reload Cursor
 ```
 
-Matching files are left untouched. Without `--clobber`, any differing file
-causes an error before any files are written; missing companions are created
-only after all programs pass validation. The command searches `programs/`
-recursively, or an optional directory argument.
+Matching SSA files are untouched; a mismatch stops generation before any writes.
+Website generation requires Graphviz (`brew install graphviz`); open
+`dag-gallery/index.html` afterward, and use `CLOBBER=1` to rebuild an existing
+gallery. Use `make setup-cursor VSCODE=.vscode` to install in VS Code instead.
 
 The converter preserves the complete program JSON data, including cases and
 extra metadata. Evaluation (`test`, `score`, and `eval`) checks that every JSON

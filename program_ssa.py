@@ -391,19 +391,20 @@ def parse_program(source: str) -> dict:
 
 
 def regenerate_programs(directory: Path, *, clobber: bool = False) -> tuple[int, int]:
-    """Generate companions after preflight; return (files written, unchanged)."""
-    if not directory.is_dir():
-        raise SSAError(f"not a program directory: {directory}")
-    paths = sorted(path for path in directory.rglob("*.json") if path.is_file())
+    """Generate json/ inputs into ssa/ after preflight; return (written, unchanged)."""
+    json_directory = directory / "json"
+    if not json_directory.is_dir():
+        raise SSAError(f"not a program JSON directory: {json_directory}")
+    paths = sorted(path for path in json_directory.rglob("*.json") if path.is_file())
     if not paths:
-        raise SSAError(f"no JSON programs found in {directory}")
+        raise SSAError(f"no JSON programs found in {json_directory}")
 
     pending: list[tuple[Path, bytes]] = []
     unchanged = 0
     for path in paths:
         try:
             source = format_program(_json(path.read_text(encoding="utf-8"), 1)).encode("utf-8")
-            output = path.with_suffix(".ssa")
+            output = directory / "ssa" / path.relative_to(json_directory).with_suffix(".ssa")
             if output.exists() or output.is_symlink():
                 if output.read_bytes() == source:
                     unchanged += 1
@@ -416,6 +417,7 @@ def regenerate_programs(directory: Path, *, clobber: bool = False) -> tuple[int,
 
     # Validate the entire batch before writing, including when clobbering.
     for output, source in pending:
+        output.parent.mkdir(parents=True, exist_ok=True)
         # Exclusive creation prevents overwriting a file created after preflight.
         with output.open("wb" if clobber else "xb") as handle:
             handle.write(source)
@@ -431,7 +433,12 @@ def main(argv: list[str] | None = None) -> int:
         convert.add_argument("-o", "--output", type=Path, help="output file (default: stdout); SSA files must end in .ssa")
     regenerate = commands.add_parser("regenerate", help="generate .ssa companions for every JSON program in a directory")
     regenerate.add_argument(
-        "input", type=Path, nargs="?", default=Path("programs"), metavar="directory", help="directory to search recursively (default: programs)"
+        "input",
+        type=Path,
+        nargs="?",
+        default=Path("programs"),
+        metavar="directory",
+        help="root containing json/ inputs and ssa/ outputs (default: programs)",
     )
     regenerate.add_argument("--clobber", action="store_true", help="overwrite existing .ssa files that differ from generated output")
     args = parser.parse_args(argv)

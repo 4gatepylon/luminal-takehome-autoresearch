@@ -139,26 +139,6 @@ end in `.ssa`. Parse and validation errors go to stderr, return exit code 1,
 and include source-line context where available. Conversion finishes before
 the output file is opened, so invalid input does not overwrite existing output.
 
-### Regenerating all companions
-
-```sh
-PYTHONPATH="$PWD" python3 -B program_ssa.py regenerate
-PYTHONPATH="$PWD" python3 -B program_ssa.py regenerate --clobber
-# An optional directory replaces the default programs/ search root:
-PYTHONPATH="$PWD" python3 -B program_ssa.py regenerate path/to/programs --clobber
-```
-
-The command searches recursively for `.json` programs and generates companions
-beside them. Existing files are compared byte-for-byte with canonical generated
-SSA, including whitespace, comments, and line endings. Matching files are never
-rewritten, and an entirely up-to-date directory exits successfully without writes.
-Without `--clobber`, a differing file produces an error with its path and leaves
-the entire batch untouched. With `--clobber`, differing files are replaced.
-Missing companions are created in either mode, after all input programs and
-existing outputs have been checked. Invalid input, an empty directory, or a
-missing directory is an error. Preflight failures cause no writes; filesystem
-errors during writing can leave earlier files in the batch written.
-
 ```python
 from program_ssa import format_program, parse_program
 
@@ -166,6 +146,14 @@ source = format_program(program)
 restored = parse_program(source)
 assert restored == program
 ```
+
+### Regenerating all companions
+
+Run `make generate-ssa` to generate `programs/ssa/` from `programs/json/`.
+Matching files are untouched; missing files are created after validation.
+Any byte-for-byte mismatch stops the batch before writes.
+Use `make generate-ssa CLOBBER=1` to replace differing files.
+The direct CLI is `PYTHONPATH="$PWD" python3 -B program_ssa.py regenerate [directory] [--clobber]`.
 
 ## Verification
 
