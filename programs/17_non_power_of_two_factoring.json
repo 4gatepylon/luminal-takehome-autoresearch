@@ -1,0 +1,112 @@
+{
+  "name": "non_power_of_two_factoring",
+  "buffers": {"x": 32, "scalar_out": 8, "vector_out": 32},
+  "operations": [
+    {"id": 0, "op": "const", "dest": "thirteen", "value": 13},
+    {"id": 1, "op": "const", "dest": "three", "value": 3},
+    {"id": 2, "op": "splat", "dest": "vthirteen", "args": ["thirteen"]},
+    {"id": 3, "op": "splat", "dest": "vthree", "args": ["three"]},
+    {"id": 4, "op": "load", "dest": "x0", "buffer": "x", "offset": 0},
+    {"id": 5, "op": "load", "dest": "x1", "buffer": "x", "offset": 1},
+    {"id": 6, "op": "load", "dest": "x2", "buffer": "x", "offset": 2},
+    {"id": 7, "op": "load", "dest": "x3", "buffer": "x", "offset": 3},
+    {"id": 8, "op": "load", "dest": "x4", "buffer": "x", "offset": 4},
+    {"id": 9, "op": "load", "dest": "x5", "buffer": "x", "offset": 5},
+    {"id": 10, "op": "load", "dest": "x6", "buffer": "x", "offset": 6},
+    {"id": 11, "op": "load", "dest": "x7", "buffer": "x", "offset": 7},
+    {"id": 12, "op": "vload", "dest": "vx0", "buffer": "x", "offset": 0},
+    {"id": 13, "op": "vload", "dest": "vx1", "buffer": "x", "offset": 8},
+    {"id": 14, "op": "vload", "dest": "vx2", "buffer": "x", "offset": 16},
+    {"id": 15, "op": "vload", "dest": "vx3", "buffer": "x", "offset": 24},
+    {"id": 16, "op": "mul", "dest": "thirteen_x0", "args": ["x0", "thirteen"]},
+    {"id": 17, "op": "mul", "dest": "three_x0", "args": ["x0", "three"]},
+    {"id": 18, "op": "mul", "dest": "thirteen_x1", "args": ["x1", "thirteen"]},
+    {"id": 19, "op": "mul", "dest": "three_x1", "args": ["x1", "three"]},
+    {"id": 20, "op": "mul", "dest": "thirteen_x2", "args": ["x2", "thirteen"]},
+    {"id": 21, "op": "mul", "dest": "three_x2", "args": ["x2", "three"]},
+    {"id": 22, "op": "mul", "dest": "thirteen_x3", "args": ["x3", "thirteen"]},
+    {"id": 23, "op": "mul", "dest": "three_x3", "args": ["x3", "three"]},
+    {"id": 24, "op": "mul", "dest": "thirteen_x4", "args": ["x4", "thirteen"]},
+    {"id": 25, "op": "mul", "dest": "three_x4", "args": ["x4", "three"]},
+    {"id": 26, "op": "mul", "dest": "thirteen_x5", "args": ["x5", "thirteen"]},
+    {"id": 27, "op": "mul", "dest": "three_x5", "args": ["x5", "three"]},
+    {"id": 28, "op": "mul", "dest": "thirteen_x6", "args": ["x6", "thirteen"]},
+    {"id": 29, "op": "mul", "dest": "three_x6", "args": ["x6", "three"]},
+    {"id": 30, "op": "mul", "dest": "thirteen_x7", "args": ["x7", "thirteen"]},
+    {"id": 31, "op": "mul", "dest": "three_x7", "args": ["x7", "three"]},
+    {"id": 32, "op": "vmul", "dest": "thirteen_vx0", "args": ["vx0", "vthirteen"]},
+    {"id": 33, "op": "vmul", "dest": "three_vx0", "args": ["vx0", "vthree"]},
+    {"id": 34, "op": "vmul", "dest": "thirteen_vx1", "args": ["vx1", "vthirteen"]},
+    {"id": 35, "op": "vmul", "dest": "three_vx1", "args": ["vx1", "vthree"]},
+    {"id": 36, "op": "vmul", "dest": "thirteen_vx2", "args": ["vx2", "vthirteen"]},
+    {"id": 37, "op": "vmul", "dest": "three_vx2", "args": ["vx2", "vthree"]},
+    {"id": 38, "op": "vmul", "dest": "thirteen_vx3", "args": ["vx3", "vthirteen"]},
+    {"id": 39, "op": "vmul", "dest": "three_vx3", "args": ["vx3", "vthree"]},
+    {"id": 40, "op": "add", "dest": "result0", "args": ["thirteen_x0", "three_x0"]},
+    {"id": 41, "op": "add", "dest": "result1", "args": ["thirteen_x1", "three_x1"]},
+    {"id": 42, "op": "add", "dest": "result2", "args": ["thirteen_x2", "three_x2"]},
+    {"id": 43, "op": "add", "dest": "result3", "args": ["thirteen_x3", "three_x3"]},
+    {"id": 44, "op": "add", "dest": "result4", "args": ["thirteen_x4", "three_x4"]},
+    {"id": 45, "op": "add", "dest": "result5", "args": ["thirteen_x5", "three_x5"]},
+    {"id": 46, "op": "add", "dest": "result6", "args": ["thirteen_x6", "three_x6"]},
+    {"id": 47, "op": "add", "dest": "result7", "args": ["thirteen_x7", "three_x7"]},
+    {"id": 48, "op": "vadd", "dest": "vresult0", "args": ["thirteen_vx0", "three_vx0"]},
+    {"id": 49, "op": "vadd", "dest": "vresult1", "args": ["thirteen_vx1", "three_vx1"]},
+    {"id": 50, "op": "vadd", "dest": "vresult2", "args": ["thirteen_vx2", "three_vx2"]},
+    {"id": 51, "op": "vadd", "dest": "vresult3", "args": ["thirteen_vx3", "three_vx3"]},
+    {"id": 52, "op": "store", "args": ["result0"], "buffer": "scalar_out", "offset": 0},
+    {"id": 53, "op": "store", "args": ["result1"], "buffer": "scalar_out", "offset": 1},
+    {"id": 54, "op": "store", "args": ["result2"], "buffer": "scalar_out", "offset": 2},
+    {"id": 55, "op": "store", "args": ["result3"], "buffer": "scalar_out", "offset": 3},
+    {"id": 56, "op": "store", "args": ["result4"], "buffer": "scalar_out", "offset": 4},
+    {"id": 57, "op": "store", "args": ["result5"], "buffer": "scalar_out", "offset": 5},
+    {"id": 58, "op": "store", "args": ["result6"], "buffer": "scalar_out", "offset": 6},
+    {"id": 59, "op": "store", "args": ["result7"], "buffer": "scalar_out", "offset": 7},
+    {"id": 60, "op": "vstore", "args": ["vresult0"], "buffer": "vector_out", "offset": 0},
+    {"id": 61, "op": "vstore", "args": ["vresult1"], "buffer": "vector_out", "offset": 8},
+    {"id": 62, "op": "vstore", "args": ["vresult2"], "buffer": "vector_out", "offset": 16},
+    {"id": 63, "op": "vstore", "args": ["vresult3"], "buffer": "vector_out", "offset": 24}
+  ],
+  "cases": [
+    {
+      "x": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "scalar_out": [99, 99, 99, 99, 99, 99, 99, 99],
+      "vector_out": [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      "scalar_out": [99, 99, 99, 99, 99, 99, 99, 99],
+      "vector_out": [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+      "scalar_out": [99, 99, 99, 99, 99, 99, 99, 99],
+      "vector_out": [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [0, 1, 2, 3, 268435455, 268435456, 4294967294, 4294967295, 330382098, 330382099, 330382100, 330382101, 1431655764, 1431655765, 1431655766, 1431655767, 2147483647, 2147483648, 2147483649, 2863311530, 65535, 65536, 65537, 16777215, 16777216, 16777217, 536870911, 536870912, 536870913, 1073741823, 1073741824, 1073741825],
+      "scalar_out": [99, 99, 99, 99, 99, 99, 99, 99],
+      "vector_out": [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 134217728, 268435456, 536870912, 1073741824, 2147483648],
+      "scalar_out": [99, 99, 99, 99, 99, 99, 99, 99],
+      "vector_out": [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [4294967294, 4294967293, 4294967291, 4294967287, 4294967279, 4294967263, 4294967231, 4294967167, 4294967039, 4294966783, 4294966271, 4294965247, 4294963199, 4294959103, 4294950911, 4294934527, 4294901759, 4294836223, 4294705151, 4294443007, 4293918719, 4292870143, 4290772991, 4286578687, 4278190079, 4261412863, 4227858431, 4160749567, 4026531839, 3758096383, 3221225471, 2147483647],
+      "scalar_out": [99, 99, 99, 99, 99, 99, 99, 99],
+      "vector_out": [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [2241903809, 1778837931, 3464710496, 1303193990, 4125293655, 1570340887, 1243931546, 750280511, 3290406397, 3028564149, 3024601294, 2320078575, 2840618605, 1195188523, 473142372, 3940602561, 115692582, 1069030695, 1650002322, 3501197581, 3205742961, 1802024078, 1083980018, 3692404330, 2154367047, 3446169948, 1363373343, 2751033102, 3634950245, 2939624839, 4059576953, 3110726663],
+      "scalar_out": [99, 99, 99, 99, 99, 99, 99, 99],
+      "vector_out": [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [1724819962, 590735842, 4288297236, 2367319039, 267116024, 600787263, 3490129057, 3400001983, 3759455744, 844240211, 648177039, 3791618987, 3030394135, 2288603405, 2400422297, 3443678915, 4102500629, 2945620625, 901986116, 1421789144, 2319124957, 530430173, 3790120106, 3073431695, 2743509920, 297119437, 1328001884, 1759537932, 351602577, 2178787802, 4036307375, 3688232658],
+      "scalar_out": [99, 99, 99, 99, 99, 99, 99, 99],
+      "vector_out": [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]
+    }
+  ]
+}

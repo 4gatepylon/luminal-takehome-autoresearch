@@ -1,0 +1,29 @@
+{
+  "name": "luminal-ssa",
+  "displayName": "Luminal SSA",
+  "description": "Syntax highlighting and bracket matching for readable ssa-v1 program files.",
+  "version": "0.1.0",
+  "publisher": "local",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [{
+      "id": "luminal-ssa",
+      "aliases": ["Luminal SSA", "ssa-v1"],
+      "extensions": [".ssa"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "luminal-ssa",
+      "scopeName": "source.luminal-ssa",
+      "path": "./syntaxes/ssa.tmLanguage.json"
+    }]
+  },
+  "scripts": { "test": "node --test tests/grammar.test.cjs" },
+  "devDependencies": {
+    "vscode-oniguruma": "2.0.1",
+    "vscode-textmate": "9.3.2"
+  }
+}

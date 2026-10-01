@@ -1,0 +1,26 @@
+lang: ssa-v1
+name: "scalar_dual_chain"
+
+================ BUFFERS ================
+{"a":1}
+{"b":1}
+{"c":1}
+{"d":1}
+{"out":2}
+
+================ PROGRAM ================
+a0 = buff[a][0]
+b0 = buff[b][0]
+c0 = buff[c][0]
+d0 = buff[d][0]
+left_product = a0 * b0
+right_product = c0 * d0
+cross = a0 + c0
+left = left_product + cross
+right = right_product ^ cross
+buff[out][0] = left
+buff[out][1] = right
+
+================ CASES ================
+{"a":[13],"b":[5],"c":[21],"d":[9],"out":[0,0]}
+{"a":[1],"b":[2],"c":[3],"d":[4],"out":[99,99]}

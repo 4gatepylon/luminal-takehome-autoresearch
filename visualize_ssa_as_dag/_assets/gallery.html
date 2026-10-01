@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SSA program gallery</title>
+  <link rel="stylesheet" href="gallery.css">
+  <script src="gallery.js" defer></script>
+</head>
+<body>
+  <main>
+    <header class="intro">
+      <p class="eyebrow">Luminal / computation explorer</p>
+      <h1>SSA program gallery<span class="total">$count</span></h1>
+      <p class="description">Follow each value from its inputs to its output.
+        Open a diagram for the full-size view.</p>
+      <div class="legend" aria-label="Diagram legend">
+        <span><i class="scalar"></i>Scalar</span>
+        <span><i class="vector"></i>Vector</span>
+        <span><i class="memory"></i>Memory</span>
+        <span><i class="operation"></i>Operation</span>
+      </div>
+      <p class="note">Rows show dependency depth, not scheduled cycles. Memory-order edges are omitted.</p>
+    </header>
+    <section class="toolbar" aria-label="Filter programs" hidden>
+      <label for="search">Find a program</label>
+      <input id="search" type="search" placeholder="Search by name or filename…" autocomplete="off">
+      <span id="count" role="status" aria-live="polite">$count programs</span>
+    </section>
+    <section class="grid" aria-label="Program diagrams">
+$cards
+    </section>
+    <p id="empty" hidden>No matching programs. Try a different name.</p>
+    <footer class="page-footer">Generated locally · All diagrams are available offline</footer>
+  </main>
+</body>
+</html>

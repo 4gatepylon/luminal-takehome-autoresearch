@@ -2,9 +2,15 @@ PYTHON ?= python3
 PYTHON_BIN ?= .venv/bin/python
 export PYTHONPATH := $(CURDIR)
 
-.PHONY: setup evolve test test-compiler score eval format
+.PHONY: setup evolve test test-compiler test-ssa test-ssa-highlighting score eval format
 
-test: test-compiler
+test: test-compiler test-ssa
+
+test-ssa:
+	PYTHONPATH="$(CURDIR)" $(PYTHON_BIN) -B -m unittest tests.test_program_ssa tests.test_evaluate_formats -v
+
+test-ssa-highlighting:
+	npm test --prefix vscode/ssa
 
 setup:
 	$(PYTHON) -B scripts/setup.py
