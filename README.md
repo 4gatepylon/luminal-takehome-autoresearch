@@ -80,10 +80,16 @@ python3 -m work.compiler programs/03_vector_axpy.json > axpy.schedule.json
 python3 machine.py programs/03_vector_axpy.json axpy.schedule.json
 ```
 
-Eight public programs are in `programs/`. Submission grading uses another
+Nine public programs are in `programs/`. Submission grading uses another
 eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
+
+`programs/09_dead_code.json` computes `out[0] = x[0] + 1` (wrapping at 32 bits)
+and includes an unused constant, multiply, and xor chain (operations 3–5).
+This is a simple input for testing dead-code elimination. The current grader
+still requires every operation to issue exactly once, so it rejects schedules
+that omit the dead operations.
 
 ## Machine model
 
@@ -182,13 +188,13 @@ memory. Modifying or bypassing the public simulator cannot change hidden results
 
 Correctness on all programs is the first requirement. Among correct compilers,
 we report geometric-mean cycle speedup and geometric-mean scratch reduction
-relative to the frozen serial baseline across all sixteen programs. For each
+relative to the frozen serial baseline across all seventeen programs. For each
 program these ratios are `baseline_cycles / cycles` and
 `baseline_scratch_words / scratch_words`. The combined score is
 `sqrt(cycle_speedup_geomean * scratch_reduction_geomean)`, giving equal weight
 to both objectives. The starter scores 1.000x on each metric. Public scoring
-uses the same formula on the eight visible programs; the private grader reports
-the final combined result on all sixteen. We also review compiler structure, clarity, and the
+uses the same formula on the nine visible programs; the private grader reports
+the final combined result on all seventeen. We also review compiler structure, clarity, and the
 tradeoffs in your scheduling heuristic.
 
 Useful directions include critical-path priorities, latency-aware ready queues,

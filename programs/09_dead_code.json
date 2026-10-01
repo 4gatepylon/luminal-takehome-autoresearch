@@ -1,0 +1,18 @@
+{
+  "name": "dead_code",
+  "buffers": {"x": 1, "out": 1},
+  "operations": [
+    {"id": 0, "op": "load", "dest": "x0", "buffer": "x", "offset": 0},
+    {"id": 1, "op": "const", "dest": "one", "value": 1},
+    {"id": 2, "op": "add", "dest": "result", "args": ["x0", "one"]},
+    {"id": 3, "op": "const", "dest": "dead_factor", "value": 7},
+    {"id": 4, "op": "mul", "dest": "dead_product", "args": ["x0", "dead_factor"]},
+    {"id": 5, "op": "xor", "dest": "dead_result", "args": ["dead_product", "one"]},
+    {"id": 6, "op": "store", "args": ["result"], "buffer": "out", "offset": 0}
+  ],
+  "cases": [
+    {"x": [5], "out": [0]},
+    {"x": [0], "out": [99]},
+    {"x": [4294967295], "out": [99]}
+  ]
+}
