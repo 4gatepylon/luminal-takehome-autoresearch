@@ -61,6 +61,19 @@ def test(*, compiler_filepath: str | Path = COMPILER_PATH, verbosity: int = 2, s
     return unittest.TextTestRunner(stream=stream, verbosity=verbosity).run(suite)
 
 
+def _aggregate_scores(speedups: list[float], reductions: list[float]) -> dict[str, float] | None:
+    """Compute geometric means over a successful subset, or None if it is empty."""
+    if not speedups:
+        return None
+    cycle_mean = math.prod(speedups) ** (1 / len(speedups))
+    scratch_mean = math.prod(reductions) ** (1 / len(reductions))
+    return {
+        "cycle_speedup": cycle_mean,
+        "scratch_reduction": scratch_mean,
+        "combined_score": math.sqrt(cycle_mean * scratch_mean),
+    }
+
+
 def score(
     *, compiler_filepath: str | Path = COMPILER_PATH, program_dir: Path = PROGRAM_DIR,
     verbose: bool = False, continue_on_error: bool = False,
@@ -68,16 +81,26 @@ def score(
     """Return score multipliers; by default, raise on the first program error.
 
     With continue_on_error, check every program and return None if any failed.
-    Verbose reports show ERROR for each failure without printing tracebacks.
+    Verbose reports show ERROR for each failure and scores over successful
+    programs, both overall and within the original programs numbered 01-08.
     """
     speedups: list[float] = []
     reductions: list[float] = []
+    original_speedups: list[float] = []
+    original_reductions: list[float] = []
+    original_count = 0
     failures = 0
+    program_paths = sorted(program_dir.glob("*.json"))
+    if not program_paths:
+        raise ValueError(f"No benchmark programs found in {program_dir}")
     if verbose:
         print("Luminal Compiler Take Home — compiler engineering public benchmark")
         print(f"{'program':30} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
         print("-" * 60)
-    for program_path in sorted(program_dir.glob("*.json")):
+    for program_path in program_paths:
+        is_original = program_path.stem.partition("_")[0] in {"01", "02", "03", "04", "05", "06", "07", "08"}
+        if is_original:
+            original_count += 1
         try:
             program, compilation, cycles = _compile_and_check(program_path, compiler_filepath)
             baseline_compilation = machine.serial_compile(program)
@@ -95,29 +118,30 @@ def score(
             continue
         speedups.append(speedup)
         reductions.append(reduction)
+        if is_original:
+            original_speedups.append(speedup)
+            original_reductions.append(reduction)
         if verbose:
             print(f"{program['name']:30} {cycles:8d} {baseline:9d} {speedup:8.3f}x {words:8d} {reduction:9.3f}x")
 
-    if failures:
-        if verbose:
-            print("-" * 60)
-            print(f"Score unavailable: {failures} program(s) failed.")
-        return None
-    if not speedups:
-        raise ValueError(f"No benchmark programs found in {program_dir}")
-    geometric_mean = math.prod(speedups) ** (1 / len(speedups))
-    scratch_mean = math.prod(reductions) ** (1 / len(reductions))
-    metrics = {
-        "cycle_speedup": geometric_mean,
-        "scratch_reduction": scratch_mean,
-        "combined_score": math.sqrt(geometric_mean * scratch_mean),
-    }
+    metrics = _aggregate_scores(speedups, reductions)
     if verbose:
         print("-" * 60)
-        print(f"public geometric-mean speedup: {metrics['cycle_speedup']:.3f}x")
-        print(f"public geometric-mean scratch reduction: {metrics['scratch_reduction']:.3f}x")
-        print(f"public combined score: {metrics['combined_score']:.3f}x")
-    return metrics
+        summaries = (
+            ("all programs", len(speedups), len(program_paths), metrics),
+            ("original programs 1-8", len(original_speedups), original_count, _aggregate_scores(original_speedups, original_reductions)),
+        )
+        for label, passed, total, subset_metrics in summaries:
+            print(f"{label} ({passed}/{total} successful):")
+            if subset_metrics is None:
+                print("  Score unavailable: no successful programs.")
+                continue
+            print(f"  geometric-mean speedup: {subset_metrics['cycle_speedup']:.3f}x")
+            print(f"  geometric-mean scratch reduction: {subset_metrics['scratch_reduction']:.3f}x")
+            print(f"  combined score: {subset_metrics['combined_score']:.3f}x")
+        if failures:
+            print(f"{failures} program(s) failed; scores exclude failed programs.")
+    return None if failures else metrics
 
 
 def eval(*, compiler_filepath: str | Path = COMPILER_PATH, verbose: bool = False, stream: TextIO | None = None) -> dict[str, float] | None:

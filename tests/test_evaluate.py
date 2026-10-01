@@ -19,7 +19,7 @@ class ScoreReportingTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)
         self.program_dir = Path(self.temp_dir.name)
-        for name in ("first", "second", "third"):
+        for name in ("01_first", "08_second", "09_third"):
             program = micro_program()
             program["name"] = name
             (self.program_dir / f"{name}.json").write_text(json.dumps(program))
@@ -46,8 +46,10 @@ class ScoreReportingTests(unittest.TestCase):
                 self.assertRegex(report, r"third\s+\d+")
                 self.assertNotIn("Traceback", report)
                 self.assertNotIn("compiler failure detail", report)
-                self.assertNotIn("public combined score:", report)
-                self.assertIn("Score unavailable: 1 program(s) failed.", report)
+                self.assertIn("all programs (2/3 successful):", report)
+                self.assertIn("original programs 1-8 (1/2 successful):", report)
+                self.assertEqual(report.count("combined score: 1.000x"), 2)
+                self.assertIn("1 program(s) failed; scores exclude failed programs.", report)
 
     def test_report_continues_after_baseline_failure(self) -> None:
         output = StringIO()
@@ -58,7 +60,9 @@ class ScoreReportingTests(unittest.TestCase):
         ):
             self.assertIsNone(evaluate.score(program_dir=self.program_dir, verbose=True, continue_on_error=True))
         self.assertEqual(sandbox.call_count, 3)
-        self.assertRegex(output.getvalue(), r"second\s+ERROR\nthird\s+\d+")
+        self.assertRegex(output.getvalue(), r"second\s+ERROR\n09_third\s+\d+")
+        self.assertIn("all programs (2/3 successful):", output.getvalue())
+        self.assertIn("original programs 1-8 (1/2 successful):", output.getvalue())
 
     def test_report_handles_all_failures(self) -> None:
         output = StringIO()
@@ -66,15 +70,66 @@ class ScoreReportingTests(unittest.TestCase):
             self.assertIsNone(evaluate.score(program_dir=self.program_dir, verbose=True, continue_on_error=True))
         self.assertEqual(sandbox.call_count, 3)
         self.assertEqual(output.getvalue().count("ERROR"), 3)
-        self.assertIn("Score unavailable: 3 program(s) failed.", output.getvalue())
+        self.assertIn("all programs (0/3 successful):", output.getvalue())
+        self.assertIn("original programs 1-8 (0/2 successful):", output.getvalue())
+        self.assertEqual(output.getvalue().count("Score unavailable: no successful programs."), 2)
 
     def test_successful_report_preserves_scores(self) -> None:
         output = StringIO()
         with patch("evaluate.run_in_sandbox", return_value=self.valid), redirect_stdout(output):
             metrics = evaluate.score(program_dir=self.program_dir, verbose=True, continue_on_error=True)
         self.assertEqual(metrics, {"cycle_speedup": 1.0, "scratch_reduction": 1.0, "combined_score": 1.0})
-        self.assertIn("public combined score: 1.000x", output.getvalue())
+        self.assertEqual(output.getvalue().count("combined score: 1.000x"), 2)
         self.assertNotIn("ERROR", output.getvalue())
+
+    def test_subsets_use_separate_geometric_means(self) -> None:
+        # Delay two valid schedules to distinguish subset selection and averaging.
+        slower = dict(self.compilation, bundles=[{}] * len(self.compilation["bundles"]) + self.compilation["bundles"])
+        slowest = dict(self.compilation, bundles=[{}] * (3 * len(self.compilation["bundles"])) + self.compilation["bundles"])
+        results = [
+            subprocess.CompletedProcess([], 0, json.dumps(slower), ""),
+            self.valid,
+            subprocess.CompletedProcess([], 0, json.dumps(slowest), ""),
+        ]
+        output = StringIO()
+        with patch("evaluate.run_in_sandbox", side_effect=results), redirect_stdout(output):
+            metrics = evaluate.score(program_dir=self.program_dir, verbose=True, continue_on_error=True)
+        self.assertAlmostEqual(metrics["cycle_speedup"], 0.5)
+        self.assertAlmostEqual(metrics["combined_score"], 0.5 ** 0.5)
+        self.assertIn(
+            "all programs (3/3 successful):\n"
+            "  geometric-mean speedup: 0.500x\n"
+            "  geometric-mean scratch reduction: 1.000x\n"
+            "  combined score: 0.707x",
+            output.getvalue(),
+        )
+        self.assertIn(
+            "original programs 1-8 (2/2 successful):\n"
+            "  geometric-mean speedup: 0.707x\n"
+            "  geometric-mean scratch reduction: 1.000x\n"
+            "  combined score: 0.841x",
+            output.getvalue(),
+        )
+
+    def test_original_subset_can_fail_while_later_programs_score(self) -> None:
+        output = StringIO()
+        with (
+            patch("evaluate.run_in_sandbox", side_effect=[ValueError("failure"), ValueError("failure"), self.valid]),
+            redirect_stdout(output),
+        ):
+            self.assertIsNone(evaluate.score(program_dir=self.program_dir, verbose=True, continue_on_error=True))
+        self.assertIn("all programs (1/3 successful):", output.getvalue())
+        self.assertIn("combined score: 1.000x", output.getvalue())
+        self.assertIn("original programs 1-8 (0/2 successful):\n  Score unavailable: no successful programs.", output.getvalue())
+
+    def test_missing_original_programs_have_no_score(self) -> None:
+        (self.program_dir / "01_first.json").unlink()
+        (self.program_dir / "08_second.json").unlink()
+        output = StringIO()
+        with patch("evaluate.run_in_sandbox", return_value=self.valid), redirect_stdout(output):
+            metrics = evaluate.score(program_dir=self.program_dir, verbose=True, continue_on_error=True)
+        self.assertEqual(metrics["combined_score"], 1.0)
+        self.assertIn("original programs 1-8 (0/0 successful):\n  Score unavailable: no successful programs.", output.getvalue())
 
 
 class DefaultCompilerTests(unittest.TestCase):

@@ -46,9 +46,12 @@ make eval   # tests, then score only if tests pass
 ```
 
 `make score` reports `ERROR` for any program that fails compilation, validation,
-or baseline scoring, then continues through the remaining programs. If any fail,
-aggregate scores are unavailable and the command exits nonzero. `make test` and
-`make eval` retain detailed failure diagnostics.
+or baseline scoring, then continues through the remaining programs. It reports
+geometric-mean speedup, scratch reduction, and combined score over successful
+programs, plus a separate summary for successful original programs 1–8 (identified
+by filename prefixes `01_`–`08_`). Each summary shows how many programs succeeded;
+an empty subset has no score. The command exits nonzero if any programs fail.
+`make test` and `make eval` retain detailed failure diagnostics.
 
 The same functions are available from Python:
 
