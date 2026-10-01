@@ -22,7 +22,7 @@ from sandbox import run_in_sandbox
 
 
 COMPILER_PATH: Final[Path] = Path("work/compiler.py")
-PROGRAM_DIR: Final[Path] = Path("programs")
+PROGRAM_DIR: Final[Path] = Path("programs/json")
 EXPECTED_PROGRAM_COUNT: Final[int] = 29
 ORIGINAL_PROGRAM_FILENAMES: Final[frozenset[str]] = frozenset({
     "01_scalar_pipeline.json",
@@ -83,9 +83,9 @@ def _identify_program_groups(program_paths: list[Path], program_groups: Mapping[
 
 
 def _validate_ssa_equivalents(program_paths: list[Path]) -> None:
-    """Require a matching SSA file for every JSON program, before compilation."""
+    """Require matching files in sibling json/ and ssa/ directories before compilation."""
     for program_path in program_paths:
-        ssa_path = program_path.with_suffix(".ssa")
+        ssa_path = program_path.parent.parent / "ssa" / program_path.with_suffix(".ssa").name
         try:
             program = machine.load_program(program_path)
             restored = parse_program(ssa_path.read_text(encoding="utf-8"))
