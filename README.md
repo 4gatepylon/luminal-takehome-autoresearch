@@ -35,14 +35,10 @@ make generate-website
 make setup-cursor
 ```
 
-1. Workflow: write SSA → `ssa2json` → `json2ssa all` without clobber to validate.
-2. Omit `OUTPUT` for stdout in single-file conversions.
-3. Matching SSA files are untouched; missing or changed files require `CLOBBER=1`.
-4. Unaccounted files in `programs/ssa/` always stop generation before any writes.
-5. Website generation requires Graphviz (`brew install graphviz`); open
-   `dag-gallery/index.html` afterward, and use `CLOBBER=1` to rebuild an existing gallery.
-6. Use `make setup-cursor VSCODE=.vscode` to install in VS Code instead,
-   then reload your editor.
+1. Write SSA → `ssa2json` → `json2ssa all` without clobber to validate; omit `OUTPUT` for single-file output to stdout.
+2. Matching SSA files stay untouched; missing/changed files need `CLOBBER=1`, while unaccounted files always error before writes.
+3. Install Graphviz (`brew install graphviz`), generate the site, and open `dag-gallery/index.html`; rebuild with `CLOBBER=1`.
+4. For VS Code, use `make setup-cursor VSCODE=.vscode`, then reload the editor.
 
 The converter preserves the complete program JSON data, including cases and
 extra metadata. Evaluation (`test`, `score`, and `eval`) checks that every JSON
