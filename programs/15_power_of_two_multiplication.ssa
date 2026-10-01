@@ -1,0 +1,27 @@
+lang: ssa-v1
+name: "power_of_two_multiplication"
+
+================ BUFFERS ================
+{"x":1}
+{"out":1}
+
+================ PROGRAM ================
+x0 = buff[x][0]
+four = const(4)
+four_x = x0 * four
+five_x = four_x + x0
+six_x = five_x + x0
+seven_x = six_x + x0
+eight_x = seven_x + x0
+buff[out][0] = eight_x
+
+================ CASES ================
+{"x":[0],"out":[99]}
+{"x":[1],"out":[99]}
+{"x":[2],"out":[99]}
+{"x":[3],"out":[99]}
+{"x":[536870911],"out":[99]}
+{"x":[536870912],"out":[99]}
+{"x":[1073741824],"out":[99]}
+{"x":[2147483649],"out":[99]}
+{"x":[4294967295],"out":[99]}

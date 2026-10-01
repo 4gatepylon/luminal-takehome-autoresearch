@@ -1,0 +1,30 @@
+lang: ssa-v1
+name: "scalar_pipeline"
+
+================ BUFFERS ================
+{"a":1}
+{"b":1}
+{"c":1}
+{"out":1}
+
+================ PROGRAM ================
+a0 = buff[a][0]
+b0 = buff[b][0]
+c0 = buff[c][0]
+product = a0 * b0
+sum = product + c0
+key = const(2654435769)
+mixed = sum ^ key
+shift = const(5)
+left = mixed << shift
+right = mixed >> shift
+joined = left | right
+clipped = joined & key
+adjusted = clipped - c0
+is_equal = adjusted == a0
+result = b0 if { is_equal } else adjusted
+buff[out][0] = result
+
+================ CASES ================
+{"a":[3],"b":[11],"c":[7],"out":[0]}
+{"a":[4294967295],"b":[17],"c":[99],"out":[123]}
