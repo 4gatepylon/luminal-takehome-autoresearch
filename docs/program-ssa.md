@@ -163,6 +163,15 @@ also cover every opcode, canonical formatting, multiline statements, edits,
 comments, aliases, escaping, metadata, invalid input, and scalar/vector
 selection semantics. The original JSON fixtures are unchanged.
 
+`evaluate.py` also checks each JSON program's `.ssa` equivalent before running
+the compiler in `test`, `score`, or `eval`. Missing files, malformed SSA, or any
+decoded data mismatch fail evaluation, including for programs whose compiler
+failure is expected. This comparison covers the full program, including cases
+and metadata; SSA whitespace and comments do not affect it. Evaluation does not
+regenerate or repair files automatically. After changing a JSON fixture, use
+`to-ssa` to update its companion file. Integration tests cover each entry point
+and verify that failed checks prevent compiler execution.
+
 The highlighting tests use VS Code's TextMate tokenizer and Oniguruma engine to
 check every `.ssa` example, syntax scopes, nested JSON metadata, and section
 transitions. The extension and its installation instructions are in

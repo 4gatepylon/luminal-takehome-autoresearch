@@ -6,7 +6,7 @@ PYTHON_BIN ?= $(PYTHON)
 test: test-compiler test-ssa
 
 test-ssa:
-	PYTHONPATH="$(CURDIR)" $(PYTHON_BIN) -B -m unittest tests.test_program_ssa -v
+	PYTHONPATH="$(CURDIR)" $(PYTHON_BIN) -B -m unittest tests.test_program_ssa tests.test_evaluate_formats -v
 
 test-ssa-highlighting:
 	npm test --prefix vscode/ssa

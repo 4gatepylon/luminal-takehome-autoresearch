@@ -24,7 +24,9 @@ PYTHONPATH="$PWD" python3 -B program_ssa.py to-json example.ssa -o example.json
 ```
 
 The converter preserves the complete program JSON data, including cases and
-extra metadata. See [the format and CLI guide](docs/program-ssa.md) for syntax,
+extra metadata. Evaluation (`test`, `score`, and `eval`) checks that every JSON
+program has a matching `.ssa` file and that its decoded data equals the JSON
+exactly before running any compiler. See [the format and CLI guide](docs/program-ssa.md) for syntax,
 round-trip guarantees, and tests. [The VS Code extension](vscode/ssa/README.md)
 adds syntax highlighting for `.ssa` files.
 
