@@ -47,9 +47,11 @@ def program_dot(program: dict) -> str:
         for arg in operation.get("args", [])
     ]
     layers = topological_layers([op["id"] for op in operations], dependencies)
+    # Bound layout optimization so wide reduction graphs render promptly.
     lines = [
         "digraph SSA {",
         '  graph [rankdir=TB, bgcolor="white", pad=0.35, nodesep=0.4,',
+        '         nslimit=2, nslimit1=2,',
         '         ranksep="0.5 equally", splines=true, fontname="Helvetica",',
         f'         labelloc=t, fontsize=18, label={quote(program["name"] + chr(10) + "SSA dataflow · blue: scalar · green: vector · orange: memory" + chr(10) + "Layers show dependency depth, not cycles; memory ordering omitted")}];',
         '  node [fontname="Helvetica", fontsize=12, color="#64748b", penwidth=1.2];',
