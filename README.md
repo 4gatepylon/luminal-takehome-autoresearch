@@ -10,7 +10,7 @@ virtual value to the machine's scratchpad and schedule every operation into
 VLIW bundles. Correctness is required; shorter schedules and smaller scratch footprints score better.
 
 The starter compiler is deliberately simple and serial. It handles programs
-01–17 and 20–21; programs 18–19 intentionally exceed its scratch allocation capacity and
+01–17 and 20–22; programs 18–19 intentionally exceed its scratch allocation capacity and
 require scratch reuse. You can improve the compiler incrementally.
 
 ## Candidate task
@@ -94,7 +94,7 @@ scratch space before it can be consumed.
 SIMD vectors contain eight words and occupy eight consecutive scratch words.
 Vector allocations must begin at an address divisible by eight. Scalar values
 occupy one word. Values may share all or part of their scratch ranges when their
-live intervals do not overlap. Programs 01–17 and 20–21 fit without spilling even with
+live intervals do not overlap. Programs 01–17 and 20–22 fit without spilling even with
 the starter's allocation. Program 18 needs 793 words with separate storage per
 result but fits in 41 words with scratch reuse. Program 19 needs 504 words with
 separate storage but fits in 24 words by interleaving loads and computation and
@@ -207,8 +207,9 @@ traffic, and inputs for optimization experiments. All arithmetic wraps modulo
 | [19_interleaved_vector_reductions.json](programs/19_interleaved_vector_reductions.json) | Loads 32 eight-lane vectors, multiplies vectors 1–8 lane-wise, sums vectors 9–32 lane-wise, and XORs the two reductions into one output vector. Source order places all loads before two left-associated reduction chains. Exercises load/computation interleaving and scratch reuse; reassociation could additionally shorten the chains. Separate storage needs 504 words; a legal interleaved schedule fits in 24 words. |
 | [20_vectorization_factoring.json](programs/20_vectorization_factoring.json) | Loads 40 elements individually and computes each output lane as `a*e + b*e + c*e + d*e`, where `a` through `e` are corresponding lanes of five consecutive eight-element blocks. Uses 32 scalar multiplies and 24 scalar adds before eight stores. Exposes vectorization and distributive factoring into `(a+b+c+d)*e`, using five vector loads, three vector adds, one vector multiply, and one vector store. |
 | [21_scalar_vector_sum.json](programs/21_scalar_vector_sum.json) | Loads 32 elements individually and sums corresponding lanes of four eight-element blocks using 24 scalar adds, then stores eight outputs. Exposes vectorization into four vector loads, three vector adds, and one vector store, plus reassociation into a balanced reduction. Shares the first four input blocks of program 20's cases. |
+| [22_constant_folding.json](programs/22_constant_folding.json) | Computes `z = 3 * 4`, `c = 6 * 9`, and `t = c + z`, then loads runtime `alpha` and stores `alpha * t`. Exposes constant folding through multiple arithmetic nodes into `66 * alpha`. Cases cover zero, one, ordinary values, and 32-bit overflow boundaries. |
 
-Programs 09–18 expose opportunities for dead-code elimination and algebraic
+Programs 09–18 and 22 expose opportunities for dead-code elimination and algebraic
 simplification; programs 20–21 expose scalar-to-vector conversion. The current
 schedule-only grader requires every original operation to issue exactly once
 and preserves its dependencies. Accepting eliminated operations, rewritten
@@ -234,7 +235,7 @@ relative to the frozen serial baseline across all public and hidden programs. Fo
 program these ratios are `baseline_cycles / cycles` and
 `baseline_scratch_words / scratch_words`. The combined score is
 `sqrt(cycle_speedup_geomean * scratch_reduction_geomean)`, giving equal weight
-to both objectives. On programs 01–17 and 20–21 the starter scores 1.000x on each metric;
+to both objectives. On programs 01–17 and 20–22 the starter scores 1.000x on each metric;
 programs 18–19 currently block full-suite scoring as described above. Public scoring
 uses the same formula on the visible programs; the private grader reports
 the final combined result on all public and hidden programs. We also review compiler structure, clarity, and the
