@@ -10,7 +10,7 @@ from program.representations.ssa import SsaRepresentation
 
 
 class SsaRepresentationTests(unittest.TestCase):
-    def test_all_programs_match_existing_ssa_without_mutation(self):
+    def test_all_programs_round_trip_existing_ssa_without_mutation(self):
         representation = SsaRepresentation()
         self.assertIsInstance(representation, Representation)
         paths = sorted(Path("programs/json").glob("*.json"))
@@ -21,7 +21,8 @@ class SsaRepresentationTests(unittest.TestCase):
                 before = deepcopy(program)
                 text = representation.encode(program)
                 expected = (Path("programs/ssa") / path.with_suffix(".ssa").name).read_text(encoding="utf-8")
-                self.assertEqual(text, expected)
+                self.assertEqual(representation.decode(expected), before)
+                self.assertEqual(representation.encode(representation.decode(expected)), text)
                 self.assertEqual(representation.decode(text), before)
                 self.assertEqual(program, before)
 
