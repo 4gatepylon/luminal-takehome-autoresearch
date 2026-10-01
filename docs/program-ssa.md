@@ -1,6 +1,6 @@
 # Readable SSA programs (`.ssa`)
 
-`program_ssa.py` converts existing program JSON to readable SSA and back. It
+`python3 -B -m program.representations.ssa` converts program JSON to readable SSA and back. It
 never executes, optimizes, schedules, or rewrites the program. Existing compiler
 and machine entry points continue to consume JSON; convert edited SSA back to
 JSON before using them.
@@ -130,8 +130,8 @@ Run from the repository root with Python 3.10+:
 
 ```sh
 export PYTHONPATH="$PWD"
-python3 -B program_ssa.py json2ssa programs/json/03_vector_axpy.json -o example.ssa
-python3 -B program_ssa.py ssa2json example.ssa -o example.json
+python3 -B -m program.representations.ssa json2ssa programs/json/03_vector_axpy.json -o example.ssa
+python3 -B -m program.representations.ssa ssa2json example.ssa -o example.json
 ```
 
 Omit `-o` to emit the converted file to stdout. SSA input/output file paths must
@@ -140,10 +140,11 @@ and include source-line context where available. Conversion finishes before
 the output file is opened, so invalid input does not overwrite existing output.
 
 ```python
-from program_ssa import format_program, parse_program
+from program.representations.ssa import SsaRepresentation
 
-source = format_program(program)
-restored = parse_program(source)
+representation = SsaRepresentation()
+source = representation.encode(program)
+restored = representation.decode(source)
 assert restored == program
 ```
 
@@ -153,14 +154,14 @@ Run `make json2ssa INPUT=all` to check `programs/ssa/` against `programs/json/`.
 If every SSA file exists and matches byte-for-byte, nothing is written.
 Unaccounted files in `ssa/` always raise an error, even with clobber.
 Missing or changed SSA files raise unless `CLOBBER=1` is set, then regenerate after validation.
-The direct CLI is `PYTHONPATH="$PWD" python3 -B program_ssa.py json2ssa all [--clobber]`.
+The direct CLI is `PYTHONPATH="$PWD" python3 -B -m program.representations.ssa json2ssa all [--clobber]`.
 
 ## Verification
 
 ```sh
 PYTHONPATH="$PWD" make test-ssa
 PYTHONPATH="$PWD" make test
-npm ci --prefix vscode/ssa
+npm ci --prefix program/visualizations/vscode
 make test-ssa-highlighting
 ```
 
@@ -187,4 +188,4 @@ Custom evaluation inputs follow the same layout: pass the `json/` directory as
 The highlighting tests use VS Code's TextMate tokenizer and Oniguruma engine to
 check every `.ssa` example, syntax scopes, nested JSON metadata, and section
 transitions. The extension and its installation instructions are in
-[`vscode/ssa`](../vscode/ssa/README.md).
+[`program/visualizations/vscode`](../program/visualizations/vscode/README.md).

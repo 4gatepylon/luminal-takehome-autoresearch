@@ -20,8 +20,8 @@ Each public JSON program in `programs/json/` has a matching `.ssa` file in
 from the repository root:
 
 ```sh
-PYTHONPATH="$PWD" python3 -B program_ssa.py json2ssa programs/json/03_vector_axpy.json -o example.ssa
-PYTHONPATH="$PWD" python3 -B program_ssa.py ssa2json example.ssa -o example.json
+PYTHONPATH="$PWD" python3 -B -m program.representations.ssa json2ssa programs/json/03_vector_axpy.json -o example.ssa
+PYTHONPATH="$PWD" python3 -B -m program.representations.ssa ssa2json example.ssa -o example.json
 ```
 
 From the repository root:
@@ -37,14 +37,14 @@ make setup-cursor
 
 1. Write SSA → `ssa2json` → `json2ssa all` without clobber to validate; omit `OUTPUT` for single-file output to stdout.
 2. Matching SSA files stay untouched; missing/changed files need `CLOBBER=1`, while unaccounted files always error before writes.
-3. Install Graphviz (`brew install graphviz`), generate the site, and open `dag-gallery/index.html`; rebuild with `CLOBBER=1`.
+3. Install Graphviz (`brew install graphviz` on macOS), generate the site, and open `dag-gallery/index.html`; rebuild with `CLOBBER=1`.
 4. For VS Code, use `make setup-cursor VSCODE=.vscode`, then reload the editor.
 
 The converter preserves the complete program JSON data, including cases and
 extra metadata. Evaluation (`test`, `score`, and `eval`) checks that every JSON
 program has a matching `.ssa` file and that its decoded data equals the JSON
 exactly before running any compiler. See [the format and CLI guide](docs/program-ssa.md) for syntax,
-round-trip guarantees, and tests. [The VS Code extension](vscode/ssa/README.md)
+round-trip guarantees, and tests. [The VS Code extension](program/visualizations/vscode/README.md)
 adds syntax highlighting for `.ssa` files.
 
 ## Candidate task
@@ -128,12 +128,60 @@ eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
 
+## Program representations
+
+The `program/` package provides a common `Representation` ABC with
+`encode(program) -> str` and `decode(text) -> Program`. A `Program` is the
+existing dictionary structure; `program/core.py` reuses the machine's validation.
+Encoders validate their inputs without mutating them, and decoders return
+validated programs. File reads and writes belong to the caller.
+
+```python
+from pathlib import Path
+
+from program.representations.json import JsonRepresentation
+from program.representations.ssa import SsaRepresentation
+from program.representations.graphviz import GraphvizRepresentation
+
+source = Path("programs/json/03_vector_axpy.json").read_text(encoding="utf-8")
+program = JsonRepresentation().decode(source)
+ssa_text = SsaRepresentation().encode(program)
+svg_text = GraphvizRepresentation().encode(program)
+Path("axpy.svg").write_text(svg_text, encoding="utf-8")
+```
+
+JSON and SSA support decoding as well as encoding. Graphviz requires the `dot`
+executable and returns SVG XML as a string; its `decode()` raises
+`NotImplementedError` because the diagram is only a visualization.
+
+JSON and SSA encoders order dictionary keys deterministically, including nested
+metadata, while preserving operation, argument, and case list order. Converting
+through both representations preserves the complete program and reproduces the
+same encoded text when returning to the starting representation. This does not
+preserve the original source's whitespace or comments.
+
+Each representation lives in its own folder under `program/representations/`
+and exports only its concrete class. To add a format, implement `encode()` and
+`decode()` in another subclass and add tests under `tests/program/representations/`.
+No registration step is required.
+
+The SSA codec and DAG helpers live inside their representation folders. They
+were moved as whole files, preserving their implementations; the existing
+visualizer imports the relocated helpers. The SSA conversion CLI is available
+through `python3 -B -m program.representations.ssa`.
+
+Run the package tests from the repository root:
+
+```sh
+PYTHONPATH="$PWD" python3 -B -m unittest discover -s tests/program -t .
+```
+
 ## Visualize SSA dataflow
 
 On macOS, install Graphviz once with `brew install graphviz`, then run from the repository root:
 
 ```sh
-PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag image programs/json/03_vector_axpy.json -o axpy.svg
+PYTHONPATH="$PWD" python3 -B -m program.visualizations.gallery image programs/json/03_vector_axpy.json -o axpy.svg
 open -a Safari axpy.svg
 ```
 
@@ -151,18 +199,19 @@ The package exports only `program_dot(validated_program) -> str` for Python call
 
 ```python
 from machine import load_program
-from visualize_ssa_as_dag import program_dot
+from program.visualizations.gallery import program_dot
 
 dot_source = program_dot(load_program("programs/json/03_vector_axpy.json"))
 ```
 
-Topological sorting, DOT formatting, Graphviz execution, and CLI handling live in
-separate private modules inside `visualize_ssa_as_dag/`.
+Topological sorting, DOT formatting, and Graphviz execution live in private
+modules inside `program/representations/graphviz/`. CLI and gallery handling
+remain in `program/visualizations/gallery/`.
 
 Build an offline webpage containing all programs:
 
 ```sh
-PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag gallery
+PYTHONPATH="$PWD" python3 -B -m program.visualizations.gallery gallery
 open dag-gallery/index.html
 ```
 
@@ -176,7 +225,7 @@ directly from disk, without a server or internet connection.
 Existing nonempty output directories require `--clobber` (alias `--c`):
 
 ```sh
-PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag gallery --clobber
+PYTHONPATH="$PWD" python3 -B -m program.visualizations.gallery gallery --clobber
 ```
 
 Use `--programs-dir <directory>` to select another set of JSON programs and
@@ -187,7 +236,7 @@ single-image command without the `image` keyword also remains supported.
 The default input directory is `programs/json/`.
 
 Run the graph tests with
-`PYTHONPATH="$PWD" python3 -B -m unittest discover -s tests/visualize_ssa_as_dag -t .`.
+`PYTHONPATH="$PWD" python3 -B -m unittest discover -s tests/program/visualizations/gallery -t .`.
 
 ## Machine model
 

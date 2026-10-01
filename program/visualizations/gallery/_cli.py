@@ -6,9 +6,9 @@ import subprocess
 import sys
 
 from machine import load_program
-from visualize_ssa_as_dag._dot import program_dot
-from visualize_ssa_as_dag._gallery import write_gallery
-from visualize_ssa_as_dag._graphviz import render_svg
+from program.representations.graphviz._dot import program_dot
+from program.visualizations.gallery._gallery import write_gallery
+from program.representations.graphviz._graphviz import render_svg
 
 
 def main() -> int:
@@ -46,7 +46,7 @@ def main() -> int:
         try:
             output = write_gallery(args.programs_dir, args.output, clobber=args.clobber)
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
-            print(f"visualize_ssa_as_dag: {exc}", file=sys.stderr)
+            print(f"program.visualizations.gallery: {exc}", file=sys.stderr)
             return 1
         print(f"Wrote {output}; double-click it to open the gallery in your browser.")
         return 0
@@ -62,7 +62,7 @@ def main() -> int:
             output.write_text(render_svg(source), encoding="utf-8")
         dot_path.write_text(source, encoding="utf-8")
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
-        print(f"visualize_ssa_as_dag: {exc}", file=sys.stderr)
+        print(f"program.visualizations.gallery: {exc}", file=sys.stderr)
         return 1
     print(f"Wrote {output}" + (f" and {dot_path}" if output != dot_path else ""))
     return 0

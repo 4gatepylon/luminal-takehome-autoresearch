@@ -10,13 +10,13 @@ import unittest
 import xml.etree.ElementTree as ET
 
 from machine import load_program
-from visualize_ssa_as_dag import program_dot
+from program.visualizations.gallery import program_dot
 
 
 class CliTests(unittest.TestCase):
     def run_cli(self, output, *, env=None, explicit_command=False):
         return subprocess.run(
-            [sys.executable, "-B", "-m", "visualize_ssa_as_dag",
+            [sys.executable, "-B", "-m", "program.visualizations.gallery",
              *(["image"] if explicit_command else []),
              "programs/json/03_vector_axpy.json", "-o", str(output)],
             text=True, capture_output=True, timeout=30, env=env,

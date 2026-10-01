@@ -3,7 +3,7 @@
 import json
 
 from machine import OP_SPECS, memory_width, producer_map
-from visualize_ssa_as_dag._topology import topological_layers
+from program.representations.graphviz._topology import topological_layers
 
 
 _SYMBOLS = {

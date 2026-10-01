@@ -33,7 +33,7 @@ installation, remove the symlink and reload your editor.
 Alternatively, preview without installing using the VS Code CLI:
 
 ```sh
-code --extensionDevelopmentPath="$PWD/vscode/ssa" "$PWD/programs/ssa/03_vector_axpy.ssa"
+code --extensionDevelopmentPath="$PWD/program/visualizations/vscode" "$PWD/programs/ssa/03_vector_axpy.ssa"
 ```
 
 The extension is declarative: no runtime JavaScript, language server, or build
@@ -52,8 +52,8 @@ Use **Developer: Inspect Editor Tokens and Scopes** to inspect highlighting.
 From the repository root (Node.js 18+):
 
 ```sh
-npm ci --prefix vscode/ssa
-npm test --prefix vscode/ssa
+npm ci --prefix program/visualizations/vscode
+npm test --prefix program/visualizations/vscode
 ```
 
 These tests run the actual TextMate/Oniguruma tokenizer against the repository's

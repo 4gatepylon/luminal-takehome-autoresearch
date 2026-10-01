@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import evaluate
 import machine
-from program_ssa import format_program
+from program.representations.ssa._codec import format_program
 
 
 class EvaluationFormatTests(unittest.TestCase):
