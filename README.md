@@ -85,8 +85,9 @@ eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
 
-`programs/09_dead_code.json` computes `out[0] = x[0] + 1` (wrapping at 32 bits)
-and includes an unused constant, multiply, and xor chain (operations 3–5).
+`programs/09_dead_code.json` takes scalar inputs `x`, `y`, and `z` and computes
+`out = x + y * z` (wrapping at 32 bits). Operations 5–16 are unused computations
+for `x + y * 2`, `x * z + y`, `x * y * z`, and `x + z * z + y * x * x`.
 This is a simple input for testing dead-code elimination. The current grader
 still requires every operation to issue exactly once, so it rejects schedules
 that omit the dead operations.

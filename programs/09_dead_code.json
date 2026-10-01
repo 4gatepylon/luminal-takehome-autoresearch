@@ -1,18 +1,29 @@
 {
   "name": "dead_code",
-  "buffers": {"x": 1, "out": 1},
+  "buffers": {"x": 1, "y": 1, "z": 1, "out": 1},
   "operations": [
     {"id": 0, "op": "load", "dest": "x0", "buffer": "x", "offset": 0},
-    {"id": 1, "op": "const", "dest": "one", "value": 1},
-    {"id": 2, "op": "add", "dest": "result", "args": ["x0", "one"]},
-    {"id": 3, "op": "const", "dest": "dead_factor", "value": 7},
-    {"id": 4, "op": "mul", "dest": "dead_product", "args": ["x0", "dead_factor"]},
-    {"id": 5, "op": "xor", "dest": "dead_result", "args": ["dead_product", "one"]},
-    {"id": 6, "op": "store", "args": ["result"], "buffer": "out", "offset": 0}
+    {"id": 1, "op": "load", "dest": "y0", "buffer": "y", "offset": 0},
+    {"id": 2, "op": "load", "dest": "z0", "buffer": "z", "offset": 0},
+    {"id": 3, "op": "mul", "dest": "yz", "args": ["y0", "z0"]},
+    {"id": 4, "op": "add", "dest": "result", "args": ["x0", "yz"]},
+    {"id": 5, "op": "const", "dest": "dead_two", "value": 2},
+    {"id": 6, "op": "mul", "dest": "dead_y_times_two", "args": ["y0", "dead_two"]},
+    {"id": 7, "op": "add", "dest": "dead_x_plus_y_times_two", "args": ["x0", "dead_y_times_two"]},
+    {"id": 8, "op": "mul", "dest": "dead_xz", "args": ["x0", "z0"]},
+    {"id": 9, "op": "add", "dest": "dead_xz_plus_y", "args": ["dead_xz", "y0"]},
+    {"id": 10, "op": "mul", "dest": "dead_xy", "args": ["x0", "y0"]},
+    {"id": 11, "op": "mul", "dest": "dead_xyz", "args": ["dead_xy", "z0"]},
+    {"id": 12, "op": "mul", "dest": "dead_zz", "args": ["z0", "z0"]},
+    {"id": 13, "op": "add", "dest": "dead_x_plus_zz", "args": ["x0", "dead_zz"]},
+    {"id": 14, "op": "mul", "dest": "dead_yx", "args": ["y0", "x0"]},
+    {"id": 15, "op": "mul", "dest": "dead_yxx", "args": ["dead_yx", "x0"]},
+    {"id": 16, "op": "add", "dest": "dead_x_plus_zz_plus_yxx", "args": ["dead_x_plus_zz", "dead_yxx"]},
+    {"id": 17, "op": "store", "args": ["result"], "buffer": "out", "offset": 0}
   ],
   "cases": [
-    {"x": [5], "out": [0]},
-    {"x": [0], "out": [99]},
-    {"x": [4294967295], "out": [99]}
+    {"x": [5], "y": [3], "z": [7], "out": [0]},
+    {"x": [0], "y": [4], "z": [6], "out": [99]},
+    {"x": [4294967295], "y": [2], "z": [4294967295], "out": [99]}
   ]
 }
