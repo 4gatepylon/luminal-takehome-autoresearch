@@ -10,6 +10,7 @@ import argparse
 import json
 import math
 from pathlib import Path
+import subprocess
 import sys
 from typing import Any, Final, TextIO
 import unittest
@@ -60,27 +61,48 @@ def test(*, compiler_filepath: str | Path = COMPILER_PATH, verbosity: int = 2, s
     return unittest.TextTestRunner(stream=stream, verbosity=verbosity).run(suite)
 
 
-def score(*, compiler_filepath: str | Path = COMPILER_PATH, program_dir: Path = PROGRAM_DIR, verbose: bool = False) -> dict[str, float]:
-    """Validate sandboxed compiler output and return unrounded score multipliers."""
+def score(
+    *, compiler_filepath: str | Path = COMPILER_PATH, program_dir: Path = PROGRAM_DIR,
+    verbose: bool = False, continue_on_error: bool = False,
+) -> dict[str, float] | None:
+    """Return score multipliers; by default, raise on the first program error.
+
+    With continue_on_error, check every program and return None if any failed.
+    Verbose reports show ERROR for each failure without printing tracebacks.
+    """
     speedups: list[float] = []
     reductions: list[float] = []
+    failures = 0
     if verbose:
         print("Luminal Compiler Take Home — compiler engineering public benchmark")
         print(f"{'program':30} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
         print("-" * 60)
     for program_path in sorted(program_dir.glob("*.json")):
-        program, compilation, cycles = _compile_and_check(program_path, compiler_filepath)
-        baseline_compilation = machine.serial_compile(program)
-        baseline = machine.check_compilation(program, baseline_compilation)
-        speedup = baseline / cycles
+        try:
+            program, compilation, cycles = _compile_and_check(program_path, compiler_filepath)
+            baseline_compilation = machine.serial_compile(program)
+            baseline = machine.check_compilation(program, baseline_compilation)
+            speedup = baseline / cycles
+            words = machine.scratch_footprint(program, compilation)
+            baseline_words = machine.scratch_footprint(program, baseline_compilation)
+            reduction = baseline_words / words
+        except (ValueError, subprocess.TimeoutExpired):
+            if not continue_on_error:
+                raise
+            failures += 1
+            if verbose:
+                print(f"{program_path.stem:30} {'ERROR':>8}")
+            continue
         speedups.append(speedup)
-        words = machine.scratch_footprint(program, compilation)
-        baseline_words = machine.scratch_footprint(program, baseline_compilation)
-        reduction = baseline_words / words
         reductions.append(reduction)
         if verbose:
             print(f"{program['name']:30} {cycles:8d} {baseline:9d} {speedup:8.3f}x {words:8d} {reduction:9.3f}x")
 
+    if failures:
+        if verbose:
+            print("-" * 60)
+            print(f"Score unavailable: {failures} program(s) failed.")
+        return None
     if not speedups:
         raise ValueError(f"No benchmark programs found in {program_dir}")
     geometric_mean = math.prod(speedups) ** (1 / len(speedups))
@@ -114,8 +136,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if test(compiler_filepath=args.compiler_filepath).wasSuccessful() else 1
     if args.command == "eval":
         return 0 if eval(compiler_filepath=args.compiler_filepath, verbose=True) is not None else 1
-    score(compiler_filepath=args.compiler_filepath, verbose=True)
-    return 0
+    return 0 if score(compiler_filepath=args.compiler_filepath, verbose=True, continue_on_error=True) is not None else 1
 
 
 if __name__ == "__main__":

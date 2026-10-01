@@ -45,6 +45,11 @@ make score  # public benchmark
 make eval   # tests, then score only if tests pass
 ```
 
+`make score` reports `ERROR` for any program that fails compilation, validation,
+or baseline scoring, then continues through the remaining programs. If any fail,
+aggregate scores are unavailable and the command exits nonzero. `make test` and
+`make eval` retain detailed failure diagnostics.
+
 The same functions are available from Python:
 
 ```python
