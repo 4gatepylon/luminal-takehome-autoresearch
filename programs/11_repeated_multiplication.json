@@ -1,0 +1,33 @@
+{
+  "name": "repeated_multiplication",
+  "buffers": {"x": 1, "out": 1},
+  "operations": [
+    {"id": 0, "op": "load", "dest": "x0", "buffer": "x", "offset": 0},
+    {"id": 1, "op": "mul", "dest": "product2", "args": ["x0", "x0"]},
+    {"id": 2, "op": "mul", "dest": "product3", "args": ["product2", "x0"]},
+    {"id": 3, "op": "mul", "dest": "product4", "args": ["product3", "x0"]},
+    {"id": 4, "op": "mul", "dest": "product5", "args": ["product4", "x0"]},
+    {"id": 5, "op": "mul", "dest": "product6", "args": ["product5", "x0"]},
+    {"id": 6, "op": "mul", "dest": "product7", "args": ["product6", "x0"]},
+    {"id": 7, "op": "mul", "dest": "product8", "args": ["product7", "x0"]},
+    {"id": 8, "op": "mul", "dest": "product9", "args": ["product8", "x0"]},
+    {"id": 9, "op": "mul", "dest": "product10", "args": ["product9", "x0"]},
+    {"id": 10, "op": "mul", "dest": "product11", "args": ["product10", "x0"]},
+    {"id": 11, "op": "mul", "dest": "product12", "args": ["product11", "x0"]},
+    {"id": 12, "op": "mul", "dest": "product13", "args": ["product12", "x0"]},
+    {"id": 13, "op": "mul", "dest": "product14", "args": ["product13", "x0"]},
+    {"id": 14, "op": "mul", "dest": "product15", "args": ["product14", "x0"]},
+    {"id": 15, "op": "mul", "dest": "product16", "args": ["product15", "x0"]},
+    {"id": 16, "op": "store", "args": ["product16"], "buffer": "out", "offset": 0}
+  ],
+  "cases": [
+    {"x": [0], "out": [99]},
+    {"x": [1], "out": [99]},
+    {"x": [2], "out": [99]},
+    {"x": [3], "out": [99]},
+    {"x": [4], "out": [99]},
+    {"x": [5], "out": [99]},
+    {"x": [2147483649], "out": [99]},
+    {"x": [4294967295], "out": [99]}
+  ]
+}

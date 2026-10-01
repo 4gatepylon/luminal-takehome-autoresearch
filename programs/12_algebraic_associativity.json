@@ -1,0 +1,27 @@
+{
+  "name": "algebraic_associativity",
+  "buffers": {"x": 1, "y": 1, "z": 1, "out1": 1, "out2": 1},
+  "operations": [
+    {"id": 0, "op": "load", "dest": "x0", "buffer": "x", "offset": 0},
+    {"id": 1, "op": "load", "dest": "y0", "buffer": "y", "offset": 0},
+    {"id": 2, "op": "load", "dest": "z0", "buffer": "z", "offset": 0},
+    {"id": 3, "op": "const", "dest": "two", "value": 2},
+    {"id": 4, "op": "mul", "dest": "out1_xz", "args": ["x0", "z0"]},
+    {"id": 5, "op": "mul", "dest": "out1_yz", "args": ["y0", "z0"]},
+    {"id": 6, "op": "add", "dest": "out1_sum", "args": ["out1_xz", "out1_yz"]},
+    {"id": 7, "op": "store", "args": ["out1_sum"], "buffer": "out1", "offset": 0},
+    {"id": 8, "op": "mul", "dest": "out2_xz", "args": ["x0", "z0"]},
+    {"id": 9, "op": "mul", "dest": "out2_yz", "args": ["y0", "z0"]},
+    {"id": 10, "op": "mul", "dest": "out2_two_x", "args": ["two", "x0"]},
+    {"id": 11, "op": "mul", "dest": "out2_two_xz", "args": ["out2_two_x", "z0"]},
+    {"id": 12, "op": "add", "dest": "out2_partial_sum", "args": ["out2_xz", "out2_yz"]},
+    {"id": 13, "op": "add", "dest": "out2_sum", "args": ["out2_partial_sum", "out2_two_xz"]},
+    {"id": 14, "op": "store", "args": ["out2_sum"], "buffer": "out2", "offset": 0}
+  ],
+  "cases": [
+    {"x": [5], "y": [3], "z": [7], "out1": [0], "out2": [0]},
+    {"x": [0], "y": [4], "z": [6], "out1": [99], "out2": [99]},
+    {"x": [8], "y": [9], "z": [0], "out1": [99], "out2": [99]},
+    {"x": [4294967295], "y": [2], "z": [4294967295], "out1": [99], "out2": [99]}
+  ]
+}
