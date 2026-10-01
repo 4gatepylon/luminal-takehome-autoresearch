@@ -1,0 +1,26 @@
+{
+  "name": "common_subexpressions",
+  "buffers": {"x": 1, "y": 1, "out": 1},
+  "operations": [
+    {"id": 0, "op": "load", "dest": "x0", "buffer": "x", "offset": 0},
+    {"id": 1, "op": "load", "dest": "y0", "buffer": "y", "offset": 0},
+    {"id": 2, "op": "mul", "dest": "product0", "args": ["x0", "y0"]},
+    {"id": 3, "op": "mul", "dest": "product1", "args": ["x0", "y0"]},
+    {"id": 4, "op": "mul", "dest": "product2", "args": ["x0", "y0"]},
+    {"id": 5, "op": "mul", "dest": "product3", "args": ["x0", "y0"]},
+    {"id": 6, "op": "add", "dest": "sum2", "args": ["product0", "product1"]},
+    {"id": 7, "op": "add", "dest": "sum3", "args": ["sum2", "product2"]},
+    {"id": 8, "op": "add", "dest": "sum4", "args": ["sum3", "product3"]},
+    {"id": 9, "op": "store", "args": ["sum4"], "buffer": "out", "offset": 0}
+  ],
+  "cases": [
+    {"x": [0], "y": [7], "out": [99]},
+    {"x": [7], "y": [0], "out": [99]},
+    {"x": [1], "y": [1], "out": [99]},
+    {"x": [3], "y": [5], "out": [99]},
+    {"x": [65536], "y": [65536], "out": [99]},
+    {"x": [536870912], "y": [2], "out": [99]},
+    {"x": [2147483649], "y": [3], "out": [99]},
+    {"x": [4294967295], "y": [4294967295], "out": [99]}
+  ]
+}
