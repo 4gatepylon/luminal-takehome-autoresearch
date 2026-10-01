@@ -7,7 +7,7 @@ Candidate imports, compilation, and CLI execution stay in a separate process.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from collections.abc import Mapping, Set
 import json
 import math
 from pathlib import Path
@@ -40,26 +40,19 @@ EXPECTED_FAILURE_PROGRAM_FILENAMES: Final[frozenset[str]] = frozenset({
     "25_sum_217_vectors.json",
     "26_sum_31_vectors.json",
 })
+# Reporting groups may overlap and contain both expected successes and failures.
+PROGRAM_GROUPS: Final[Mapping[str, frozenset[str]]] = {
+    "original programs 1-8": ORIGINAL_PROGRAM_FILENAMES,
+}
 
 
-@dataclass(frozen=True)
-class _ProgramGroup:
-    name: str
-    filenames: frozenset[str]
-    must_fail: bool
-
-
-def _identify_program_groups(program_paths: list[Path]) -> tuple[_ProgramGroup, ...]:
-    """Validate the inventory and overlapping groups before running any compiler."""
+def _identify_program_groups(
+    program_paths: list[Path], program_groups: Mapping[str, Set[str]],
+) -> dict[str, frozenset[str]]:
+    """Validate program expectations and inventory, then define reporting groups."""
     filenames = frozenset(path.name for path in program_paths)
-    groups = (
-        _ProgramGroup("all successful programs", filenames - EXPECTED_FAILURE_PROGRAM_FILENAMES, must_fail=False),
-        _ProgramGroup("original programs 1-8", ORIGINAL_PROGRAM_FILENAMES, must_fail=False),
-        _ProgramGroup("expected failures", EXPECTED_FAILURE_PROGRAM_FILENAMES, must_fail=True),
-    )
-    must_fail = frozenset().union(*(group.filenames for group in groups if group.must_fail))
-    must_succeed = frozenset().union(*(group.filenames for group in groups if not group.must_fail))
-    conflicts = must_fail & must_succeed
+    # The original eight programs are individually required to succeed.
+    conflicts = ORIGINAL_PROGRAM_FILENAMES & EXPECTED_FAILURE_PROGRAM_FILENAMES
     if conflicts:
         raise ValueError(f"Programs required to both fail and succeed: {', '.join(sorted(conflicts))}")
     missing = (ORIGINAL_PROGRAM_FILENAMES | EXPECTED_FAILURE_PROGRAM_FILENAMES) - filenames
@@ -67,6 +60,14 @@ def _identify_program_groups(program_paths: list[Path]) -> tuple[_ProgramGroup, 
         raise ValueError(f"Missing required programs: {', '.join(sorted(missing))}")
     if len(program_paths) != EXPECTED_PROGRAM_COUNT:
         raise ValueError(f"Expected {EXPECTED_PROGRAM_COUNT} program files, found {len(program_paths)}")
+    groups = {"all programs": filenames}
+    for group_name, members in program_groups.items():
+        if group_name == "all programs":
+            raise ValueError("The 'all programs' group is automatic and cannot be redefined")
+        missing = members - filenames
+        if missing:
+            raise ValueError(f"Group {group_name!r} references missing programs: {', '.join(sorted(missing))}")
+        groups[group_name] = frozenset(members)
     return groups
 
 
@@ -139,22 +140,23 @@ def _calculate_reduction_and_speedup(
 
 def score(
     *, compiler_filepath: str | Path = COMPILER_PATH, program_dir: Path = PROGRAM_DIR,
-    verbose: bool = False,
+    verbose: bool = False, program_groups: Mapping[str, Set[str]] = PROGRAM_GROUPS,
 ) -> dict[str, float]:
-    """Enforce each group's expected outcome and score each program exactly once."""
+    """Enforce per-program outcomes and return metrics for all successful programs.
+
+    program_groups maps reporting labels to exact filename sets. Groups may
+    overlap and mix expected outcomes; verbose output reports each separately.
+    The all-programs summary is always included. Each program is evaluated once.
+    """
     program_paths = sorted(path for path in program_dir.glob("*.json") if path.is_file())
-    groups = _identify_program_groups(program_paths)
-    memberships = {
-        path: tuple(group for group in groups if path.name in group.filenames)
-        for path in program_paths
-    }
+    groups = _identify_program_groups(program_paths, program_groups)
     results: dict[str, tuple[float, float]] = {}
     if verbose:
         print("Luminal Compiler Take Home — compiler engineering public benchmark")
         print(f"{'program':40} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
         print("-" * 99)
-    for program_path, program_groups in memberships.items():
-        must_fail = any(group.must_fail for group in program_groups)
+    for program_path in program_paths:
+        must_fail = program_path.name in EXPECTED_FAILURE_PROGRAM_FILENAMES
         try:
             result = _calculate_reduction_and_speedup(program_path, compiler_filepath, verbose=verbose)
         except (ValueError, subprocess.TimeoutExpired):
@@ -170,20 +172,20 @@ def score(
     group_metrics: dict[str, dict[str, float]] = {}
     if verbose:
         print("-" * 99)
-    for group in groups:
-        subset = [results[name] for name in sorted(group.filenames) if name in results]
+    for group_name, filenames in groups.items():
+        subset = [results[name] for name in sorted(filenames) if name in results]
         metrics = _aggregate_scores([speedup for _, speedup in subset], [reduction for reduction, _ in subset])
         if metrics is not None:
-            group_metrics[group.name] = metrics
+            group_metrics[group_name] = metrics
         if verbose:
-            print(f"{group.name} ({len(subset)}/{len(group.filenames)} successful):")
+            print(f"{group_name} ({len(subset)}/{len(filenames)} successful):")
             if metrics is None:
                 print("  Score unavailable: no successful programs.")
             else:
                 print(f"  geometric-mean speedup: {metrics['cycle_speedup']:.3f}x")
                 print(f"  geometric-mean scratch reduction: {metrics['scratch_reduction']:.3f}x")
                 print(f"  combined score: {metrics['combined_score']:.3f}x")
-    return group_metrics["all successful programs"]
+    return group_metrics["all programs"]
 
 
 def eval(*, compiler_filepath: str | Path = COMPILER_PATH, verbose: bool = False, stream: TextIO | None = None) -> dict[str, float] | None:
