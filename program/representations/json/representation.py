@@ -3,6 +3,7 @@
 import json
 
 from program.core import Program, validate_program
+from program.representations._json import DECODER
 from program.representations.base import Representation
 
 
@@ -14,6 +15,6 @@ class JsonRepresentation(Representation):
         return json.dumps(program, ensure_ascii=True, allow_nan=False, indent=2) + "\n"
 
     def decode(self, text: str) -> Program:
-        program = json.loads(text)
+        program = DECODER.decode(text)
         validate_program(program)
         return program

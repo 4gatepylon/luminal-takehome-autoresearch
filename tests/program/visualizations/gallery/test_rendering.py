@@ -2,23 +2,17 @@
 
 from pathlib import Path
 import shutil
-import subprocess
 import unittest
 import xml.etree.ElementTree as ET
 
 from machine import load_program
-from program.visualizations.gallery import program_dot
+from program.representations.graphviz import GraphvizRepresentation
 
 
 @unittest.skipUnless(shutil.which("dot"), "Graphviz is not installed")
 class VisualizationTests(unittest.TestCase):
     def render(self, program):
-        result = subprocess.run(
-            ["dot", "-Tsvg"], input=program_dot(program), text=True,
-            capture_output=True, check=True, timeout=30,
-        )
-        self.assertEqual(result.stderr, "")
-        return ET.fromstring(result.stdout)
+        return ET.fromstring(GraphvizRepresentation().encode(program))
 
     def test_all_public_programs(self):
         for path in sorted(Path("programs/json").glob("*.json")):
@@ -35,6 +29,8 @@ class VisualizationTests(unittest.TestCase):
         name = 'a"\\N<&>'
         program = {
             "name": "Escaping <&>",
+            "buffers": {"out": 1},
+            "cases": [{"out": [0]}],
             "operations": [
                 {"id": 0, "op": "const", "dest": name, "value": 1},
                 {"id": 1, "op": "sub", "dest": "result", "args": [name, name]},

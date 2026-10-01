@@ -32,3 +32,11 @@ class JsonRepresentationTests(unittest.TestCase):
                 representation.decode(text)
         with self.assertRaises(ValueError):
             representation.encode({})
+
+    def test_ambiguous_or_nonstandard_json_is_rejected(self):
+        representation = JsonRepresentation()
+        source = representation.encode(load_program("programs/json/03_vector_axpy.json"))
+        for metadata in ('{"key": 1, "key": 2}', '{"value": NaN}', '{"value": Infinity}'):
+            text = '{"metadata": ' + metadata + ',' + source[1:]
+            with self.subTest(metadata=metadata), self.assertRaises(ValueError):
+                representation.decode(text)

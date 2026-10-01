@@ -153,23 +153,24 @@ Path("axpy.svg").write_text(svg_text, encoding="utf-8")
 JSON and SSA support decoding as well as encoding. Graphviz requires the `dot`
 executable and returns SVG XML as a string; its `decode()` raises
 `NotImplementedError` because the diagram is only a visualization.
+Use `GraphvizRepresentation(format="dot")` to encode DOT source without the
+Graphviz executable. Both output formats use the same `encode(program)` method.
 
 Converting through both representations preserves the complete program. JSON
 round trips compare parsed data, so dictionary key order and whitespace do not
-matter. The SSA encoder orders dictionary keys deterministically, including
-nested metadata, to reproduce the same SSA text after a round trip. Operation,
-argument, and case list order is preserved. Original source whitespace and
-comments are not preserved.
+matter. Encoders retain dictionary insertion order, and the SSA round trip
+reproduces the same generated SSA text. Operation, argument, and case list order
+is preserved. Original source whitespace and comments are not preserved.
 
 Each representation lives in its own folder under `program/representations/`
 and exports only its concrete class. To add a format, implement `encode()` and
 `decode()` in another subclass and add tests under `tests/program/representations/`.
 No registration step is required.
 
-The SSA codec and DAG helpers live inside their representation folders. They
-were moved as whole files, preserving their implementations; the existing
-visualizer imports the relocated helpers. The SSA conversion CLI is available
-through `python3 -B -m program.representations.ssa`.
+Conversion commands, evaluation format checks, and the gallery use the public
+`decode(text)` and `encode(program)` methods. Codec and DAG helpers are internal
+implementation details. The SSA conversion CLI is available through
+`python3 -B -m program.representations.ssa`.
 
 Run the package tests from the repository root:
 
@@ -196,13 +197,15 @@ Rows follow topological dataflow depth, computed internally by the package. They
 represent scheduled cycles, and this MVP omits memory-order dependencies.
 The tool reads JSON without executing the program or candidate compiler.
 
-The package exports only `program_dot(validated_program) -> str` for Python callers:
+Python callers use the representation classes for conversion:
 
 ```python
-from machine import load_program
-from program.visualizations.gallery import program_dot
+from pathlib import Path
+from program.representations.json import JsonRepresentation
+from program.representations.graphviz import GraphvizRepresentation
 
-dot_source = program_dot(load_program("programs/json/03_vector_axpy.json"))
+program = JsonRepresentation().decode(Path("programs/json/03_vector_axpy.json").read_text())
+dot_source = GraphvizRepresentation(format="dot").encode(program)
 ```
 
 Topological sorting, DOT formatting, and Graphviz execution live in private

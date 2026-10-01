@@ -10,7 +10,7 @@ import unittest
 import xml.etree.ElementTree as ET
 
 from machine import load_program
-from program.visualizations.gallery import program_dot
+from program.representations.graphviz import GraphvizRepresentation
 
 
 class CliTests(unittest.TestCase):
@@ -27,7 +27,7 @@ class CliTests(unittest.TestCase):
             output = Path(directory) / "diagram.dot"
             result = self.run_cli(output, env={**os.environ, "PATH": ""})
             self.assertEqual(result.returncode, 0, result.stderr)
-            expected = program_dot(load_program("programs/json/03_vector_axpy.json"))
+            expected = GraphvizRepresentation(format="dot").encode(load_program("programs/json/03_vector_axpy.json"))
             self.assertEqual(output.read_text(encoding="utf-8"), expected)
             self.assertEqual(list(Path(directory).iterdir()), [output])
 
@@ -38,7 +38,9 @@ class CliTests(unittest.TestCase):
             result = self.run_cli(output, explicit_command=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(ET.parse(output).getroot().tag, "{http://www.w3.org/2000/svg}svg")
-            self.assertTrue(output.with_suffix(".dot").is_file())
+            program = load_program("programs/json/03_vector_axpy.json")
+            self.assertEqual(output.read_text(), GraphvizRepresentation().encode(program))
+            self.assertEqual(output.with_suffix(".dot").read_text(), GraphvizRepresentation(format="dot").encode(program))
 
     def test_unsupported_extension(self):
         with tempfile.TemporaryDirectory() as directory:

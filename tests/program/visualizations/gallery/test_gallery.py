@@ -32,7 +32,7 @@ class GalleryTests(unittest.TestCase):
             output = Path(directory)
             index = output / "index.html"
             index.write_text("existing gallery", encoding="utf-8")
-            with patch("program.visualizations.gallery._gallery.render_svg") as render:
+            with patch("program.visualizations.gallery._gallery.GraphvizRepresentation.encode") as render:
                 with self.assertRaisesRegex(ValueError, "--clobber"):
                     write_gallery(Path("programs/json"), output)
                 render.assert_not_called()
