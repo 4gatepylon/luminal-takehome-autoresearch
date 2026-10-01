@@ -154,11 +154,12 @@ JSON and SSA support decoding as well as encoding. Graphviz requires the `dot`
 executable and returns SVG XML as a string; its `decode()` raises
 `NotImplementedError` because the diagram is only a visualization.
 
-JSON and SSA encoders order dictionary keys deterministically, including nested
-metadata, while preserving operation, argument, and case list order. Converting
-through both representations preserves the complete program and reproduces the
-same encoded text when returning to the starting representation. This does not
-preserve the original source's whitespace or comments.
+Converting through both representations preserves the complete program. JSON
+round trips compare parsed data, so dictionary key order and whitespace do not
+matter. The SSA encoder orders dictionary keys deterministically, including
+nested metadata, to reproduce the same SSA text after a round trip. Operation,
+argument, and case list order is preserved. Original source whitespace and
+comments are not preserved.
 
 Each representation lives in its own folder under `program/representations/`
 and exports only its concrete class. To add a format, implement `encode()` and
