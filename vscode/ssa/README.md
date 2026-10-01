@@ -10,15 +10,20 @@ marked invalid. Colors follow the active editor theme.
 
 ## Install locally on macOS
 
-From the repository root, use `.vscode` for VS Code or set `VSCODE=.cursor`
-for Cursor (or another editor's directory name under your home directory):
+For Cursor, run from the repository root:
 
 ```sh
-VSCODE="${VSCODE:-.vscode}"
-mkdir -p "$HOME/$VSCODE/extensions"
-ln -s "$PWD/vscode/ssa" "$HOME/$VSCODE/extensions/local.luminal-ssa-0.1.0"
+make setup-cursor
 ```
 
+For VS Code, or substitute another editor directory:
+
+```sh
+make setup-cursor VSCODE=.vscode
+```
+
+The command creates or refreshes a symlink to this checkout in the editor's
+extensions directory; existing files or directories are not overwritten.
 Then run **Developer: Reload Window** in your editor and open any `programs/ssa/*.ssa`
 file. The language mode should be **Luminal SSA**. This is a local installation;
 it does not publish anything or require installing Node dependencies. Keep the
