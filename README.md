@@ -9,9 +9,9 @@ input is a typed, straight-line SSA program. Your compiler must assign every
 virtual value to the machine's scratchpad and schedule every operation into
 VLIW bundles. Correctness is required; shorter schedules and smaller scratch footprints score better.
 
-The starter compiler is deliberately simple and serial. It is correct for all
-supported programs, so you can improve it incrementally and measure every
-change.
+The starter compiler is deliberately simple and serial. It handles programs
+01–17, 20–23, and 27–29; programs 18–19 and 24–26 intentionally exceed its scratch allocation
+capacity and require scratch reuse. You can improve the compiler incrementally.
 
 ## Candidate task
 
@@ -94,8 +94,14 @@ scratch space before it can be consumed.
 SIMD vectors contain eight words and occupy eight consecutive scratch words.
 Vector allocations must begin at an address divisible by eight. Scalar values
 occupy one word. Values may share all or part of their scratch ranges when their
-live intervals do not overlap. All supplied programs fit without spilling even
-with the starter's allocation; reducing scratch use is part of the challenge.
+live intervals do not overlap. Programs 01–17, 20–23, and 27–29 fit without spilling even with
+the starter's allocation. Program 18 needs 793 words with separate storage per
+result but fits in 41 words with scratch reuse. Program 19 needs 504 words with
+separate storage but fits in 24 words by interleaving loads and computation and
+reusing scratch. Program 24 likewise fits in 24 words despite needing 1,016
+words with separate storage. Programs 25 and 26 need 3,464 and 488 words
+respectively with separate storage, but each fits in 16 words with scratch
+reuse. Reducing scratch use is part of the challenge.
 
 A value's live interval starts when its result writes scratch, at issue cycle
 plus latency, and ends at its last consumer's issue cycle, inclusive. An unused
@@ -195,12 +201,37 @@ traffic, and inputs for optimization experiments. All arithmetic wraps modulo
 | [10_repeated_addition.json](programs/10_repeated_addition.json) | Adds 16 copies of `x` in a left-associated chain of 15 additions. Provides input for simplification to `16 * x` or a balanced addition tree. Cases include zero, one, ordinary values, and overflow. |
 | [11_repeated_multiplication.json](programs/11_repeated_multiplication.json) | Multiplies 16 copies of `x` in a left-associated chain of 15 multiplications. Provides input for repeated squaring to compute `x**16`. Cases include zero, one, ordinary values, and overflow. |
 | [12_algebraic_associativity.json](programs/12_algebraic_associativity.json) | Computes `out1 = x * z + y * z` and `out2 = x * z + y * z + 2 * x * z`, with separate product nodes for each output followed by additions; the last term is `(2 * x) * z`. Provides input for reassociation and distributive factoring into `(x + y) * z` and `(3 * x + y) * z`. |
+| [13_constant_condition.json](programs/13_constant_condition.json) | Selects between runtime inputs using constant comparisons (`7 < 8` and `7 == 8`) and a literal nonzero condition (`7`). Stores `[x, y, x]`. Provides input for constant folding and conditional simplification. |
+| [14_strip_trailing_zeros.json](programs/14_strip_trailing_zeros.json) | Unrolls 32 conditional steps: keep the current value when its low bit is one, otherwise shift right by one. Each step uses `and`, `shr`, and `select`. Returns the odd part of nonzero `x`, or zero for zero. Cases cover every possible trailing-zero count. Provides input for a logarithmic sequence of conditional shifts or a single shift by the trailing-zero count. |
+| [15_power_of_two_multiplication.json](programs/15_power_of_two_multiplication.json) | Computes `x * 4 + x + x + x + x`, equivalent to `x << 3` modulo `2**32`. Provides input for replacing multiplication by a power of two with a shift, and for combining repeated terms. Cases exercise overflow in both multiplication and addition. |
+| [16_algebraic_identities.json](programs/16_algebraic_identities.json) | Chains addition, XOR, OR, subtraction, and shifts by zero, multiplication by one, and AND with all ones. Separately computes `x & 0` and propagates that zero into the result. Stores `[x, 0]`, exposing identity elimination and constant propagation. |
+| [17_non_power_of_two_factoring.json](programs/17_non_power_of_two_factoring.json) | Computes `13 * x + 3 * x` in eight independent scalar paths and four independent eight-lane vector paths. Scalars use the first eight input elements; vectors use all 32. Provides input for factoring into `16 * x` and replacing two multiplies plus an add with one `shl` or `vshl` by four. Cases cover zero, one, varied lanes, and overflow in the products and sum. |
+| [18_copy_propagation.json](programs/18_copy_propagation.json) | Chains 32 vector stages, each creating aliases with `previous + 0` and `previous ^ 0`, then using `vselect` with a runtime vector gate. Stores the eight-lane result after stages 8, 16, 24, and 32; each equals the input vector. Exercises copy propagation and scratch reuse, including mixed zero/nonzero lane conditions. Separate storage needs 793 words, exceeding the 256-word limit; a schedule retaining all operations fits in 41 words. |
+| [19_interleaved_vector_reductions.json](programs/19_interleaved_vector_reductions.json) | Loads 32 eight-lane vectors, multiplies vectors 1–8 lane-wise, sums vectors 9–32 lane-wise, and XORs the two reductions into one output vector. Source order places all loads before two left-associated reduction chains. Exercises load/computation interleaving and scratch reuse; reassociation could additionally shorten the chains. Separate storage needs 504 words; a legal interleaved schedule fits in 24 words. |
+| [20_vectorization_factoring.json](programs/20_vectorization_factoring.json) | Loads 40 elements individually and computes each output lane as `a*e + b*e + c*e + d*e`, where `a` through `e` are corresponding lanes of five consecutive eight-element blocks. Uses 32 scalar multiplies and 24 scalar adds before eight stores. Exposes vectorization and distributive factoring into `(a+b+c+d)*e`, using five vector loads, three vector adds, one vector multiply, and one vector store. |
+| [21_scalar_vector_sum.json](programs/21_scalar_vector_sum.json) | Loads 32 elements individually and sums corresponding lanes of four eight-element blocks using 24 scalar adds, then stores eight outputs. Exposes vectorization into four vector loads, three vector adds, and one vector store, plus reassociation into a balanced reduction. Shares the first four input blocks of program 20's cases. |
+| [22_constant_folding.json](programs/22_constant_folding.json) | Computes `z = 3 * 4`, `c = 6 * 9`, and `t = c + z`, then loads runtime `alpha` and stores `alpha * t`. Exposes constant folding through multiple arithmetic nodes into `66 * alpha`. Cases cover zero, one, ordinary values, and 32-bit overflow boundaries. |
+| [23_store_load_forwarding.json](programs/23_store_load_forwarding.json) | Loads eight-lane vectors `A` and `B`, stores their sum and difference back into `A` and `B`, reloads them, stores their product and XOR back, then reloads again and adds them into `out`. Exposes elimination of four redundant reloads by forwarding the stored values. Correctness includes final contents of `A` and `B` as well as `out`. |
+| [24_pairwise_vector_reduction.json](programs/24_pairwise_vector_reduction.json) | Loads 64 eight-lane vectors from 64 separate buffers and stores the lane-wise sum of the 32 products `v[2*i] * v[2*i+1]`. Source order places all 64 loads before the products and a left-associated sum. Separate storage needs 1,016 words; an interleaved schedule with scratch reuse fits in 24 words while retaining every operation and storing only the final output. Exercises scratch pressure and load/computation scheduling. |
+| [25_sum_217_vectors.json](programs/25_sum_217_vectors.json) | Loads 217 eight-lane vectors from one contiguous 1,736-element buffer at offsets 0, 8, …, 1,728, then sums them lane-wise through 216 left-associated `vadd`s and stores one output vector. Separate scratch storage needs 3,464 words; interleaved loads and scratch reuse fit in 16 words. Exercises a long reduction with a non-power-of-two input count. |
+| [26_sum_31_vectors.json](programs/26_sum_31_vectors.json) | Loads 31 eight-lane vectors from one contiguous 248-element buffer at offsets 0, 8, …, 240, then sums them lane-wise through 30 left-associated `vadd`s and stores one output vector. The inputs alone occupy 248 words, but separate scratch storage for inputs and sums needs 488 words. A legal interleaved schedule fits in 16 words. Cases include a nonzero final vector with every earlier vector zero. |
+| [27_sum_17_scalars.json](programs/27_sum_17_scalars.json) | Loads 17 numbers individually from one contiguous buffer, reduces them through 16 left-associated scalar additions, and stores one scalar sum. Includes an input where only the seventeenth element is nonzero to exercise tail handling. |
+| [28_sum_16_scalars.json](programs/28_sum_16_scalars.json) | Loads 16 numbers individually from one contiguous buffer, reduces them through 15 left-associated scalar additions, and stores one scalar sum. Provides a power-of-two counterpart to program 27. |
+| [29_sum_64_scalars.json](programs/29_sum_64_scalars.json) | Loads 64 numbers individually from one contiguous buffer, reduces them through 63 left-associated scalar additions, and stores one scalar sum. Provides a longer scalar reduction that still fits the starter's allocation at 127 words. Cases cover zero, one, varied values, overflow, and a nonzero final element. |
 
-Programs 09–12 expose opportunities for dead-code elimination and algebraic
-simplification. The current schedule-only grader requires every original
-operation to issue exactly once and preserves its dependencies. Accepting
-eliminated operations or rewritten expressions requires changes to the
-compiler/grader contract.
+Programs 09–18 and 22 expose opportunities for dead-code elimination and algebraic
+simplification; programs 20–21 expose scalar-to-vector conversion, and program 23
+exposes redundant-load elimination. The current
+schedule-only grader requires every original operation to issue exactly once
+and preserves its dependencies. Accepting eliminated operations, rewritten
+expressions, or vectorized operations requires changes to the compiler/grader
+contract.
+
+Programs 18–19 and 24–26 intentionally fail with both the starter compiler and the frozen
+serial baseline, which allocate separate storage for every result. Consequently,
+the default public correctness suite fails on these programs, and full-suite
+scoring requires a baseline allocation change even after the candidate compiler
+supports scratch reuse. These fixtures do not change the compiler or baseline.
 
 ## Evaluation
 
@@ -215,7 +246,8 @@ relative to the frozen serial baseline across all public and hidden programs. Fo
 program these ratios are `baseline_cycles / cycles` and
 `baseline_scratch_words / scratch_words`. The combined score is
 `sqrt(cycle_speedup_geomean * scratch_reduction_geomean)`, giving equal weight
-to both objectives. The starter scores 1.000x on each metric. Public scoring
+to both objectives. On programs 01–17, 20–23, and 27–29 the starter scores 1.000x on each metric;
+programs 18–19 and 24–26 currently block full-suite scoring as described above. Public scoring
 uses the same formula on the visible programs; the private grader reports
 the final combined result on all public and hidden programs. We also review compiler structure, clarity, and the
 tradeoffs in your scheduling heuristic.

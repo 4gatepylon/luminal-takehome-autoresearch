@@ -1,0 +1,35 @@
+{
+  "name": "algebraic_identities",
+  "buffers": {"x": 1, "out": 2},
+  "operations": [
+    {"id": 0, "op": "load", "dest": "x0", "buffer": "x", "offset": 0},
+    {"id": 1, "op": "const", "dest": "zero", "value": 0},
+    {"id": 2, "op": "const", "dest": "one", "value": 1},
+    {"id": 3, "op": "const", "dest": "all_ones", "value": 4294967295},
+    {"id": 4, "op": "add", "dest": "added", "args": ["x0", "zero"]},
+    {"id": 5, "op": "xor", "dest": "xored", "args": ["added", "zero"]},
+    {"id": 6, "op": "or", "dest": "ored", "args": ["xored", "zero"]},
+    {"id": 7, "op": "sub", "dest": "subtracted", "args": ["ored", "zero"]},
+    {"id": 8, "op": "mul", "dest": "multiplied", "args": ["subtracted", "one"]},
+    {"id": 9, "op": "and", "dest": "masked", "args": ["multiplied", "all_ones"]},
+    {"id": 10, "op": "shl", "dest": "shifted_left", "args": ["masked", "zero"]},
+    {"id": 11, "op": "shr", "dest": "unchanged", "args": ["shifted_left", "zero"]},
+    {"id": 12, "op": "and", "dest": "cleared", "args": ["x0", "zero"]},
+    {"id": 13, "op": "add", "dest": "added_zero", "args": ["cleared", "zero"]},
+    {"id": 14, "op": "xor", "dest": "still_zero", "args": ["added_zero", "zero"]},
+    {"id": 15, "op": "add", "dest": "result", "args": ["unchanged", "still_zero"]},
+    {"id": 16, "op": "store", "args": ["result"], "buffer": "out", "offset": 0},
+    {"id": 17, "op": "store", "args": ["still_zero"], "buffer": "out", "offset": 1}
+  ],
+  "cases": [
+    {"x": [0], "out": [99, 99]},
+    {"x": [1], "out": [99, 99]},
+    {"x": [2], "out": [99, 99]},
+    {"x": [3], "out": [99, 99]},
+    {"x": [1431655765], "out": [99, 99]},
+    {"x": [2863311530], "out": [99, 99]},
+    {"x": [2147483647], "out": [99, 99]},
+    {"x": [2147483648], "out": [99, 99]},
+    {"x": [4294967295], "out": [99, 99]}
+  ]
+}

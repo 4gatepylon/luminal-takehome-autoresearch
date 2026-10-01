@@ -1,0 +1,26 @@
+{
+  "name": "constant_folding",
+  "buffers": {"alpha": 1, "out": 1},
+  "operations": [
+    {"id": 0, "op": "const", "dest": "x", "value": 3},
+    {"id": 1, "op": "const", "dest": "y", "value": 4},
+    {"id": 2, "op": "mul", "dest": "z", "args": ["x", "y"]},
+    {"id": 3, "op": "const", "dest": "a", "value": 6},
+    {"id": 4, "op": "const", "dest": "b", "value": 9},
+    {"id": 5, "op": "mul", "dest": "c", "args": ["a", "b"]},
+    {"id": 6, "op": "add", "dest": "t", "args": ["c", "z"]},
+    {"id": 7, "op": "load", "dest": "alpha0", "buffer": "alpha", "offset": 0},
+    {"id": 8, "op": "mul", "dest": "beta", "args": ["alpha0", "t"]},
+    {"id": 9, "op": "store", "args": ["beta"], "buffer": "out", "offset": 0}
+  ],
+  "cases": [
+    {"alpha": [0], "out": [99]},
+    {"alpha": [1], "out": [99]},
+    {"alpha": [3], "out": [99]},
+    {"alpha": [65075262], "out": [99]},
+    {"alpha": [65075263], "out": [99]},
+    {"alpha": [2147483648], "out": [99]},
+    {"alpha": [2147483649], "out": [99]},
+    {"alpha": [4294967295], "out": [99]}
+  ]
+}

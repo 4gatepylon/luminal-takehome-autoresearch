@@ -1,0 +1,192 @@
+{
+  "name": "vectorization_factoring",
+  "buffers": {"x": 40, "out": 8},
+  "operations": [
+    {"id": 0, "op": "load", "dest": "x0", "buffer": "x", "offset": 0},
+    {"id": 1, "op": "load", "dest": "x1", "buffer": "x", "offset": 1},
+    {"id": 2, "op": "load", "dest": "x2", "buffer": "x", "offset": 2},
+    {"id": 3, "op": "load", "dest": "x3", "buffer": "x", "offset": 3},
+    {"id": 4, "op": "load", "dest": "x4", "buffer": "x", "offset": 4},
+    {"id": 5, "op": "load", "dest": "x5", "buffer": "x", "offset": 5},
+    {"id": 6, "op": "load", "dest": "x6", "buffer": "x", "offset": 6},
+    {"id": 7, "op": "load", "dest": "x7", "buffer": "x", "offset": 7},
+    {"id": 8, "op": "load", "dest": "x8", "buffer": "x", "offset": 8},
+    {"id": 9, "op": "load", "dest": "x9", "buffer": "x", "offset": 9},
+    {"id": 10, "op": "load", "dest": "x10", "buffer": "x", "offset": 10},
+    {"id": 11, "op": "load", "dest": "x11", "buffer": "x", "offset": 11},
+    {"id": 12, "op": "load", "dest": "x12", "buffer": "x", "offset": 12},
+    {"id": 13, "op": "load", "dest": "x13", "buffer": "x", "offset": 13},
+    {"id": 14, "op": "load", "dest": "x14", "buffer": "x", "offset": 14},
+    {"id": 15, "op": "load", "dest": "x15", "buffer": "x", "offset": 15},
+    {"id": 16, "op": "load", "dest": "x16", "buffer": "x", "offset": 16},
+    {"id": 17, "op": "load", "dest": "x17", "buffer": "x", "offset": 17},
+    {"id": 18, "op": "load", "dest": "x18", "buffer": "x", "offset": 18},
+    {"id": 19, "op": "load", "dest": "x19", "buffer": "x", "offset": 19},
+    {"id": 20, "op": "load", "dest": "x20", "buffer": "x", "offset": 20},
+    {"id": 21, "op": "load", "dest": "x21", "buffer": "x", "offset": 21},
+    {"id": 22, "op": "load", "dest": "x22", "buffer": "x", "offset": 22},
+    {"id": 23, "op": "load", "dest": "x23", "buffer": "x", "offset": 23},
+    {"id": 24, "op": "load", "dest": "x24", "buffer": "x", "offset": 24},
+    {"id": 25, "op": "load", "dest": "x25", "buffer": "x", "offset": 25},
+    {"id": 26, "op": "load", "dest": "x26", "buffer": "x", "offset": 26},
+    {"id": 27, "op": "load", "dest": "x27", "buffer": "x", "offset": 27},
+    {"id": 28, "op": "load", "dest": "x28", "buffer": "x", "offset": 28},
+    {"id": 29, "op": "load", "dest": "x29", "buffer": "x", "offset": 29},
+    {"id": 30, "op": "load", "dest": "x30", "buffer": "x", "offset": 30},
+    {"id": 31, "op": "load", "dest": "x31", "buffer": "x", "offset": 31},
+    {"id": 32, "op": "load", "dest": "x32", "buffer": "x", "offset": 32},
+    {"id": 33, "op": "load", "dest": "x33", "buffer": "x", "offset": 33},
+    {"id": 34, "op": "load", "dest": "x34", "buffer": "x", "offset": 34},
+    {"id": 35, "op": "load", "dest": "x35", "buffer": "x", "offset": 35},
+    {"id": 36, "op": "load", "dest": "x36", "buffer": "x", "offset": 36},
+    {"id": 37, "op": "load", "dest": "x37", "buffer": "x", "offset": 37},
+    {"id": 38, "op": "load", "dest": "x38", "buffer": "x", "offset": 38},
+    {"id": 39, "op": "load", "dest": "x39", "buffer": "x", "offset": 39},
+    {"id": 40, "op": "mul", "dest": "product0_0", "args": ["x0", "x32"]},
+    {"id": 41, "op": "mul", "dest": "product0_1", "args": ["x1", "x33"]},
+    {"id": 42, "op": "mul", "dest": "product0_2", "args": ["x2", "x34"]},
+    {"id": 43, "op": "mul", "dest": "product0_3", "args": ["x3", "x35"]},
+    {"id": 44, "op": "mul", "dest": "product0_4", "args": ["x4", "x36"]},
+    {"id": 45, "op": "mul", "dest": "product0_5", "args": ["x5", "x37"]},
+    {"id": 46, "op": "mul", "dest": "product0_6", "args": ["x6", "x38"]},
+    {"id": 47, "op": "mul", "dest": "product0_7", "args": ["x7", "x39"]},
+    {"id": 48, "op": "mul", "dest": "product1_0", "args": ["x8", "x32"]},
+    {"id": 49, "op": "mul", "dest": "product1_1", "args": ["x9", "x33"]},
+    {"id": 50, "op": "mul", "dest": "product1_2", "args": ["x10", "x34"]},
+    {"id": 51, "op": "mul", "dest": "product1_3", "args": ["x11", "x35"]},
+    {"id": 52, "op": "mul", "dest": "product1_4", "args": ["x12", "x36"]},
+    {"id": 53, "op": "mul", "dest": "product1_5", "args": ["x13", "x37"]},
+    {"id": 54, "op": "mul", "dest": "product1_6", "args": ["x14", "x38"]},
+    {"id": 55, "op": "mul", "dest": "product1_7", "args": ["x15", "x39"]},
+    {"id": 56, "op": "mul", "dest": "product2_0", "args": ["x16", "x32"]},
+    {"id": 57, "op": "mul", "dest": "product2_1", "args": ["x17", "x33"]},
+    {"id": 58, "op": "mul", "dest": "product2_2", "args": ["x18", "x34"]},
+    {"id": 59, "op": "mul", "dest": "product2_3", "args": ["x19", "x35"]},
+    {"id": 60, "op": "mul", "dest": "product2_4", "args": ["x20", "x36"]},
+    {"id": 61, "op": "mul", "dest": "product2_5", "args": ["x21", "x37"]},
+    {"id": 62, "op": "mul", "dest": "product2_6", "args": ["x22", "x38"]},
+    {"id": 63, "op": "mul", "dest": "product2_7", "args": ["x23", "x39"]},
+    {"id": 64, "op": "mul", "dest": "product3_0", "args": ["x24", "x32"]},
+    {"id": 65, "op": "mul", "dest": "product3_1", "args": ["x25", "x33"]},
+    {"id": 66, "op": "mul", "dest": "product3_2", "args": ["x26", "x34"]},
+    {"id": 67, "op": "mul", "dest": "product3_3", "args": ["x27", "x35"]},
+    {"id": 68, "op": "mul", "dest": "product3_4", "args": ["x28", "x36"]},
+    {"id": 69, "op": "mul", "dest": "product3_5", "args": ["x29", "x37"]},
+    {"id": 70, "op": "mul", "dest": "product3_6", "args": ["x30", "x38"]},
+    {"id": 71, "op": "mul", "dest": "product3_7", "args": ["x31", "x39"]},
+    {"id": 72, "op": "add", "dest": "sum2_0", "args": ["product0_0", "product1_0"]},
+    {"id": 73, "op": "add", "dest": "sum2_1", "args": ["product0_1", "product1_1"]},
+    {"id": 74, "op": "add", "dest": "sum2_2", "args": ["product0_2", "product1_2"]},
+    {"id": 75, "op": "add", "dest": "sum2_3", "args": ["product0_3", "product1_3"]},
+    {"id": 76, "op": "add", "dest": "sum2_4", "args": ["product0_4", "product1_4"]},
+    {"id": 77, "op": "add", "dest": "sum2_5", "args": ["product0_5", "product1_5"]},
+    {"id": 78, "op": "add", "dest": "sum2_6", "args": ["product0_6", "product1_6"]},
+    {"id": 79, "op": "add", "dest": "sum2_7", "args": ["product0_7", "product1_7"]},
+    {"id": 80, "op": "add", "dest": "sum3_0", "args": ["sum2_0", "product2_0"]},
+    {"id": 81, "op": "add", "dest": "sum3_1", "args": ["sum2_1", "product2_1"]},
+    {"id": 82, "op": "add", "dest": "sum3_2", "args": ["sum2_2", "product2_2"]},
+    {"id": 83, "op": "add", "dest": "sum3_3", "args": ["sum2_3", "product2_3"]},
+    {"id": 84, "op": "add", "dest": "sum3_4", "args": ["sum2_4", "product2_4"]},
+    {"id": 85, "op": "add", "dest": "sum3_5", "args": ["sum2_5", "product2_5"]},
+    {"id": 86, "op": "add", "dest": "sum3_6", "args": ["sum2_6", "product2_6"]},
+    {"id": 87, "op": "add", "dest": "sum3_7", "args": ["sum2_7", "product2_7"]},
+    {"id": 88, "op": "add", "dest": "sum4_0", "args": ["sum3_0", "product3_0"]},
+    {"id": 89, "op": "add", "dest": "sum4_1", "args": ["sum3_1", "product3_1"]},
+    {"id": 90, "op": "add", "dest": "sum4_2", "args": ["sum3_2", "product3_2"]},
+    {"id": 91, "op": "add", "dest": "sum4_3", "args": ["sum3_3", "product3_3"]},
+    {"id": 92, "op": "add", "dest": "sum4_4", "args": ["sum3_4", "product3_4"]},
+    {"id": 93, "op": "add", "dest": "sum4_5", "args": ["sum3_5", "product3_5"]},
+    {"id": 94, "op": "add", "dest": "sum4_6", "args": ["sum3_6", "product3_6"]},
+    {"id": 95, "op": "add", "dest": "sum4_7", "args": ["sum3_7", "product3_7"]},
+    {"id": 96, "op": "store", "args": ["sum4_0"], "buffer": "out", "offset": 0},
+    {"id": 97, "op": "store", "args": ["sum4_1"], "buffer": "out", "offset": 1},
+    {"id": 98, "op": "store", "args": ["sum4_2"], "buffer": "out", "offset": 2},
+    {"id": 99, "op": "store", "args": ["sum4_3"], "buffer": "out", "offset": 3},
+    {"id": 100, "op": "store", "args": ["sum4_4"], "buffer": "out", "offset": 4},
+    {"id": 101, "op": "store", "args": ["sum4_5"], "buffer": "out", "offset": 5},
+    {"id": 102, "op": "store", "args": ["sum4_6"], "buffer": "out", "offset": 6},
+    {"id": 103, "op": "store", "args": ["sum4_7"], "buffer": "out", "offset": 7}
+  ],
+  "cases": [
+    {
+      "x": [
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0
+      ],
+      "out": [99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1
+      ],
+      "out": [99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [
+        1, 2, 3, 4, 5, 6, 7, 8,
+        9, 10, 11, 12, 13, 14, 15, 16,
+        17, 18, 19, 20, 21, 22, 23, 24,
+        25, 26, 27, 28, 29, 30, 31, 32,
+        33, 34, 35, 36, 37, 38, 39, 40
+      ],
+      "out": [99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [
+        1, 2, 3, 4, 5, 6, 7, 8,
+        2, 4, 6, 8, 10, 12, 14, 16,
+        3, 6, 9, 12, 15, 18, 21, 24,
+        4, 8, 12, 16, 20, 24, 28, 32,
+        5, 10, 15, 20, 25, 30, 35, 40
+      ],
+      "out": [99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [
+        4294967295, 2147483648, 65536, 2147483649, 1431655765, 2863311530, 4294967294, 65535,
+        1, 2147483648, 65536, 3, 3, 5, 7, 65537,
+        2, 0, 65535, 4294967295, 1431655765, 2863311530, 2147483647, 65536,
+        3, 1, 1, 7, 1431655766, 2, 2147483648, 65538,
+        4294967295, 2, 65536, 3, 3, 5, 7, 65537
+      ],
+      "out": [99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [
+        0, 2, 3, 0, 5, 6, 0, 8,
+        2, 4, 0, 8, 10, 0, 14, 16,
+        3, 0, 9, 12, 0, 18, 21, 0,
+        0, 8, 12, 0, 20, 24, 0, 32,
+        5, 10, 0, 20, 25, 0, 35, 40
+      ],
+      "out": [99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [
+        3592042239, 1736050280, 3686380748, 2704801039, 2336936075, 1188466657, 1062284266, 3774183877,
+        2727392674, 148870986, 4181716985, 1904727306, 2034916098, 2466735937, 273766287, 1343750145,
+        1159402977, 1271673847, 2040266179, 330068001, 3922357597, 3813305829, 692767229, 707302563,
+        3562892415, 228036426, 3192427007, 445838348, 2893885102, 3076562730, 2352962515, 1263521033,
+        219039275, 2296040211, 3550091383, 2922216071, 2006931371, 490087626, 857043514, 2587189454
+      ],
+      "out": [99, 99, 99, 99, 99, 99, 99, 99]
+    },
+    {
+      "x": [
+        3929805255, 2728384519, 1893556959, 2741091549, 4287825533, 4111923289, 3578317072, 4126020348,
+        1203095714, 2261901739, 1447749318, 2871650212, 1601410638, 3436570292, 1698689797, 2980688159,
+        483717743, 4224481273, 944610344, 1043892906, 4222394629, 1992950320, 1900879597, 2020756489,
+        497261986, 2781524101, 2329409539, 951214130, 1991131997, 2031219717, 1214546385, 3879459321,
+        586040123, 1203685478, 21105413, 87909508, 2304711371, 3248921754, 3800306650, 983206194
+      ],
+      "out": [99, 99, 99, 99, 99, 99, 99, 99]
+    }
+  ]
+}
