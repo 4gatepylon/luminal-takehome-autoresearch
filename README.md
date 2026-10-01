@@ -110,6 +110,65 @@ eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
 
+## Visualize SSA dataflow
+
+On macOS, install Graphviz once with `brew install graphviz`, then run from the repository root:
+
+```sh
+PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag image programs/03_vector_axpy.json -o axpy.svg
+open -a Safari axpy.svg
+```
+
+The tool writes an SVG and its editable `.dot` source. Use `-o axpy.dot` to emit
+only DOT without installing Graphviz. Blue boxes are scalar SSA values; green
+boxes are vectors. Small operation junctions connect inputs to results, with
+operand numbers at incoming arrows. Orange nodes show memory loads and stores.
+Hover over operations for their opcode, ID, and latency.
+
+Rows follow topological dataflow depth, computed internally by the package. They do not
+represent scheduled cycles, and this MVP omits memory-order dependencies.
+The tool reads JSON without executing the program or candidate compiler.
+
+The package exports only `program_dot(validated_program) -> str` for Python callers:
+
+```python
+from machine import load_program
+from visualize_ssa_as_dag import program_dot
+
+dot_source = program_dot(load_program("programs/03_vector_axpy.json"))
+```
+
+Topological sorting, DOT formatting, Graphviz execution, and CLI handling live in
+separate private modules inside `visualize_ssa_as_dag/`.
+
+Build an offline webpage containing all programs:
+
+```sh
+PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag gallery
+open dag-gallery/index.html  # macOS; or double-click index.html
+```
+
+The gitignored `dag-gallery/` directory contains the index, SVG/DOT diagrams,
+and one detail page per program. The index shows rounded preview tiles with
+filenames and a search box. Click a tile to open its diagram page, with the
+filename at the top and an **All programs** back button. Everything works
+directly from disk, without a server or internet connection.
+
+Existing nonempty output directories require `--clobber` (alias `--c`):
+
+```sh
+PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag gallery --clobber
+```
+
+Use `--programs-dir <directory>` to select another set of JSON programs and
+`-o <directory>` to choose another gallery location; only the default
+`dag-gallery/` location is automatically gitignored. Regeneration replaces
+matching generated files, leaving unrelated files untouched. The original
+single-image command without the `image` keyword also remains supported.
+
+Run the graph tests with
+`PYTHONPATH="$PWD" python3 -B -m unittest discover -s tests/visualize_ssa_as_dag -t .`.
+
 ## Machine model
 
 The machine has a 256-word scratchpad. Each word is an unsigned 32-bit integer.
