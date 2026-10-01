@@ -1,4 +1,7 @@
-"""Batch generation must preserve existing files unless --clobber is supplied."""
+"""Batch generation must preserve existing files unless --clobber is supplied.
+
+> NOTE: not reviewed in detail.
+"""
 
 import json
 import os
