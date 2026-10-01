@@ -175,6 +175,8 @@ provably disjoint ranges may reorder.
 
 ## Program descriptions
 
+> WARNING: these are AI-generated and only lightly-reviewed (i.e. a human reviewed 1-3 of them uniformly at random). You should carefully confirm them with the code.
+
 The public programs below cover scalar and vector dependency chains, memory
 traffic, and inputs for optimization experiments. All arithmetic wraps modulo
 `2**32`.
