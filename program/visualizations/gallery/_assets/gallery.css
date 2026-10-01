@@ -1,0 +1,62 @@
+:root {
+  color-scheme: light;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #202c3d;
+  background: #f4f6f8;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+main { max-width: 1600px; margin: auto; padding: 44px 36px 24px; }
+.eyebrow { color: #536982; font: 600 11px ui-monospace, monospace; letter-spacing: .14em; text-transform: uppercase; }
+h1 { display: flex; align-items: center; gap: 16px; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; margin: 18px 0 10px; }
+.total { background: #e3eaf2; color: #465e7b; border-radius: 9px; padding: 6px 10px; font: 500 16px ui-monospace, monospace; letter-spacing: 0; }
+.description { color: #536174; line-height: 1.6; margin: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 24px; font-size: 13px; }
+.legend span { display: flex; align-items: center; gap: 7px; }
+.legend i { width: 12px; height: 12px; border: 1px solid #8594a5; border-radius: 3px; }
+.scalar { background: #dbeafe; }
+.vector { background: #dcfce7; }
+.memory { background: #ffedd5; }
+.operation { background: #f1f5f9; border-radius: 50% !important; }
+.note { color: #657286; font-size: 12px; margin: 14px 0 28px; }
+.toolbar { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; padding: 16px 0; border-top: 1px solid #dce2e9; }
+.toolbar label { font-size: 13px; font-weight: 600; }
+input { width: min(420px, 100%); padding: 11px 13px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; color: inherit; font: inherit; font-size: 14px; }
+#count { margin-left: auto; color: #657286; font-size: 13px; white-space: nowrap; }
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.card { display: block; color: inherit; background: white; border: 1px solid #dce2e9; border-radius: 12px; overflow: hidden; }
+.card:hover { text-decoration: none; border-color: #9aafca; box-shadow: 0 4px 16px #203e6810; }
+.card-heading { display: flex; gap: 12px; align-items: center; padding: 18px; border-bottom: 1px solid #edf0f4; }
+.card-heading > div { min-width: 0; }
+.number { color: #6d8097; font: 12px ui-monospace, monospace; }
+h2 { margin: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.filename { margin: 5px 0 0; color: #738094; font: 11px ui-monospace, monospace; overflow-wrap: anywhere; }
+.preview { display: block; height: 360px; padding: 18px; background: white; }
+.preview img { width: 100%; height: 100%; object-fit: contain; }
+.preview:hover { background: #f8fafc; }
+.card footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px 18px; border-top: 1px solid #edf0f4; color: #64748b; font-size: 11px; }
+.links { display: flex; gap: 14px; color: #2458a1; }
+a { color: #2458a1; text-decoration: none; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+#empty { padding: 40px; text-align: center; color: #536174; }
+.page-footer { margin-top: 32px; color: #738094; font-size: 12px; }
+.detail-page { background: white; }
+.detail-heading { display: flex; align-items: center; gap: 24px; padding: 20px 28px; border-bottom: 1px solid #dce2e9; }
+.detail-heading h1 { flex: 1; margin: 0; font: 600 18px ui-monospace, monospace; overflow-wrap: anywhere; }
+.detail-heading a { flex-shrink: 0; font-size: 13px; }
+.back { padding: 10px 14px; background: #edf2f7; border-radius: 8px; }
+.diagram { max-width: none; padding: 16px; }
+.diagram img { display: block; width: 100%; height: calc(100vh - 120px); min-height: 320px; object-fit: contain; }
+@media (max-width: 1150px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) {
+  main { padding: 24px 16px; }
+  .grid { grid-template-columns: 1fr; }
+  .toolbar { flex-wrap: wrap; gap: 10px; }
+  .toolbar label { width: 100%; }
+  input { flex: 1; min-width: 0; }
+  .detail-heading { flex-wrap: wrap; gap: 14px; padding: 16px; }
+  .detail-heading h1 { order: 3; flex-basis: 100%; font-size: 15px; }
+  .diagram img { height: calc(100vh - 160px); }
+}
