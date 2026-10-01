@@ -92,6 +92,16 @@ This is a simple input for testing dead-code elimination. The current grader
 still requires every operation to issue exactly once, so it rejects schedules
 that omit the dead operations.
 
+`programs/10_repeated_addition.json` computes `out = x + x + ... + x` with
+sixteen summands. `programs/11_repeated_multiplication.json` computes
+`out = x * x * ... * x` with sixteen factors. Both use a left-associated chain
+of fifteen arithmetic operations on one loaded scalar, with cases covering zero,
+one, ordinary values, and 32-bit wraparound. These inputs expose opportunities
+for algebraic simplification: multiplication by 16 or a balanced addition tree,
+and repeated squaring for `x**16`. The current grader preserves the original
+operations and dependencies, so accepting those rewrites requires future changes
+to the compiler/grader contract.
+
 `programs/12_algebraic_associativity.json` computes `out1 = x * z + y * z`
 and `out2 = x * z + y * z + 2 * x * z`. Each output has separate product
 nodes followed by additions; `2 * x * z` is built as `(2 * x) * z`.
