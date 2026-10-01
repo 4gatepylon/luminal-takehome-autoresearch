@@ -10,11 +10,16 @@ marked invalid. Colors follow the active editor theme.
 
 ## Install locally on macOS
 
-From the repository root:
+For Cursor, run from the repository root:
 
 ```sh
-make setup-cursor                # Cursor (.cursor)
-make setup-cursor VSCODE=.vscode  # VS Code (or another editor directory)
+make setup-cursor
+```
+
+For VS Code, or substitute another editor directory:
+
+```sh
+make setup-cursor VSCODE=.vscode
 ```
 
 The command creates or refreshes a symlink to this checkout in the editor's

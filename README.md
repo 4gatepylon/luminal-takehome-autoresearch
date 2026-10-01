@@ -27,12 +27,12 @@ PYTHONPATH="$PWD" python3 -B program_ssa.py ssa2json example.ssa -o example.json
 From the repository root:
 
 ```sh
-make json2ssa INPUT=all             # Require every SSA file to exist and match
-make json2ssa INPUT=all CLOBBER=1   # Generate missing or changed files
+make json2ssa INPUT=all
+make json2ssa INPUT=all CLOBBER=1
 make json2ssa INPUT=example.json OUTPUT=example.ssa
 make ssa2json INPUT=example.ssa OUTPUT=example.json
-make generate-website         # Build the Graphviz/SVG gallery in dag-gallery/
-make setup-cursor             # Install highlighting, then reload Cursor
+make generate-website
+make setup-cursor
 ```
 
 Workflow: write SSA → `ssa2json` → `json2ssa all` without clobber to validate.
@@ -41,7 +41,8 @@ Matching SSA files are untouched; missing or changed files require `CLOBBER=1`.
 Unaccounted files in `programs/ssa/` always stop generation before any writes.
 Website generation requires Graphviz (`brew install graphviz`); open
 `dag-gallery/index.html` afterward, and use `CLOBBER=1` to rebuild an existing
-gallery. Use `make setup-cursor VSCODE=.vscode` to install in VS Code instead.
+gallery. Use `make setup-cursor VSCODE=.vscode` to install in VS Code instead,
+then reload your editor.
 
 The converter preserves the complete program JSON data, including cases and
 extra metadata. Evaluation (`test`, `score`, and `eval`) checks that every JSON
@@ -74,12 +75,12 @@ The lists in each bundle contain operation IDs from the input program. Missing
 engines and empty bundles are allowed. Every operation must appear exactly
 once.
 
-Run the public suite and benchmark with:
+Run unit tests, the public benchmark, or both (tests must pass before scoring):
 
 ```sh
-make test   # unit tests
-make score  # public benchmark
-make eval   # tests, then score only if tests pass
+make test
+make score
+make eval
 ```
 
 `make score` expects programs 18–19 and 24–26 to fail; their exact filenames, the
@@ -166,9 +167,10 @@ Build an offline webpage containing all programs:
 
 ```sh
 PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag gallery
-open dag-gallery/index.html  # macOS; or double-click index.html
+open dag-gallery/index.html
 ```
 
+On macOS, `open` launches the gallery; you can also double-click its `index.html`.
 The gitignored `dag-gallery/` directory contains the index, SVG/DOT diagrams,
 and one detail page per program. The index shows rounded preview tiles with
 filenames and a search box. Click a tile to open its diagram page, with the
