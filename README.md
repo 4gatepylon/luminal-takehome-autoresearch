@@ -28,7 +28,7 @@ The converter preserves the complete program JSON data, including cases and
 extra metadata. Evaluation (`test`, `score`, and `eval`) checks that every JSON
 program has a matching `.ssa` file and that its decoded data equals the JSON
 exactly before running any compiler. See [the format and CLI guide](docs/program-ssa.md) for syntax,
-round-trip guarantees, and tests. [The VS Code extension](vscode/ssa/README.md)
+round-trip guarantees, and tests. [The VS Code extension](program/visualizations/vscode/README.md)
 adds syntax highlighting for `.ssa` files.
 
 ## Candidate task
@@ -159,7 +159,7 @@ PYTHONPATH="$PWD" python3 -B -m unittest discover -s tests/program -t .
 On macOS, install Graphviz once with `brew install graphviz`, then run from the repository root:
 
 ```sh
-PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag image programs/json/03_vector_axpy.json -o axpy.svg
+PYTHONPATH="$PWD" python3 -B -m program.visualizations.gallery image programs/json/03_vector_axpy.json -o axpy.svg
 open -a Safari axpy.svg
 ```
 
@@ -177,19 +177,19 @@ The package exports only `program_dot(validated_program) -> str` for Python call
 
 ```python
 from machine import load_program
-from visualize_ssa_as_dag import program_dot
+from program.visualizations.gallery import program_dot
 
 dot_source = program_dot(load_program("programs/json/03_vector_axpy.json"))
 ```
 
 Topological sorting, DOT formatting, and Graphviz execution live in private
 modules inside `program/representations/graphviz/`. CLI and gallery handling
-remain in `visualize_ssa_as_dag/`.
+remain in `program/visualizations/gallery/`.
 
 Build an offline webpage containing all programs:
 
 ```sh
-PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag gallery
+PYTHONPATH="$PWD" python3 -B -m program.visualizations.gallery gallery
 open dag-gallery/index.html  # macOS; or double-click index.html
 ```
 
@@ -202,7 +202,7 @@ directly from disk, without a server or internet connection.
 Existing nonempty output directories require `--clobber` (alias `--c`):
 
 ```sh
-PYTHONPATH="$PWD" python3 -B -m visualize_ssa_as_dag gallery --clobber
+PYTHONPATH="$PWD" python3 -B -m program.visualizations.gallery gallery --clobber
 ```
 
 Use `--programs-dir <directory>` to select another set of JSON programs and
@@ -213,7 +213,7 @@ single-image command without the `image` keyword also remains supported.
 The default input directory is `programs/json/`.
 
 Run the graph tests with
-`PYTHONPATH="$PWD" python3 -B -m unittest discover -s tests/visualize_ssa_as_dag -t .`.
+`PYTHONPATH="$PWD" python3 -B -m unittest discover -s tests/program/visualizations/gallery -t .`.
 
 ## Machine model
 

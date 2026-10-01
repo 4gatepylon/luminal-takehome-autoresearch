@@ -9,7 +9,7 @@ test-ssa:
 	PYTHONPATH="$(CURDIR)" $(PYTHON_BIN) -B -m unittest tests.program.representations.test_ssa_codec tests.test_evaluate_formats -v
 
 test-ssa-highlighting:
-	npm test --prefix vscode/ssa
+	npm test --prefix program/visualizations/vscode
 
 test-compiler:
 	$(PYTHON_BIN) -B evaluate.py test

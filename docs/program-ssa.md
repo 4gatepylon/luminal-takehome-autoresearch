@@ -153,7 +153,7 @@ assert restored == program
 ```sh
 PYTHONPATH="$PWD" make test-ssa
 PYTHONPATH="$PWD" make test
-npm ci --prefix vscode/ssa
+npm ci --prefix program/visualizations/vscode
 make test-ssa-highlighting
 ```
 
@@ -179,4 +179,4 @@ Custom evaluation inputs follow the same layout: pass the `json/` directory as
 The highlighting tests use VS Code's TextMate tokenizer and Oniguruma engine to
 check every `.ssa` example, syntax scopes, nested JSON metadata, and section
 transitions. The extension and its installation instructions are in
-[`vscode/ssa`](../vscode/ssa/README.md).
+[`program/visualizations/vscode`](../program/visualizations/vscode/README.md).

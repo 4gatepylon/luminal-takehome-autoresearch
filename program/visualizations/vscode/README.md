@@ -16,7 +16,7 @@ for Cursor (or another editor's directory name under your home directory):
 ```sh
 VSCODE="${VSCODE:-.vscode}"
 mkdir -p "$HOME/$VSCODE/extensions"
-ln -s "$PWD/vscode/ssa" "$HOME/$VSCODE/extensions/local.luminal-ssa-0.1.0"
+ln -s "$PWD/program/visualizations/vscode" "$HOME/$VSCODE/extensions/local.luminal-ssa-0.1.0"
 ```
 
 Then run **Developer: Reload Window** in your editor and open any `programs/ssa/*.ssa`
@@ -28,7 +28,7 @@ installation, remove the symlink and reload your editor.
 Alternatively, preview without installing using the VS Code CLI:
 
 ```sh
-code --extensionDevelopmentPath="$PWD/vscode/ssa" "$PWD/programs/ssa/03_vector_axpy.ssa"
+code --extensionDevelopmentPath="$PWD/program/visualizations/vscode" "$PWD/programs/ssa/03_vector_axpy.ssa"
 ```
 
 The extension is declarative: no runtime JavaScript, language server, or build
@@ -47,8 +47,8 @@ Use **Developer: Inspect Editor Tokens and Scopes** to inspect highlighting.
 From the repository root (Node.js 18+):
 
 ```sh
-npm ci --prefix vscode/ssa
-npm test --prefix vscode/ssa
+npm ci --prefix program/visualizations/vscode
+npm test --prefix program/visualizations/vscode
 ```
 
 These tests run the actual TextMate/Oniguruma tokenizer against the repository's
