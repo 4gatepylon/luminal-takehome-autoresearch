@@ -7,10 +7,15 @@ VSCODE ?= .cursor
 EDITOR_EXTENSIONS_DIR ?= $(HOME)/$(VSCODE)/extensions
 .DEFAULT_GOAL := test
 
-.PHONY: test test-compiler test-ssa test-ssa-highlighting score eval format generate-ssa generate-website setup-cursor
+.PHONY: test test-compiler test-ssa test-ssa-highlighting score eval format json2ssa ssa2json generate-website setup-cursor
 
-generate-ssa:
-	PYTHONPATH="$(CURDIR)" $(PYTHON_BIN) -B program_ssa.py regenerate "$(PROGRAMS_ROOT)" $(if $(filter 1,$(CLOBBER)),--clobber)
+json2ssa:
+	@test -n "$(INPUT)" || { printf '%s\n' 'Usage: make json2ssa INPUT=all|path.json [OUTPUT=path.ssa] [CLOBBER=1]' >&2; exit 1; }
+	@PYTHONPATH="$(CURDIR)" $(PYTHON_BIN) -B program_ssa.py json2ssa "$(INPUT)" --programs-root "$(PROGRAMS_ROOT)" $(if $(filter 1,$(CLOBBER)),--clobber) $(if $(OUTPUT),-o "$(OUTPUT)")
+
+ssa2json:
+	@test -n "$(INPUT)" || { printf '%s\n' 'Usage: make ssa2json INPUT=path.ssa [OUTPUT=path.json]' >&2; exit 1; }
+	@PYTHONPATH="$(CURDIR)" $(PYTHON_BIN) -B program_ssa.py ssa2json "$(INPUT)" $(if $(OUTPUT),-o "$(OUTPUT)")
 
 generate-website:
 	PYTHONPATH="$(CURDIR)" $(PYTHON_BIN) -B -m visualize_ssa_as_dag gallery --programs-dir "$(PROGRAMS_ROOT)/json" -o "$(WEBSITE_DIR)" $(if $(filter 1,$(CLOBBER)),--clobber)

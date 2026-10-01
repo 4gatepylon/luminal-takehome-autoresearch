@@ -20,20 +20,25 @@ Each public JSON program in `programs/json/` has a matching `.ssa` file in
 from the repository root:
 
 ```sh
-PYTHONPATH="$PWD" python3 -B program_ssa.py to-ssa programs/json/03_vector_axpy.json -o example.ssa
-PYTHONPATH="$PWD" python3 -B program_ssa.py to-json example.ssa -o example.json
+PYTHONPATH="$PWD" python3 -B program_ssa.py json2ssa programs/json/03_vector_axpy.json -o example.ssa
+PYTHONPATH="$PWD" python3 -B program_ssa.py ssa2json example.ssa -o example.json
 ```
 
 From the repository root:
 
 ```sh
-make generate-ssa             # Generate missing SSA files; verify existing files
-make generate-ssa CLOBBER=1   # Replace files that differ from generated output
+make json2ssa INPUT=all             # Require every SSA file to exist and match
+make json2ssa INPUT=all CLOBBER=1   # Generate missing or changed files
+make json2ssa INPUT=example.json OUTPUT=example.ssa
+make ssa2json INPUT=example.ssa OUTPUT=example.json
 make generate-website         # Build the Graphviz/SVG gallery in dag-gallery/
 make setup-cursor             # Install highlighting, then reload Cursor
 ```
 
-Matching SSA files are untouched; a mismatch stops generation before any writes.
+Workflow: write SSA → `ssa2json` → `json2ssa all` without clobber to validate.
+Omit `OUTPUT` for stdout in single-file conversions.
+Matching SSA files are untouched; missing or changed files require `CLOBBER=1`.
+Unaccounted files in `programs/ssa/` always stop generation before any writes.
 Website generation requires Graphviz (`brew install graphviz`); open
 `dag-gallery/index.html` afterward, and use `CLOBBER=1` to rebuild an existing
 gallery. Use `make setup-cursor VSCODE=.vscode` to install in VS Code instead.

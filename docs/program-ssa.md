@@ -130,8 +130,8 @@ Run from the repository root with Python 3.10+:
 
 ```sh
 export PYTHONPATH="$PWD"
-python3 -B program_ssa.py to-ssa programs/json/03_vector_axpy.json -o example.ssa
-python3 -B program_ssa.py to-json example.ssa -o example.json
+python3 -B program_ssa.py json2ssa programs/json/03_vector_axpy.json -o example.ssa
+python3 -B program_ssa.py ssa2json example.ssa -o example.json
 ```
 
 Omit `-o` to emit the converted file to stdout. SSA input/output file paths must
@@ -149,11 +149,11 @@ assert restored == program
 
 ### Regenerating all companions
 
-Run `make generate-ssa` to generate `programs/ssa/` from `programs/json/`.
-Matching files are untouched; missing files are created after validation.
-Any byte-for-byte mismatch stops the batch before writes.
-Use `make generate-ssa CLOBBER=1` to replace differing files.
-The direct CLI is `PYTHONPATH="$PWD" python3 -B program_ssa.py regenerate [directory] [--clobber]`.
+Run `make json2ssa INPUT=all` to check `programs/ssa/` against `programs/json/`.
+If every SSA file exists and matches byte-for-byte, nothing is written.
+Unaccounted files in `ssa/` always raise an error, even with clobber.
+Missing or changed SSA files raise unless `CLOBBER=1` is set, then regenerate after validation.
+The direct CLI is `PYTHONPATH="$PWD" python3 -B program_ssa.py json2ssa all [--clobber]`.
 
 ## Verification
 
@@ -177,7 +177,7 @@ decoded data mismatch fail evaluation, including for programs whose compiler
 failure is expected. This comparison covers the full program, including cases
 and metadata; SSA whitespace and comments do not affect it. Evaluation does not
 regenerate or repair files automatically. After changing a JSON fixture, use
-`regenerate --clobber` to update its companions, or `to-ssa` for a single file.
+`json2ssa all --clobber` to update its companions, or `json2ssa <path>` for a single file.
 Integration tests cover each entry point
 and verify that failed checks prevent compiler execution.
 

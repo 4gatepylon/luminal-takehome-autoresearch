@@ -324,9 +324,9 @@ class CLITests(unittest.TestCase):
         self.json_path.write_text(json.dumps(scalar_program()), encoding="utf-8")
 
     def test_file_round_trip(self) -> None:
-        self.assertEqual(main(["to-ssa", str(self.json_path), "-o", str(self.ssa_path)]), 0)
+        self.assertEqual(main(["json2ssa", str(self.json_path), "-o", str(self.ssa_path)]), 0)
         restored = self.directory / "restored.json"
-        self.assertEqual(main(["to-json", str(self.ssa_path), "-o", str(restored)]), 0)
+        self.assertEqual(main(["ssa2json", str(self.ssa_path), "-o", str(restored)]), 0)
         self.assertEqual(json.loads(restored.read_text()), scalar_program())
 
     def test_stdout_and_error_exit(self) -> None:
