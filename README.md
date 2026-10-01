@@ -80,27 +80,10 @@ python3 -m work.compiler programs/03_vector_axpy.json > axpy.schedule.json
 python3 machine.py programs/03_vector_axpy.json axpy.schedule.json
 ```
 
-Eleven public programs are in `programs/`. Submission grading uses another
+Public programs are in `programs/`. Submission grading uses another
 eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
-
-`programs/09_dead_code.json` takes scalar inputs `x`, `y`, and `z` and computes
-`out = x + y * z` (wrapping at 32 bits). Operations 5–16 are unused computations
-for `x + y * 2`, `x * z + y`, `x * y * z`, and `x + z * z + y * x * x`.
-This is a simple input for testing dead-code elimination. The current grader
-still requires every operation to issue exactly once, so it rejects schedules
-that omit the dead operations.
-
-`programs/10_repeated_addition.json` computes `out = x + x + ... + x` with
-sixteen summands. `programs/11_repeated_multiplication.json` computes
-`out = x * x * ... * x` with sixteen factors. Both use a left-associated chain
-of fifteen arithmetic operations on one loaded scalar, with cases covering zero,
-one, ordinary values, and 32-bit wraparound. These inputs expose opportunities
-for algebraic simplification: multiplication by 16 or a balanced addition tree,
-and repeated squaring for `x**16`. The current grader preserves the original
-operations and dependencies, so accepting those rewrites requires future changes
-to the compiler/grader contract.
 
 ## Machine model
 
@@ -190,6 +173,33 @@ store, and every later overlapping load or store must remain after it. Two
 ordered memory operations must issue in different cycles. Operations accessing
 provably disjoint ranges may reorder.
 
+## Program descriptions
+
+The public programs below cover scalar and vector dependency chains, memory
+traffic, and inputs for optimization experiments. All arithmetic wraps modulo
+`2**32`.
+
+| Program | Description |
+| --- | --- |
+| [01_scalar_pipeline.json](programs/01_scalar_pipeline.json) | A scalar multiply-add feeds bitwise mixing, shifts, a comparison, and a final selection. Exercises scheduling along a dependency chain. |
+| [02_scalar_dual_chain.json](programs/02_scalar_dual_chain.json) | Two scalar products share an `a + c` intermediate, producing `a * b + (a + c)` and `(c * d) ^ (a + c)`. Exposes parallel work and shared dependencies. |
+| [03_vector_axpy.json](programs/03_vector_axpy.json) | Computes `3 * x + y` over 16 elements using two eight-lane vector paths and a broadcast scalar constant. |
+| [04_vector_bitmix.json](programs/04_vector_bitmix.json) | XORs 16 data elements with masks, shifts each result left by five bits, and adds the original data. Exercises parallel vector chains. |
+| [05_mixed_broadcast.json](programs/05_mixed_broadcast.json) | Broadcasts scalar gate and bias values to compute `weights * gate + bias` over eight lanes. Connects scalar loads to vector arithmetic. |
+| [06_parallel_memory.json](programs/06_parallel_memory.json) | Computes `out0 = (a + b) * (c - d)` and `out1 = out0 ^ a` over 16 elements. Exercises independent loads, vector arithmetic, and multiple stores. |
+| [07_scalar_selects.json](programs/07_scalar_selects.json) | Computes the unsigned maximum of each of four score/threshold pairs using comparisons and selections. Exercises the flow engine. |
+| [08_vector_reduction.json](programs/08_vector_reduction.json) | Sums eight vectors lane by lane through a balanced addition tree, then XORs the result with a broadcast constant. Exercises dependencies that converge on one output vector. |
+| [09_dead_code.json](programs/09_dead_code.json) | Stores `x + y * z` while operations 5–16 compute unused expressions: `x + y * 2`, `x * z + y`, `x * y * z`, and `x + z * z + y * x * x`. Provides input for dead-code elimination. |
+| [10_repeated_addition.json](programs/10_repeated_addition.json) | Adds 16 copies of `x` in a left-associated chain of 15 additions. Provides input for simplification to `16 * x` or a balanced addition tree. Cases include zero, one, ordinary values, and overflow. |
+| [11_repeated_multiplication.json](programs/11_repeated_multiplication.json) | Multiplies 16 copies of `x` in a left-associated chain of 15 multiplications. Provides input for repeated squaring to compute `x**16`. Cases include zero, one, ordinary values, and overflow. |
+| [12_algebraic_associativity.json](programs/12_algebraic_associativity.json) | Computes `out1 = x * z + y * z` and `out2 = x * z + y * z + 2 * x * z`, with separate product nodes for each output followed by additions; the last term is `(2 * x) * z`. Provides input for reassociation and distributive factoring into `(x + y) * z` and `(3 * x + y) * z`. |
+
+Programs 09–12 expose opportunities for dead-code elimination and algebraic
+simplification. The current schedule-only grader requires every original
+operation to issue exactly once and preserves its dependencies. Accepting
+eliminated operations or rewritten expressions requires changes to the
+compiler/grader contract.
+
 ## Evaluation
 
 Every public and hidden case is interpreted directly from the input IR to
@@ -199,13 +209,13 @@ memory. Modifying or bypassing the public simulator cannot change hidden results
 
 Correctness on all programs is the first requirement. Among correct compilers,
 we report geometric-mean cycle speedup and geometric-mean scratch reduction
-relative to the frozen serial baseline across all nineteen programs. For each
+relative to the frozen serial baseline across all public and hidden programs. For each
 program these ratios are `baseline_cycles / cycles` and
 `baseline_scratch_words / scratch_words`. The combined score is
 `sqrt(cycle_speedup_geomean * scratch_reduction_geomean)`, giving equal weight
 to both objectives. The starter scores 1.000x on each metric. Public scoring
-uses the same formula on the eleven visible programs; the private grader reports
-the final combined result on all nineteen. We also review compiler structure, clarity, and the
+uses the same formula on the visible programs; the private grader reports
+the final combined result on all public and hidden programs. We also review compiler structure, clarity, and the
 tradeoffs in your scheduling heuristic.
 
 Useful directions include critical-path priorities, latency-aware ready queues,
