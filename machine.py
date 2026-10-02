@@ -508,7 +508,13 @@ def run_compilation(program: dict, compilation: dict, case: dict) -> dict[str, l
 
 
 def check_case(program: dict, compilation: dict, case: dict) -> None:
-    expected = run_reference(program, case)
+    if "expected" in case:
+        expected = case["expected"]["buffers"]
+        if case["expected"]["mode"] == "agree_with_reference_compiler":
+            if run_reference(program, case) != expected:
+                raise CompileError("reference output does not match expected buffers")
+    else:
+        expected = run_reference(program, case)
     actual = run_compilation(program, compilation, case)
     if actual != expected:
         mismatches = []
