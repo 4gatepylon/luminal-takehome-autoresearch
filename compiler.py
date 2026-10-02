@@ -46,6 +46,30 @@ def allocate_scratch(program: dict) -> dict[str, int]:
     return scratch
 
 
+def earliest_issue_cycle(
+    program: dict,
+    operation: dict,
+    producer: dict[str, int],
+    issue_cycle: dict[int, int],
+) -> int:
+    """Find the earliest cycle allowed by data dependencies and memory ordering."""
+    operations = program["operations"]
+    earliest = 0
+
+    for arg in operation.get("args", []):
+        pred_id = producer[arg]
+        pred = operations[pred_id]
+        earliest = max(
+            earliest,
+            issue_cycle[pred_id] + machine.OP_SPECS[pred["op"]]["latency"],
+        )
+
+    for pred_id in machine.memory_predecessors(program, operation["id"]):
+        earliest = max(earliest, issue_cycle[pred_id] + 1)
+
+    return earliest
+
+
 def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
     """Greedily fill bundles in source order, stalling when necessary."""
     operations = program["operations"]
@@ -58,18 +82,9 @@ def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
     for operation in operations:
         spec = machine.OP_SPECS[operation["op"]]
         engine = spec["engine"]
-        earliest = len(bundles)
-
-        for arg in operation.get("args", []):
-            pred_id = producer[arg]
-            pred = operations[pred_id]
-            earliest = max(
-                earliest,
-                issue_cycle[pred_id] + machine.OP_SPECS[pred["op"]]["latency"],
-            )
-
-        for pred_id in machine.memory_predecessors(program, operation["id"]):
-            earliest = max(earliest, issue_cycle[pred_id] + 1)
+        earliest = max(
+            len(bundles), earliest_issue_cycle(program, operation, producer, issue_cycle)
+        )
 
         if len(curr_bundle.get(engine, [])) >= machine.ENGINE_LIMITS[engine]:
             earliest = max(earliest, len(bundles) + 1)
