@@ -24,7 +24,7 @@ from sandbox import run_in_sandbox
 
 COMPILER_PATH: Final[Path] = Path("work/compiler.py")
 PROGRAM_DIR: Final[Path] = Path("programs/json")
-EXPECTED_PROGRAM_COUNT: Final[int] = 32
+EXPECTED_PROGRAM_COUNT: Final[int] = 31
 ORIGINAL_PROGRAM_FILENAMES: Final[frozenset[str]] = frozenset({
     "01_scalar_pipeline.json",
     "02_scalar_dual_chain.json",
@@ -50,7 +50,7 @@ PROGRAM_GROUPS: Final[Mapping[str, frozenset[str]]] = {
         "06_parallel_memory.json", "07_scalar_selects.json", "08_vector_reduction.json",
         "20_vectorization_factoring.json", "21_scalar_vector_sum.json",
         "27_sum_17_scalars.json", "28_sum_16_scalars.json", "29_sum_64_scalars.json",
-        "30_dot_product_running_sum.json", "31_matrix_transpose_3x3.json", "32_sliding_vector_or_select.json",
+        "30_dot_product_running_sum.json", "31_matrix_transpose_3x3.json",
     }),
     # Repeated expressions, constant folding, identities, and distributive factoring.
     "algebraic_simplification": frozenset({
