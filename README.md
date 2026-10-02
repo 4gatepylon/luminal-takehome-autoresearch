@@ -328,9 +328,20 @@ Programs use the following JSON shape:
 Operations are listed in SSA dependency order. IDs are consecutive starting at
 zero. Every argument names a result defined by an earlier operation.
 
-### Optional expected outputs
+Cases can include `expected` with mode `agree_with_reference_compiler` to require expected, reference, and compiled outputs to match, or `ignore_reference_compiler` to check only expected and compiled outputs; without `expected`, compiled output is checked against the reference.
 
-Cases can optionally wrap initial memory in `inputs` and supply `expected: {"mode": "agree_with_reference_compiler" | "ignore_reference_compiler", "buffers": {...}}` to require three-way agreement or skip the reference check, while omitting `expected` preserves regression testing ([format details](docs/program-ssa.md#expected-outputs)).
+```json
+{
+  "inputs": {
+    "x": [1, 2, 3, 4, 5, 6, 7, 8],
+    "out": [0, 0, 0, 0, 0, 0, 0, 0]
+  },
+  "expected": {
+    "mode": "agree_with_reference_compiler",
+    "buffers": {"out": [1, 2, 3, 4, 5, 6, 7, 8]}
+  }
+}
+```
 
 ## Memory ordering
 
@@ -398,9 +409,8 @@ supports scratch reuse. These fixtures do not change the compiler or baseline.
 
 ## Evaluation
 
-Cases without expected outputs use a reference memory image interpreted from
-the input IR. Explicit expectations follow the policy described above, either
-requiring reference agreement or skipping reference execution. The frozen grader validates scratch
+Every public and hidden case is interpreted directly from the input IR to
+produce its reference memory image. The frozen grader then validates scratch
 allocations, dependencies, engine limits, latencies, memory ordering, and final
 memory. Modifying or bypassing the public simulator cannot change hidden results.
 
