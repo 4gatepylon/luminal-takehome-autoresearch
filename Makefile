@@ -1,5 +1,6 @@
 PYTHON ?= python3
-PYTHON_BIN ?= $(PYTHON)
+PYTHON_BIN ?= .venv/bin/python
+export PYTHONPATH := $(CURDIR)
 PROGRAMS_ROOT ?= programs
 WEBSITE_DIR ?= dag-gallery
 CLOBBER ?= 0
@@ -7,7 +8,7 @@ VSCODE ?= .cursor
 EDITOR_EXTENSIONS_DIR ?= $(HOME)/$(VSCODE)/extensions
 .DEFAULT_GOAL := test
 
-.PHONY: help test test-compiler test-ssa test-ssa-highlighting score eval format json2ssa ssa2json generate-website setup-cursor
+.PHONY: help setup evolve test test-compiler test-ssa test-ssa-highlighting score eval format json2ssa ssa2json generate-website setup-cursor
 
 help: ## List available commands
 	@printf 'Usage: make <command> [VARIABLE=value ...]\n\nCommands:\n'
@@ -42,6 +43,12 @@ test-ssa-highlighting: ## Install test dependencies and run SSA syntax-highlight
 	npm ci --include=dev --prefix program/visualizations/vscode
 	npm test --prefix program/visualizations/vscode
 
+setup: ## Create or reuse .venv and install repository requirements
+	$(PYTHON) -B scripts/setup.py
+
+evolve: ## Run OpenEvolve autoresearch [ARGS=--check]
+	$(PYTHON_BIN) -B autoresearch-openevolve/run.py $(ARGS)
+
 test-compiler: ## Run compiler correctness tests
 	$(PYTHON_BIN) -B evaluate.py test
 
@@ -52,5 +59,5 @@ eval: ## Run compiler evaluation
 	$(PYTHON_BIN) -B evaluate.py eval
 
 format: ## Fix lint issues and format Python code with Ruff
-	ruff check --fix .
-	ruff format .
+	$(PYTHON_BIN) -m ruff check --fix .
+	$(PYTHON_BIN) -m ruff format .
