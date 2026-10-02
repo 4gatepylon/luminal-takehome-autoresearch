@@ -425,6 +425,7 @@ def _collect_issue_cycles(program: dict, bundles: list) -> dict[int, int]:
                     f"limit is {ENGINE_LIMITS[engine]}"
                 )
             for op_id in op_ids:
+                # TODO(hadriano): Restricting schedules to original operations blocks algebraic simplification, one of our main prongs of attack.
                 if not _plain_int(op_id) or not 0 <= op_id < len(operations):
                     raise CompileError(f"bundle {cycle} contains unknown operation {op_id!r}")
                 if op_id in issue_cycle:
