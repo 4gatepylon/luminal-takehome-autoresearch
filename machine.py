@@ -194,18 +194,33 @@ def validate_case(program: dict, case: dict, case_index: int | None = None) -> N
     label = "case" if case_index is None else f"case {case_index}"
     if not isinstance(case, dict):
         raise ProgramError(f"{label} must be an object")
-    expected_buffers = set(program["buffers"])
-    actual_buffers = set(case)
-    if actual_buffers != expected_buffers:
-        missing = sorted(expected_buffers - actual_buffers)
-        extra = sorted(actual_buffers - expected_buffers)
-        raise ProgramError(f"{label} buffer mismatch: missing={missing}, extra={extra}")
-    for name, length in program["buffers"].items():
-        values = case[name]
-        if not isinstance(values, list) or len(values) != length:
-            raise ProgramError(f"{label} buffer {name!r} must contain {length} words")
-        if any(not _plain_int(value) for value in values):
-            raise ProgramError(f"{label} buffer {name!r} contains a non-integer word")
+    buffers_to_check = [case]
+    if isinstance(case.get("inputs"), dict):
+        if case.keys() - {"inputs", "expected"}:
+            raise ProgramError(f"{label} only allows inputs and expected")
+        buffers_to_check = [case["inputs"]]
+        if "expected" in case:
+            expected = case["expected"]
+            if not isinstance(expected, dict) or expected.keys() != {"mode", "buffers"}:
+                raise ProgramError(f"{label} expected requires mode and buffers")
+            if expected["mode"] not in ("agree_with_reference_compiler", "ignore_reference_compiler"):
+                raise ProgramError(f"{label} has an unknown expected mode")
+            buffers_to_check.append(expected["buffers"])
+    for buffers in buffers_to_check:
+        if not isinstance(buffers, dict):
+            raise ProgramError(f"{label} buffers must be an object")
+        expected_buffers = set(program["buffers"])
+        actual_buffers = set(buffers)
+        if actual_buffers != expected_buffers:
+            missing = sorted(expected_buffers - actual_buffers)
+            extra = sorted(actual_buffers - expected_buffers)
+            raise ProgramError(f"{label} buffer mismatch: missing={missing}, extra={extra}")
+        for name, length in program["buffers"].items():
+            values = buffers[name]
+            if not isinstance(values, list) or len(values) != length:
+                raise ProgramError(f"{label} buffer {name!r} must contain {length} words")
+            if any(not _plain_int(value) for value in values):
+                raise ProgramError(f"{label} buffer {name!r} contains a non-integer word")
 
 
 def producer_map(program: dict) -> dict[str, int]:
@@ -508,7 +523,8 @@ def run_compilation(program: dict, compilation: dict, case: dict) -> dict[str, l
 
 
 def check_case(program: dict, compilation: dict, case: dict) -> None:
-    if "expected" in case:
+    validate_case(program, case)
+    if isinstance(case.get("inputs"), dict) and "expected" in case:
         expected = case["expected"]["buffers"]
         if case["expected"]["mode"] == "agree_with_reference_compiler":
             if run_reference(program, case) != expected:
@@ -525,6 +541,8 @@ def check_case(program: dict, compilation: dict, case: dict) -> None:
 
 
 def _copy_case(case: dict) -> dict[str, list[int]]:
+    if isinstance(case.get("inputs"), dict):
+        case = case["inputs"]
     return {name: [u32(value) for value in words] for name, words in deepcopy(case).items()}
 
 
