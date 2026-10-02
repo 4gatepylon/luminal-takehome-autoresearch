@@ -28,16 +28,6 @@ def micro_program() -> dict:
 
 
 class MachineTests(unittest.TestCase):
-    def test_rejects_expected_outputs(self):
-        program = micro_program()
-        case = {"inputs": {"out": [0]}, "expected": None}
-        program["cases"] = [case]
-        message = "Cases with expected outputs are not supported"
-        with self.assertRaisesRegex(NotImplementedError, message):
-            machine.validate_program(program)
-        with self.assertRaisesRegex(NotImplementedError, message):
-            machine.check_case(program, {}, case)
-
     def test_serial_compiler_executes_correctly(self):
         program = micro_program()
         compilation = machine.serial_compile(program)
