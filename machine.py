@@ -510,6 +510,7 @@ def run_compilation(program: dict, compilation: dict, case: dict) -> dict[str, l
 
 def check_case(program: dict, compilation: dict, case: dict) -> None:
     if "expected" in case:
+        raise NotImplementedError("Cases with expected outputs are not supported")
         expected = case["expected"]["buffers"]
         if case["expected"]["mode"] == "agree_with_reference_compiler":
             if run_reference(program, case) != expected:
