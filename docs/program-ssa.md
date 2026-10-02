@@ -43,34 +43,6 @@ is string data. Within the program, all whitespace, including newlines, is
 equivalent: statements can span lines or share a line. JSONL objects and header
 values must stay on a single physical line.
 
-## Expected outputs
-
-The same optional expected-output policy as JSON is supported, on one line:
-
-```json
-{"inputs":{"a":[1,1,1,1,1,1,1,1],"out":[0,0,0,0,0,0,0,0]},"expected":{"mode":"agree_with_reference_compiler","buffers":{"out":[3,3,3,3,3,3,3,3]}}}
-```
-
-`agree_with_reference_compiler` requires the expectation, reference output, and
-compiled output to agree. `ignore_reference_compiler` compares compiled output
-with the expectation without running the reference interpreter. Omit `expected`
-for reference-based regression testing. The reference implementation is the
-interpreter, distinct from the serial compiler and its scratch limit;
-neither mode bypasses schedule validation or provides a performance baseline.
-
-`inputs` must include every declared buffer. `expected.buffers` must include
-complete final contents of all written buffers, including unchanged words in
-partially written buffers; omitted read-only buffers must remain unchanged.
-Full final-memory maps are also accepted. Words are normalized modulo `2**32`.
-`expected` requires exactly `mode` and `buffers`, with no implicit mode. Unknown
-modes, fields or buffers, missing written buffers, wrong lengths, non-integer
-words (including booleans), and `null` expectations are rejected.
-
-Cases with and without expected outputs can be mixed in one program.
-Buffer names `inputs` and `expected` remain legal: a wrapper has an object-valued
-`inputs`, whereas buffer contents are lists. Conversion preserves each case form
-exactly, including original buffer names in both `inputs` and `expected.buffers`.
-
 ## Operations
 
 Every statement describes exactly one original operation. IDs are assigned in
