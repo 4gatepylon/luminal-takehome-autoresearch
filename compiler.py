@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Luminal Compiler Take Home — compiler engineering candidate implementation.
 
-The starter is intentionally conservative: it allocates every SSA value once
-and emits at most one operation per bundle. Improve compile_program without
+The compiler allocates every SSA value once and greedily packs operations into
+bundles in source order. Improve compile_program without
 changing its input or output contract. Reuse scratch for values whose scheduled
 lifetimes do not overlap to improve the scratch-footprint component of the score.
 """
@@ -47,17 +47,17 @@ def allocate_scratch(program: dict) -> dict[str, int]:
 
 
 def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
-    """Schedule operations into bundles in source order."""
+    """Greedily fill bundles in source order, stalling when necessary."""
     operations = program["operations"]
 
-    # Serial, source-order scheduling with explicit latency stalls. This is a
-    # correct baseline, but it leaves almost all VLIW slots empty.
     bundles: list[dict[str, list[int]]] = []
+    curr_bundle: dict[str, list[int]] = {}
     issue_cycle: dict[int, int] = {}
     producer = machine.producer_map(program)
 
     for operation in operations:
         spec = machine.OP_SPECS[operation["op"]]
+        engine = spec["engine"]
         earliest = len(bundles)
 
         for arg in operation.get("args", []):
@@ -71,11 +71,19 @@ def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
         for pred_id in machine.memory_predecessors(program, operation["id"]):
             earliest = max(earliest, issue_cycle[pred_id] + 1)
 
-        while len(bundles) < earliest:
-            bundles.append({})
+        if len(curr_bundle.get(engine, [])) >= machine.ENGINE_LIMITS[engine]:
+            earliest = max(earliest, len(bundles) + 1)
 
-        bundles.append({spec["engine"]: [operation["id"]]})
+        # Flush the current bundle, then emit empty stalls until this op is ready.
+        while len(bundles) < earliest:
+            bundles.append(curr_bundle)
+            curr_bundle = {}
+
+        curr_bundle.setdefault(engine, []).append(operation["id"])
         issue_cycle[operation["id"]] = earliest
+
+    if curr_bundle:
+        bundles.append(curr_bundle)
 
     return bundles
 
