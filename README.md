@@ -338,7 +338,10 @@ Cases can include `expected` with mode `agree_with_reference_compiler` to requir
   },
   "expected": {
     "mode": "agree_with_reference_compiler",
-    "buffers": {"out": [1, 2, 3, 4, 5, 6, 7, 8]}
+    "buffers": {
+      "x": [1, 2, 3, 4, 5, 6, 7, 8],
+      "out": [1, 2, 3, 4, 5, 6, 7, 8]
+    }
   }
 }
 ```
