@@ -124,12 +124,30 @@ Operation IDs are assigned consecutively in source order. SSA definitions,
 operand types, memory bounds, and cases follow the existing machine contract.
 
 `ssa.py` exposes `to_ssa(program: dict) -> str` and
-`from_ssa(source: str) -> dict`. It also provides a stdout-only conversion CLI:
+`from_ssa(source: str) -> dict`. Single-file CLI conversion writes to stdout:
 
 ```sh
 python3 ssa.py to-ssa programs/json/03_vector_axpy.json
 python3 ssa.py to-json programs/ssa/03_vector_axpy.ssa
 ```
+
+Use `all` to convert every source file into the matching destination folder:
+
+```sh
+python3 ssa.py to-ssa all
+python3 ssa.py to-json all
+python3 ssa.py to-ssa all --clobber
+python3 ssa.py to-json all --clobber
+```
+
+These commands use `programs/json/` and `programs/ssa/` next to `ssa.py`, regardless
+of the working directory. Missing destination files are created. Existing files
+are compared as parsed program dictionaries: JSON key ordering/formatting and SSA
+comments/spacing do not affect equivalence. Equivalent files are left untouched,
+including their timestamps. Without `--clobber`, any differing or invalid
+destination causes exit status 1 with the conflicting paths, before any files
+are written. With `--clobber`, those destinations are replaced. Invalid source
+programs still fail. `--clobber` is only accepted with `all`.
 
 Conversion preserves the documented JSON program fields and values; JSON
 whitespace/key order and SSA comments are not preserved.

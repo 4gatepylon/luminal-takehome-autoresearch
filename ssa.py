@@ -22,6 +22,7 @@ BINARY = {
 }
 SYMBOLS = {opcode: symbol for symbol, opcode in BINARY.items()}
 SECTIONS = tuple("=" * 40 + title + "=" * 40 for title in ("BUFFERS", "PROGRAM", "CASES"))
+PROGRAM_DIR = Path(__file__).resolve().parent / "programs"
 
 
 def _name(text: str) -> str:
@@ -160,16 +161,68 @@ def from_ssa(source: str) -> dict:
     return program
 
 
-def main() -> int:
+def convert_all(direction: str, program_dir: Path, *, clobber: bool = False) -> tuple[int, int]:
+    """Convert matching fixtures, preflighting conflicts before writing any files.
+
+    Compare parsed program dictionaries, so formatting and SSA comments do not
+    cause conflicts. Return (written, unchanged); equivalent files are untouched.
+    """
+    if direction not in {"to-ssa", "to-json"}:
+        raise ValueError(f"unknown conversion direction {direction!r}")
+    source_format, target_format = ("json", "ssa") if direction == "to-ssa" else ("ssa", "json")
+    sources = sorted((program_dir / source_format).glob(f"*.{source_format}"))
+    if not sources:
+        raise ValueError(f"no .{source_format} files found in {program_dir / source_format}")
+
+    def read_program(path: Path, format: str) -> dict:
+        if format == "json":
+            return machine.load_program(path)
+        return from_ssa(path.read_text(encoding="utf-8"))
+
+    pending = []
+    conflicts = []
+    unchanged = 0
+    for source in sources:
+        program = read_program(source, source_format)
+        output = to_ssa(program) if target_format == "ssa" else json.dumps(program, indent=2) + "\n"
+        target = program_dir / target_format / source.with_suffix(f".{target_format}").name
+        if target.exists():
+            try:
+                equivalent = read_program(target, target_format) == program
+            except ValueError:
+                equivalent = False
+            if equivalent:
+                unchanged += 1
+                continue
+            if not clobber:
+                conflicts.append(str(target))
+                continue
+        pending.append((target, output))
+    if conflicts:
+        raise ValueError("out of sync; refusing to overwrite (use --clobber):\n" + "\n".join(conflicts))
+    for target, output in pending:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("w" if clobber else "x", encoding="utf-8") as handle:
+            handle.write(output)
+    return len(pending), unchanged
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("direction", choices=("to-ssa", "to-json"))
-    parser.add_argument("path", type=Path)
-    args = parser.parse_args()
+    parser.add_argument("path", help="input file, or 'all' to convert the repository's fixtures")
+    parser.add_argument("--clobber", action="store_true", help="allow 'all' to replace differing files")
+    args = parser.parse_args(argv)
+    if args.clobber and args.path != "all":
+        parser.error("--clobber requires 'all'; single-file conversion writes to stdout")
     try:
-        if args.direction == "to-ssa":
-            sys.stdout.write(to_ssa(machine.load_program(args.path)))
+        if args.path == "all":
+            written, unchanged = convert_all(args.direction, PROGRAM_DIR, clobber=args.clobber)
+            print(f"{written} written, {unchanged} unchanged", file=sys.stderr)
+        elif args.direction == "to-ssa":
+            sys.stdout.write(to_ssa(machine.load_program(Path(args.path))))
         else:
-            program = from_ssa(args.path.read_text(encoding="utf-8"))
+            program = from_ssa(Path(args.path).read_text(encoding="utf-8"))
             print(json.dumps(program, indent=2))
     except (OSError, ValueError) as exc:
         print(f"INVALID: {exc}", file=sys.stderr)
