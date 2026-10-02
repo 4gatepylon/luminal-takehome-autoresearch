@@ -75,11 +75,11 @@ buffers {"input": 1, "out": 1}
 
 ========================================PROGRAM========================================
 # Full-line comments and blank lines are allowed in every section.
-load buff[input][0] into a
+load {buff[input][0]} into {a}
 b = 3
 x = a + b
 y = x | a
-store y into buff[out][0]
+store {y} into {buff[out][0]}
 
 ========================================CASES========================================
 {"input": [5], "out": [0]}
@@ -90,26 +90,36 @@ The BUFFERS section contains `name` followed by a JSON string and `buffers`
 followed by a JSON object mapping buffer names to word counts. The CASES section
 is JSONL: one complete initial-memory object per line, including output buffers.
 Indented full-line `#` comments are allowed; inline comments are rejected.
+Blank lines (including whitespace-only lines) are ignored in all three sections.
 
 The PROGRAM section has one instruction per line:
 
 | Syntax | Meaning |
 | --- | --- |
-| `load buff[name][offset] into x` | Scalar load |
-| `vload buff[name][offset] into x` | Eight-word vector load |
-| `store x into buff[name][offset]` | Scalar store |
-| `vstore x into buff[name][offset]` | Eight-word vector store |
+| `load {buff[name][offset]} into {x}` | Scalar load |
+| `vload {buff[name][offset]} into {x}` | Eight-word vector load |
+| `store {x} into {buff[name][offset]}` | Scalar store |
+| `vstore {x} into {buff[name][offset]}` | Eight-word vector store |
 | `x = 42` | Scalar constant; signed decimal and hexadecimal literals are accepted |
 | `x = a + b` | Binary operation; supports `+`, `-`, `*`, `^`, `&`, `\|`, `<<`, `>>`, `==`, `<` |
 | `x = splat(a)` | Broadcast a scalar to eight lanes |
-| `x = select(c, a, b)` | Scalar conditional selection |
-| `x = vselect(c, a, b)` | Lane-wise vector conditional selection |
+| `x = a if {c} else b` | Scalar or lane-wise vector conditional selection |
+
+Load and store operands require braces. Any amount of whitespace is allowed
+inside the braces and around the buffer indexing delimiters, for example
+`store { value  } into {    buff[out][0] }`. The emitter uses compact braces.
 
 Binary operations infer scalar/vector type from their operands. Both operands
 must have the same type; `==` and `<` are scalar-only. Expressions contain one
 operation with named operands: use a separate constant assignment for immediates.
-Names use letters, digits, and underscores (not starting with a digit), or JSON
-strings for other names, such as `load buff["input data"][0] into "my value"`.
+Selections choose `a` when `c` is nonzero, otherwise `b`. All three operands
+must be previously defined scalars or all vectors; vector selection acts lane
+by lane. The condition is a named value, so write comparisons separately, such
+as `c = a < b` followed by `x = a if {c} else b`.
+Variable and buffer names must match `[A-Za-z_][A-Za-z_0-9]*` and cannot be Python
+keywords. Quoted names are not allowed. Conversion rejects invalid identifiers
+instead of renaming them, preserving exact JSON/SSA parity. The program's
+descriptive `name` remains an unrestricted JSON string.
 Operation IDs are assigned consecutively in source order. SSA definitions,
 operand types, memory bounds, and cases follow the existing machine contract.
 

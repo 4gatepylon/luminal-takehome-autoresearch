@@ -3,14 +3,14 @@ name "mixed_broadcast"
 buffers {"weights": 8, "bias": 1, "gate": 1, "out": 8}
 
 ========================================PROGRAM========================================
-vload buff[weights][0] into weights0
-load buff[bias][0] into bias0
-load buff[gate][0] into gate0
+vload {buff[weights][0]} into {weights0}
+load {buff[bias][0]} into {bias0}
+load {buff[gate][0]} into {gate0}
 vbias = splat(bias0)
 vgate = splat(gate0)
 scaled = weights0 * vgate
 result = scaled + vbias
-vstore result into buff[out][0]
+vstore {result} into {buff[out][0]}
 
 ========================================CASES========================================
 {"weights": [2, 4, 6, 8, 10, 12, 14, 16], "bias": [7], "gate": [9], "out": [0, 0, 0, 0, 0, 0, 0, 0]}

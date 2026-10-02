@@ -3,14 +3,14 @@ name "vector_reduction"
 buffers {"data": 64, "out": 8}
 
 ========================================PROGRAM========================================
-vload buff[data][0] into v0
-vload buff[data][8] into v1
-vload buff[data][16] into v2
-vload buff[data][24] into v3
-vload buff[data][32] into v4
-vload buff[data][40] into v5
-vload buff[data][48] into v6
-vload buff[data][56] into v7
+vload {buff[data][0]} into {v0}
+vload {buff[data][8]} into {v1}
+vload {buff[data][16]} into {v2}
+vload {buff[data][24]} into {v3}
+vload {buff[data][32]} into {v4}
+vload {buff[data][40]} into {v5}
+vload {buff[data][48]} into {v6}
+vload {buff[data][56]} into {v7}
 r0 = v0 + v1
 r1 = v2 + v3
 r2 = v4 + v5
@@ -21,7 +21,7 @@ sum = r4 + r5
 key = 2779096485
 vkey = splat(key)
 result = sum ^ vkey
-vstore result into buff[out][0]
+vstore {result} into {buff[out][0]}
 
 ========================================CASES========================================
 {"data": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63], "out": [0, 0, 0, 0, 0, 0, 0, 0]}

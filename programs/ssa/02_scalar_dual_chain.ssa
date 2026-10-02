@@ -3,17 +3,17 @@ name "scalar_dual_chain"
 buffers {"a": 1, "b": 1, "c": 1, "d": 1, "out": 2}
 
 ========================================PROGRAM========================================
-load buff[a][0] into a0
-load buff[b][0] into b0
-load buff[c][0] into c0
-load buff[d][0] into d0
+load {buff[a][0]} into {a0}
+load {buff[b][0]} into {b0}
+load {buff[c][0]} into {c0}
+load {buff[d][0]} into {d0}
 left_product = a0 * b0
 right_product = c0 * d0
 cross = a0 + c0
 left = left_product + cross
 right = right_product ^ cross
-store left into buff[out][0]
-store right into buff[out][1]
+store {left} into {buff[out][0]}
+store {right} into {buff[out][1]}
 
 ========================================CASES========================================
 {"a": [13], "b": [5], "c": [21], "d": [9], "out": [0, 0]}

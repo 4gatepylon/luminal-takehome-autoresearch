@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import keyword
 import re
 import sys
 from pathlib import Path
@@ -13,7 +14,7 @@ import machine
 
 
 IDENTIFIER = r"[A-Za-z_][A-Za-z_0-9]*"
-NAME = rf'(?:{IDENTIFIER}|"(?:[^"\\\x00-\x1f]|\\.)*")'
+NAME = IDENTIFIER
 INTEGER = r"-?(?:0[xX][0-9a-fA-F]+|[0-9]+)"
 BINARY = {
     "+": "add", "-": "sub", "*": "mul", "^": "xor", "&": "and",
@@ -24,11 +25,9 @@ SECTIONS = tuple("=" * 40 + title + "=" * 40 for title in ("BUFFERS", "PROGRAM",
 
 
 def _name(text: str) -> str:
-    return json.loads(text) if text.startswith('"') else text
-
-
-def _format_name(name: str) -> str:
-    return name if re.fullmatch(IDENTIFIER, name) else json.dumps(name)
+    if not re.fullmatch(IDENTIFIER, text) or keyword.iskeyword(text):
+        raise machine.ProgramError(f"invalid identifier {text!r}")
+    return text
 
 
 def _integer(text: str) -> int:
@@ -38,21 +37,25 @@ def _integer(text: str) -> int:
 def to_ssa(program: dict) -> str:
     """Serialize a validated program's documented fields; IDs follow source order."""
     machine.validate_program(program)
+    for name in program["buffers"]:
+        _name(name)
     lines = [SECTIONS[0], f"name {json.dumps(program['name'])}",
              f"buffers {json.dumps(program['buffers'])}", "", SECTIONS[1]]
     for operation in program["operations"]:
         opcode = operation["op"]
-        args = [_format_name(arg) for arg in operation.get("args", [])]
-        dest = _format_name(operation["dest"]) if "dest" in operation else None
+        args = [_name(arg) for arg in operation.get("args", [])]
+        dest = _name(operation["dest"]) if "dest" in operation else None
         if opcode in machine.MEMORY_OPS:
-            address = f"buff[{_format_name(operation['buffer'])}][{operation['offset']}]"
+            address = f"buff[{_name(operation['buffer'])}][{operation['offset']}]"
             if opcode in machine.LOAD_OPS:
-                line = f"{opcode} {address} into {dest}"
+                line = f"{opcode} {{{address}}} into {{{dest}}}"
             else:
-                line = f"{opcode} {args[0]} into {address}"
+                line = f"{opcode} {{{args[0]}}} into {{{address}}}"
         elif opcode == "const":
             line = f"{dest} = {operation['value']}"
-        elif opcode in {"splat", "select", "vselect"}:
+        elif opcode in {"select", "vselect"}:
+            line = f"{dest} = {args[1]} if {{{args[0]}}} else {args[2]}"
+        elif opcode == "splat":
             line = f"{dest} = {opcode}({', '.join(args)})"
         else:
             scalar_opcode = opcode[1:] if opcode.startswith("v") else opcode
@@ -64,13 +67,14 @@ def to_ssa(program: dict) -> str:
 
 
 def _parse_operation(line: str, kinds: dict[str, str]) -> dict:
-    address = rf"buff\[\s*({NAME})\s*\]\[\s*({INTEGER})\s*\]"
-    match = re.fullmatch(rf"(v?load)\s+{address}\s+into\s+({NAME})", line)
+    address = rf"\{{\s*buff\s*\[\s*({NAME})\s*\]\s*\[\s*({INTEGER})\s*\]\s*\}}"
+    variable = rf"\{{\s*({NAME})\s*\}}"
+    match = re.fullmatch(rf"(v?load)\s+{address}\s+into\s+{variable}", line)
     if match:
         opcode, buffer, offset, dest = match.groups()
         return {"op": opcode, "dest": _name(dest), "buffer": _name(buffer),
                 "offset": _integer(offset)}
-    match = re.fullmatch(rf"(v?store)\s+({NAME})\s+into\s+{address}", line)
+    match = re.fullmatch(rf"(v?store)\s+{variable}\s+into\s+{address}", line)
     if match:
         opcode, arg, buffer, offset = match.groups()
         return {"op": opcode, "args": [_name(arg)], "buffer": _name(buffer),
@@ -86,10 +90,12 @@ def _parse_operation(line: str, kinds: dict[str, str]) -> dict:
     if match:
         return {**operation, "op": "splat", "args": [_name(match[1])]}
     match = re.fullmatch(
-        rf"(v?select)\(\s*({NAME})\s*,\s*({NAME})\s*,\s*({NAME})\s*\)", expression
+        rf"({NAME})\s+if\s+{variable}\s+else\s+({NAME})", expression
     )
     if match:
-        return {**operation, "op": match[1], "args": [_name(v) for v in match.groups()[1:]]}
+        true_value, condition, false_value = [_name(v) for v in match.groups()]
+        opcode = "vselect" if kinds.get(condition) == "vector" else "select"
+        return {**operation, "op": opcode, "args": [condition, true_value, false_value]}
     operators = "|".join(re.escape(symbol) for symbol in BINARY)
     match = re.fullmatch(rf"({NAME})\s*({operators})\s*({NAME})", expression)
     if match:
@@ -149,6 +155,8 @@ def from_ssa(source: str) -> dict:
     if section != 2:
         raise machine.ProgramError("expected all three sections: BUFFERS, PROGRAM, CASES")
     machine.validate_program(program)
+    for name in program["buffers"]:
+        _name(name)
     return program
 
 
