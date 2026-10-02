@@ -1,0 +1,299 @@
+{
+  "name": "matrix_transpose_3x3",
+  "buffers": {
+    "input": 9,
+    "out": 9
+  },
+  "operations": [
+    {
+      "id": 0,
+      "op": "load",
+      "dest": "a00",
+      "buffer": "input",
+      "offset": 0
+    },
+    {
+      "id": 1,
+      "op": "load",
+      "dest": "a01",
+      "buffer": "input",
+      "offset": 1
+    },
+    {
+      "id": 2,
+      "op": "load",
+      "dest": "a02",
+      "buffer": "input",
+      "offset": 2
+    },
+    {
+      "id": 3,
+      "op": "load",
+      "dest": "a10",
+      "buffer": "input",
+      "offset": 3
+    },
+    {
+      "id": 4,
+      "op": "load",
+      "dest": "a11",
+      "buffer": "input",
+      "offset": 4
+    },
+    {
+      "id": 5,
+      "op": "load",
+      "dest": "a12",
+      "buffer": "input",
+      "offset": 5
+    },
+    {
+      "id": 6,
+      "op": "load",
+      "dest": "a20",
+      "buffer": "input",
+      "offset": 6
+    },
+    {
+      "id": 7,
+      "op": "load",
+      "dest": "a21",
+      "buffer": "input",
+      "offset": 7
+    },
+    {
+      "id": 8,
+      "op": "load",
+      "dest": "a22",
+      "buffer": "input",
+      "offset": 8
+    },
+    {
+      "id": 9,
+      "op": "store",
+      "args": [
+        "a00"
+      ],
+      "buffer": "out",
+      "offset": 0
+    },
+    {
+      "id": 10,
+      "op": "store",
+      "args": [
+        "a10"
+      ],
+      "buffer": "out",
+      "offset": 1
+    },
+    {
+      "id": 11,
+      "op": "store",
+      "args": [
+        "a20"
+      ],
+      "buffer": "out",
+      "offset": 2
+    },
+    {
+      "id": 12,
+      "op": "store",
+      "args": [
+        "a01"
+      ],
+      "buffer": "out",
+      "offset": 3
+    },
+    {
+      "id": 13,
+      "op": "store",
+      "args": [
+        "a11"
+      ],
+      "buffer": "out",
+      "offset": 4
+    },
+    {
+      "id": 14,
+      "op": "store",
+      "args": [
+        "a21"
+      ],
+      "buffer": "out",
+      "offset": 5
+    },
+    {
+      "id": 15,
+      "op": "store",
+      "args": [
+        "a02"
+      ],
+      "buffer": "out",
+      "offset": 6
+    },
+    {
+      "id": 16,
+      "op": "store",
+      "args": [
+        "a12"
+      ],
+      "buffer": "out",
+      "offset": 7
+    },
+    {
+      "id": 17,
+      "op": "store",
+      "args": [
+        "a22"
+      ],
+      "buffer": "out",
+      "offset": 8
+    }
+  ],
+  "cases": [
+    {
+      "input": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "out": [
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99
+      ]
+    },
+    {
+      "input": [
+        9,
+        8,
+        7,
+        6,
+        5,
+        4,
+        3,
+        2,
+        1
+      ],
+      "out": [
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99
+      ]
+    },
+    {
+      "input": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "out": [
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99
+      ]
+    },
+    {
+      "input": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1
+      ],
+      "out": [
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99
+      ]
+    },
+    {
+      "input": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        17,
+        0,
+        0,
+        0
+      ],
+      "out": [
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99
+      ]
+    },
+    {
+      "input": [
+        4294967295,
+        2147483648,
+        0,
+        1,
+        1431655765,
+        2863311530,
+        65536,
+        7,
+        2147483649
+      ],
+      "out": [
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99,
+        99
+      ]
+    }
+  ]
+}
