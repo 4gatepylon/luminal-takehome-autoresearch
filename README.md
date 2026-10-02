@@ -9,47 +9,13 @@ input is a typed, straight-line SSA program. Your compiler must assign every
 virtual value to the machine's scratchpad and schedule every operation into
 VLIW bundles. Correctness is required; shorter schedules and smaller scratch footprints score better.
 
-The starter compiler is deliberately simple and serial. It handles programs
-01–17, 20–23, and 27–31; programs 18–19 and 24–26 intentionally exceed its scratch allocation
-capacity and require scratch reuse. You can improve the compiler incrementally.
-
-## Readable program files
-
-Each public JSON program in `programs/json/` has a matching `.ssa` file in
-`programs/ssa/` for reading, editing, and debugging. Convert in either direction
-from the repository root:
-
-```sh
-PYTHONPATH="$PWD" python3 -B -m program.representations.ssa json2ssa programs/json/03_vector_axpy.json -o example.ssa
-PYTHONPATH="$PWD" python3 -B -m program.representations.ssa ssa2json example.ssa -o example.json
-```
-
-From the repository root:
-
-```sh
-make json2ssa INPUT=all
-make json2ssa INPUT=all CLOBBER=1
-make json2ssa INPUT=example.json OUTPUT=example.ssa
-make ssa2json INPUT=example.ssa OUTPUT=example.json
-make generate-website
-make setup-cursor
-```
-
-1. Write SSA → `ssa2json` → `json2ssa all` without clobber to validate; omit `OUTPUT` for single-file output to stdout.
-2. Matching SSA files stay untouched; missing/changed files need `CLOBBER=1`, while unaccounted files always error before writes.
-3. Install Graphviz (`brew install graphviz` on macOS), generate the site, and open `dag-gallery/index.html`; rebuild with `CLOBBER=1`.
-4. For VS Code, use `make setup-cursor VSCODE=.vscode`, then reload the editor.
-
-The converter preserves the complete program JSON data, including cases and
-extra metadata. Evaluation (`test`, `score`, and `eval`) checks that every JSON
-program has a matching `.ssa` file and that its decoded data equals the JSON
-exactly before running any compiler. See [the format and CLI guide](docs/program-ssa.md) for syntax,
-round-trip guarantees, and tests. [The VS Code extension](program/visualizations/vscode/README.md)
-adds syntax highlighting for `.ssa` files.
+The starter compiler is deliberately simple and serial. It is correct for all
+supported programs, so you can improve it incrementally and measure every
+change.
 
 ## Candidate task
 
-Implement scheduling and scratch allocation in `compile_program()` in `work/compiler.py`.
+Implement scheduling and scratch allocation in `compile_program()` in `compiler.py`.
 You may add helpers and standard-library imports to that file. Do not modify `machine.py`, the
 public programs, or the tests when preparing a submission.
 
@@ -71,176 +37,24 @@ The lists in each bundle contain operation IDs from the input program. Missing
 engines and empty bundles are allowed. Every operation must appear exactly
 once.
 
-Run unit tests, the public benchmark, or both (tests must pass before scoring):
+Run the public suite and benchmark with:
 
 ```sh
-make test
-make score
-make eval
-```
-
-`make score` expects programs 18–19 and 24–26 to fail; their exact filenames, the
-original eight, and group membership are documented in `evaluate.py`.
-The overlapping `original`, `load_heavy`, and `algebraic_simplification` groups
-provide performance breakdowns, with geometric means over non-failing programs
-and expected failures excluded from every group, including the overall aggregate.
-Each program is evaluated once, failures are reported and counted, and unexpected
-outcomes, missing required files, or a program count other than 31 raise an error.
-
-The same functions are available from Python:
-
-```python
-from evaluate import test, score, eval
-
-metrics = eval()  # runs tests, then scores; returns None if tests fail
-```
-
-`test()` returns a `unittest.TestResult` with `.wasSuccessful()` and accepts
-`verbosity` and `stream` options for its output. `score()` returns a dictionary
-with `cycle_speedup`, `scratch_reduction`, and `combined_score` without printing.
-Pass `verbose=True` to `score()` or `eval()` to print the benchmark report.
-The CLI returns a nonzero exit status when tests fail.
-
-All three functions accept `compiler_filepath`, defaulting to `work/compiler.py`;
-the CLI accepts `--compiler-filepath <path>`. Evaluation requires macOS:
-`sandbox.py` runs each compiler's JSON CLI with a 20-second timeout, blocking
-writes, networking, forks, and signals to other processes. The parent checks the
-returned schedule with the trusted machine and computes scores. Invoke from the
-repository root with `PYTHONPATH="$PWD"` so candidates can import `machine`.
-
-Install the development tools, automatically fix lint issues, and format all Python files with:
-
-```sh
-python3 -m pip install -r requirements.txt
-make format
+python3 -m unittest -v
+python3 score.py
 ```
 
 Compile one program to a JSON schedule with:
 
 ```sh
-python3 -m work.compiler programs/json/03_vector_axpy.json > axpy.schedule.json
-python3 machine.py programs/json/03_vector_axpy.json axpy.schedule.json
+python3 compiler.py programs/03_vector_axpy.json > axpy.schedule.json
+python3 machine.py programs/03_vector_axpy.json axpy.schedule.json
 ```
 
-Public programs are in `programs/json/`, with readable equivalents in
-`programs/ssa/`. Submission grading uses another
+Eight public programs are in `programs/`. Submission grading uses another
 eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
-
-## Program representations
-
-The `program/` package provides a common `Representation` ABC with
-`encode(program) -> str` and `decode(text) -> Program`. A `Program` is the
-existing dictionary structure; `program/core.py` reuses the machine's validation.
-Encoders validate their inputs without mutating them, and decoders return
-validated programs. File reads and writes belong to the caller.
-
-```python
-from pathlib import Path
-
-from program.representations.json import JsonRepresentation
-from program.representations.ssa import SsaRepresentation
-from program.representations.graphviz import GraphvizRepresentation
-
-source = Path("programs/json/03_vector_axpy.json").read_text(encoding="utf-8")
-program = JsonRepresentation().decode(source)
-ssa_text = SsaRepresentation().encode(program)
-svg_text = GraphvizRepresentation().encode(program)
-Path("axpy.svg").write_text(svg_text, encoding="utf-8")
-```
-
-JSON and SSA support decoding as well as encoding. Graphviz requires the `dot`
-executable and returns SVG XML as a string; its `decode()` raises
-`NotImplementedError` because the diagram is only a visualization.
-Use `GraphvizRepresentation(format="dot")` to encode DOT source without the
-Graphviz executable. Both output formats use the same `encode(program)` method.
-
-Converting through both representations preserves the complete program. JSON
-round trips compare parsed data, so dictionary key order and whitespace do not
-matter. Encoders retain dictionary insertion order, and the SSA round trip
-reproduces the same generated SSA text. Operation, argument, and case list order
-is preserved. Original source whitespace and comments are not preserved.
-
-Each representation lives in its own folder under `program/representations/`
-and exports only its concrete class. To add a format, implement `encode()` and
-`decode()` in another subclass and add tests under `tests/program/representations/`.
-No registration step is required.
-
-Conversion commands, evaluation format checks, and the gallery use the public
-`decode(text)` and `encode(program)` methods. Codec and DAG helpers are internal
-implementation details. The SSA conversion CLI is available through
-`python3 -B -m program.representations.ssa`.
-
-Run the package tests from the repository root:
-
-```sh
-PYTHONPATH="$PWD" python3 -B -m unittest discover -s tests/program -t .
-```
-
-## Visualize SSA dataflow
-
-On macOS, install Graphviz once with `brew install graphviz`, then run from the repository root:
-
-```sh
-PYTHONPATH="$PWD" python3 -B -m program.visualizations.gallery image programs/json/03_vector_axpy.json -o axpy.svg
-open -a Safari axpy.svg
-```
-
-The tool writes an SVG and its editable `.dot` source. Use `-o axpy.dot` to emit
-only DOT without installing Graphviz. Blue boxes are scalar SSA values; green
-boxes are vectors. Small operation junctions connect inputs to results, with
-operand numbers at incoming arrows. Orange nodes show memory loads and stores.
-Hover over operations for their opcode, ID, and latency.
-
-Rows follow topological dataflow depth, computed internally by the package. They do not
-represent scheduled cycles, and this MVP omits memory-order dependencies.
-The tool reads JSON without executing the program or candidate compiler.
-
-Python callers use the representation classes for conversion:
-
-```python
-from pathlib import Path
-from program.representations.json import JsonRepresentation
-from program.representations.graphviz import GraphvizRepresentation
-
-program = JsonRepresentation().decode(Path("programs/json/03_vector_axpy.json").read_text())
-dot_source = GraphvizRepresentation(format="dot").encode(program)
-```
-
-Topological sorting, DOT formatting, and Graphviz execution live in private
-modules inside `program/representations/graphviz/`. CLI and gallery handling
-remain in `program/visualizations/gallery/`.
-
-Build an offline webpage containing all programs:
-
-```sh
-PYTHONPATH="$PWD" python3 -B -m program.visualizations.gallery gallery
-open dag-gallery/index.html
-```
-
-On macOS, `open` launches the gallery; you can also double-click its `index.html`.
-The gitignored `dag-gallery/` directory contains the index, SVG/DOT diagrams,
-and one detail page per program. The index shows rounded preview tiles with
-filenames and a search box. Click a tile to open its diagram page, with the
-filename at the top and an **All programs** back button. Everything works
-directly from disk, without a server or internet connection.
-
-Existing nonempty output directories require `--clobber` (alias `--c`):
-
-```sh
-PYTHONPATH="$PWD" python3 -B -m program.visualizations.gallery gallery --clobber
-```
-
-Use `--programs-dir <directory>` to select another set of JSON programs and
-`-o <directory>` to choose another gallery location; only the default
-`dag-gallery/` location is automatically gitignored. Regeneration replaces
-matching generated files, leaving unrelated files untouched. The original
-single-image command without the `image` keyword also remains supported.
-The default input directory is `programs/json/`.
-
-Run the graph tests with
-`PYTHONPATH="$PWD" python3 -B -m unittest discover -s tests/program/visualizations/gallery -t .`.
 
 ## Machine model
 
@@ -251,14 +65,8 @@ scratch space before it can be consumed.
 SIMD vectors contain eight words and occupy eight consecutive scratch words.
 Vector allocations must begin at an address divisible by eight. Scalar values
 occupy one word. Values may share all or part of their scratch ranges when their
-live intervals do not overlap. Programs 01–17, 20–23, and 27–31 fit without spilling even with
-the starter's allocation. Program 18 needs 793 words with separate storage per
-result but fits in 41 words with scratch reuse. Program 19 needs 504 words with
-separate storage but fits in 24 words by interleaving loads and computation and
-reusing scratch. Program 24 likewise fits in 24 words despite needing 1,016
-words with separate storage. Programs 25 and 26 need 3,464 and 488 words
-respectively with separate storage, but each fits in 16 words with scratch
-reuse. Reducing scratch use is part of the challenge.
+live intervals do not overlap. All supplied programs fit without spilling even
+with the starter's allocation; reducing scratch use is part of the challenge.
 
 A value's live interval starts when its result writes scratch, at issue cycle
 plus latency, and ends at its last consumer's issue cycle, inclusive. An unused
@@ -328,24 +136,6 @@ Programs use the following JSON shape:
 Operations are listed in SSA dependency order. IDs are consecutive starting at
 zero. Every argument names a result defined by an earlier operation.
 
-Cases can include `expected` with mode `agree_with_reference_compiler` to require expected, reference, and compiled outputs to match, or `ignore_reference_compiler` to check only expected and compiled outputs; without `expected`, compiled output is checked against the reference.
-
-```json
-{
-  "inputs": {
-    "x": [1, 2, 3, 4, 5, 6, 7, 8],
-    "out": [0, 0, 0, 0, 0, 0, 0, 0]
-  },
-  "expected": {
-    "mode": "agree_with_reference_compiler",
-    "buffers": {
-      "x": [1, 2, 3, 4, 5, 6, 7, 8],
-      "out": [1, 2, 3, 4, 5, 6, 7, 8]
-    }
-  }
-}
-```
-
 ## Memory ordering
 
 Memory ranges are known statically. Loads may reorder freely unless they overlap
@@ -353,64 +143,6 @@ an earlier store. A store must remain after every earlier overlapping load or
 store, and every later overlapping load or store must remain after it. Two
 ordered memory operations must issue in different cycles. Operations accessing
 provably disjoint ranges may reorder.
-
-## Program descriptions
-
-> WARNING: these descriptions are AI-generated and only lightly-reviewed (i.e. a human reviewed 1-3 of them uniformly at random). You should carefully confirm them with the code.
-
-The public programs below cover scalar and vector dependency chains, memory
-traffic, and inputs for optimization experiments. All arithmetic wraps modulo
-`2**32`.
-
-| Program | Description |
-| --- | --- |
-| [01_scalar_pipeline.json](programs/json/01_scalar_pipeline.json) | A scalar multiply-add feeds bitwise mixing, shifts, a comparison, and a final selection. Exercises scheduling along a dependency chain. |
-| [02_scalar_dual_chain.json](programs/json/02_scalar_dual_chain.json) | Two scalar products share an `a + c` intermediate, producing `a * b + (a + c)` and `(c * d) ^ (a + c)`. Exposes parallel work and shared dependencies. |
-| [03_vector_axpy.json](programs/json/03_vector_axpy.json) | Computes `3 * x + y` over 16 elements using two eight-lane vector paths and a broadcast scalar constant. |
-| [04_vector_bitmix.json](programs/json/04_vector_bitmix.json) | XORs 16 data elements with masks, shifts each result left by five bits, and adds the original data. Exercises parallel vector chains. |
-| [05_mixed_broadcast.json](programs/json/05_mixed_broadcast.json) | Broadcasts scalar gate and bias values to compute `weights * gate + bias` over eight lanes. Connects scalar loads to vector arithmetic. |
-| [06_parallel_memory.json](programs/json/06_parallel_memory.json) | Computes `out0 = (a + b) * (c - d)` and `out1 = out0 ^ a` over 16 elements. Exercises independent loads, vector arithmetic, and multiple stores. |
-| [07_scalar_selects.json](programs/json/07_scalar_selects.json) | Computes the unsigned maximum of each of four score/threshold pairs using comparisons and selections. Exercises the flow engine. |
-| [08_vector_reduction.json](programs/json/08_vector_reduction.json) | Sums eight vectors lane by lane through a balanced addition tree, then XORs the result with a broadcast constant. Exercises dependencies that converge on one output vector. |
-| [09_dead_code.json](programs/json/09_dead_code.json) | Stores `x + y * z` while operations 5–16 compute unused expressions: `x + y * 2`, `x * z + y`, `x * y * z`, and `x + z * z + y * x * x`. Provides input for dead-code elimination. |
-| [10_repeated_addition.json](programs/json/10_repeated_addition.json) | Adds 16 copies of `x` in a left-associated chain of 15 additions. Provides input for simplification to `16 * x` or a balanced addition tree. Cases include zero, one, ordinary values, and overflow. |
-| [11_repeated_multiplication.json](programs/json/11_repeated_multiplication.json) | Multiplies 16 copies of `x` in a left-associated chain of 15 multiplications. Provides input for repeated squaring to compute `x**16`. Cases include zero, one, ordinary values, and overflow. |
-| [12_algebraic_associativity.json](programs/json/12_algebraic_associativity.json) | Computes `out1 = x * z + y * z` and `out2 = x * z + y * z + 2 * x * z`, with separate product nodes for each output followed by additions; the last term is `(2 * x) * z`. Provides input for reassociation and distributive factoring into `(x + y) * z` and `(3 * x + y) * z`. |
-| [13_constant_condition.json](programs/json/13_constant_condition.json) | Selects between runtime inputs using constant comparisons (`7 < 8` and `7 == 8`) and a literal nonzero condition (`7`). Stores `[x, y, x]`. Provides input for constant folding and conditional simplification. |
-| [14_strip_trailing_zeros.json](programs/json/14_strip_trailing_zeros.json) | Unrolls 32 conditional steps: keep the current value when its low bit is one, otherwise shift right by one. Each step uses `and`, `shr`, and `select`. Returns the odd part of nonzero `x`, or zero for zero. Cases cover every possible trailing-zero count. Provides input for a logarithmic sequence of conditional shifts or a single shift by the trailing-zero count. |
-| [15_power_of_two_multiplication.json](programs/json/15_power_of_two_multiplication.json) | Computes `x * 4 + x + x + x + x`, equivalent to `x << 3` modulo `2**32`. Provides input for replacing multiplication by a power of two with a shift, and for combining repeated terms. Cases exercise overflow in both multiplication and addition. |
-| [16_algebraic_identities.json](programs/json/16_algebraic_identities.json) | Chains addition, XOR, OR, subtraction, and shifts by zero, multiplication by one, and AND with all ones. Separately computes `x & 0` and propagates that zero into the result. Stores `[x, 0]`, exposing identity elimination and constant propagation. |
-| [17_non_power_of_two_factoring.json](programs/json/17_non_power_of_two_factoring.json) | Computes `13 * x + 3 * x` in eight independent scalar paths and four independent eight-lane vector paths. Scalars use the first eight input elements; vectors use all 32. Provides input for factoring into `16 * x` and replacing two multiplies plus an add with one `shl` or `vshl` by four. Cases cover zero, one, varied lanes, and overflow in the products and sum. |
-| [18_copy_propagation.json](programs/json/18_copy_propagation.json) | Chains 32 vector stages, each creating aliases with `previous + 0` and `previous ^ 0`, then using `vselect` with a runtime vector gate. Stores the eight-lane result after stages 8, 16, 24, and 32; each equals the input vector. Exercises copy propagation and scratch reuse, including mixed zero/nonzero lane conditions. Separate storage needs 793 words, exceeding the 256-word limit; a schedule retaining all operations fits in 41 words. |
-| [19_interleaved_vector_reductions.json](programs/json/19_interleaved_vector_reductions.json) | Loads 32 eight-lane vectors, multiplies vectors 1–8 lane-wise, sums vectors 9–32 lane-wise, and XORs the two reductions into one output vector. Source order places all loads before two left-associated reduction chains. Exercises load/computation interleaving and scratch reuse; reassociation could additionally shorten the chains. Separate storage needs 504 words; a legal interleaved schedule fits in 24 words. |
-| [20_vectorization_factoring.json](programs/json/20_vectorization_factoring.json) | Loads 40 elements individually and computes each output lane as `a*e + b*e + c*e + d*e`, where `a` through `e` are corresponding lanes of five consecutive eight-element blocks. Uses 32 scalar multiplies and 24 scalar adds before eight stores. Exposes vectorization and distributive factoring into `(a+b+c+d)*e`, using five vector loads, three vector adds, one vector multiply, and one vector store. |
-| [21_scalar_vector_sum.json](programs/json/21_scalar_vector_sum.json) | Loads 32 elements individually and sums corresponding lanes of four eight-element blocks using 24 scalar adds, then stores eight outputs. Exposes vectorization into four vector loads, three vector adds, and one vector store, plus reassociation into a balanced reduction. Shares the first four input blocks of program 20's cases. |
-| [22_constant_folding.json](programs/json/22_constant_folding.json) | Computes `z = 3 * 4`, `c = 6 * 9`, and `t = c + z`, then loads runtime `alpha` and stores `alpha * t`. Exposes constant folding through multiple arithmetic nodes into `66 * alpha`. Cases cover zero, one, ordinary values, and 32-bit overflow boundaries. |
-| [23_store_load_forwarding.json](programs/json/23_store_load_forwarding.json) | Loads eight-lane vectors `A` and `B`, stores their sum and difference back into `A` and `B`, reloads them, stores their product and XOR back, then reloads again and adds them into `out`. Exposes elimination of four redundant reloads by forwarding the stored values. Correctness includes final contents of `A` and `B` as well as `out`. |
-| [24_pairwise_vector_reduction.json](programs/json/24_pairwise_vector_reduction.json) | Loads 64 eight-lane vectors from 64 separate buffers and stores the lane-wise sum of the 32 products `v[2*i] * v[2*i+1]`. Source order places all 64 loads before the products and a left-associated sum. Separate storage needs 1,016 words; an interleaved schedule with scratch reuse fits in 24 words while retaining every operation and storing only the final output. Exercises scratch pressure and load/computation scheduling. |
-| [25_sum_217_vectors.json](programs/json/25_sum_217_vectors.json) | Loads 217 eight-lane vectors from one contiguous 1,736-element buffer at offsets 0, 8, …, 1,728, then sums them lane-wise through 216 left-associated `vadd`s and stores one output vector. Separate scratch storage needs 3,464 words; interleaved loads and scratch reuse fit in 16 words. Exercises a long reduction with a non-power-of-two input count. |
-| [26_sum_31_vectors.json](programs/json/26_sum_31_vectors.json) | Loads 31 eight-lane vectors from one contiguous 248-element buffer at offsets 0, 8, …, 240, then sums them lane-wise through 30 left-associated `vadd`s and stores one output vector. The inputs alone occupy 248 words, but separate scratch storage for inputs and sums needs 488 words. A legal interleaved schedule fits in 16 words. Cases include a nonzero final vector with every earlier vector zero. |
-| [27_sum_17_scalars.json](programs/json/27_sum_17_scalars.json) | Loads 17 numbers individually from one contiguous buffer, reduces them through 16 left-associated scalar additions, and stores one scalar sum. Includes an input where only the seventeenth element is nonzero to exercise tail handling. |
-| [28_sum_16_scalars.json](programs/json/28_sum_16_scalars.json) | Loads 16 numbers individually from one contiguous buffer, reduces them through 15 left-associated scalar additions, and stores one scalar sum. Provides a power-of-two counterpart to program 27. |
-| [29_sum_64_scalars.json](programs/json/29_sum_64_scalars.json) | Loads 64 numbers individually from one contiguous buffer, reduces them through 63 left-associated scalar additions, and stores one scalar sum. Provides a longer scalar reduction that still fits the starter's allocation at 127 words. Cases cover zero, one, varied values, overflow, and a nonzero final element. |
-| [30_dot_product_running_sum.json](programs/json/30_dot_product_running_sum.json) | Computes one eight-element dot product with an accumulator initialized to zero. Each unrolled step loads one scalar from each input, multiplies the pair, and adds the product to the running sum before the next pair is loaded in source order. Stores the final scalar result modulo 2**32. Cases cover zeros, ones, distinct inputs, a nonzero final pair, disjoint nonzero positions, and multiplication/accumulation overflow. |
-| [31_matrix_transpose_3x3.json](programs/json/31_matrix_transpose_3x3.json) | Loads a row-major 3x3 matrix with nine scalar loads and stores its transpose into a separate row-major output: `out[3*r+c] = input[3*c+r]`. Cases include distinct entries, reversed entries, zeros, identity, one off-diagonal nonzero, and high-bit values. The input remains unchanged. |
-
-Programs 09–18 and 22 expose opportunities for dead-code elimination and algebraic
-simplification; programs 20–21 expose scalar-to-vector conversion, and program 23
-exposes redundant-load elimination. The current
-schedule-only grader requires every original operation to issue exactly once
-and preserves its dependencies. Accepting eliminated operations, rewritten
-expressions, or vectorized operations requires changes to the compiler/grader
-contract.
-
-Programs 18–19 and 24–26 intentionally fail with both the starter compiler and the frozen
-serial baseline, which allocate separate storage for every result. Consequently,
-the default public correctness suite fails on these programs, and full-suite
-scoring requires a baseline allocation change even after the candidate compiler
-supports scratch reuse. These fixtures do not change the compiler or baseline.
-
-> NOTE: programs 1-8 inclusive are the original ones. The others were made by Adriano + AI (often with relatively minimal review, since we can regression-test on the original compiler anyways).
 
 ## Evaluation
 
@@ -421,14 +153,13 @@ memory. Modifying or bypassing the public simulator cannot change hidden results
 
 Correctness on all programs is the first requirement. Among correct compilers,
 we report geometric-mean cycle speedup and geometric-mean scratch reduction
-relative to the frozen serial baseline across all public and hidden programs. For each
+relative to the frozen serial baseline across all sixteen programs. For each
 program these ratios are `baseline_cycles / cycles` and
 `baseline_scratch_words / scratch_words`. The combined score is
 `sqrt(cycle_speedup_geomean * scratch_reduction_geomean)`, giving equal weight
-to both objectives. On programs 01–17, 20–23, and 27–31 the starter scores 1.000x on each metric;
-programs 18–19 and 24–26 currently block full-suite scoring as described above. Public scoring
-uses the same formula on the visible programs; the private grader reports
-the final combined result on all public and hidden programs. We also review compiler structure, clarity, and the
+to both objectives. The starter scores 1.000x on each metric. Public scoring
+uses the same formula on the eight visible programs; the private grader reports
+the final combined result on all sixteen. We also review compiler structure, clarity, and the
 tradeoffs in your scheduling heuristic.
 
 Useful directions include critical-path priorities, latency-aware ready queues,
@@ -448,7 +179,7 @@ tools used and how you checked their output. You should be able to explain and
 modify your submission in a follow-up discussion. Do not share the exercise or
 solution publicly or collaborate with another person.
 
-Email `work/compiler.py` and a short `SUBMISSION.md` to
+Email `compiler.py` and a short `SUBMISSION.md` to
 [submissions@luminal.com](mailto:submissions@luminal.com). Include time spent,
 your scheduling and allocation approach, measured public scores, tradeoffs, unfinished work, and
 any tool assistance. You may include additional tests separately; do not alter

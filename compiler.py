@@ -1,22 +1,10 @@
 #!/usr/bin/env python3
 """Luminal Compiler Take Home — compiler engineering candidate implementation.
 
-Input: JSON-compatible dict of buffers, test inputs, and typed operations.
-    SSA = each result defined once; list order defines semantics. Pseudocode:
-    a0 = load x[0]       # op 0
-    b0 = a0 + a0        # op 1
-    store out[0] = b0   # op 2
-
-Output: dict with two fields; an execution plan used with the original program.
-    scratch: {"a0": 0, "b0": 1}  # result names -> temporary storage word addresses
-    bundles: [{"load": [0]}, {}, {}, {"scalar": [1]}, {"store": [2]}]
-    Bundle index = cycle; engine -> IDs of ops starting together; {} = stall.
-    Engines are execution units; issue = start; result ready at issue + latency.
-
-Goal: reduce cycles and scratch footprint; keep final buffer contents identical.
-    Issue every original op once; obey dependencies, memory order, machine limits.
-    Reuse scratch when value lifetimes do not overlap; keep the input/output API.
-Starter: separate storage per value, at most one operation per bundle.
+The starter is intentionally conservative: it allocates every SSA value once
+and emits at most one operation per bundle. Improve compile_program without
+changing its input or output contract. Reuse scratch for values whose scheduled
+lifetimes do not overlap to improve the scratch-footprint component of the score.
 """
 
 from __future__ import annotations
@@ -87,7 +75,7 @@ def compile_program(program: dict) -> dict:
 
 def main(argv: list[str]) -> int:
     if len(argv) != 1:
-        print("usage: python3 -m work.compiler <program.json>", file=sys.stderr)
+        print("usage: python3 compiler.py <program.json>", file=sys.stderr)
         return 2
 
     program = machine.load_program(argv[0])

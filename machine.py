@@ -84,16 +84,6 @@ def load_program(path: str | Path) -> dict:
 
 
 def validate_program(program: dict) -> None:
-    """Validate that:
-
-    - The program is an object with a non-empty name.
-    - Buffers exist, have non-empty names, and positive integer lengths.
-    - Operations exist, have consecutive IDs, and use known opcodes.
-    - Arguments match required counts and reference earlier values of the right kind.
-    - Destinations exist exactly where required and have unique, non-empty names.
-    - Constants are integers; memory accesses use known buffers and valid bounds.
-    - Test cases exist and match buffer names, lengths, and integer contents.
-    """
     if not isinstance(program, dict):
         raise ProgramError("program must be a JSON object")
     if not isinstance(program.get("name"), str) or not program["name"]:
@@ -229,37 +219,27 @@ def memory_width(operation: dict) -> int:
 
 
 def memory_predecessors(program: dict, op_id: int) -> list[int]:
-    """Return earlier memory operations that must issue before op_id.
-
-    A's ID is returned iff A appears before op_id, both operations access overlapping
-    ranges of the same buffer, and at least one is a store (the other a load or store).
-    """
+    """Return earlier memory operations that must issue before op_id."""
 
     operation = program["operations"][op_id]
     if operation["op"] not in MEMORY_OPS:
-        # Non-memory operations have no memory conflicts to check.
         return []
 
     predecessors = []
     for earlier in program["operations"][:op_id]:
         if earlier["op"] not in MEMORY_OPS:
-            # Non-memory operations cannot create a memory conflict.
             continue
         if earlier["buffer"] != operation["buffer"]:
-            # Accesses to different buffers cannot conflict.
             continue
         if not _memory_ranges_overlap(earlier, operation):
-            # Accesses to disjoint ranges cannot conflict.
             continue
         if earlier["op"] in LOAD_OPS and operation["op"] in LOAD_OPS:
-            # Two loads cannot conflict because neither changes memory.
             continue
         predecessors.append(earlier["id"])
     return predecessors
 
 
 def _memory_ranges_overlap(first: dict, second: dict) -> bool:
-    """Check overlap of memory ranges with exclusive ends."""
     first_start = first["offset"]
     second_start = second["offset"]
     return (
@@ -269,19 +249,7 @@ def _memory_ranges_overlap(first: dict, second: dict) -> bool:
 
 
 def serial_compile(program: dict) -> dict:
-    """Frozen serial baseline used to calculate speedup.
-
-    Allocate separate scratch space for each result (vectors aligned first).
-    For each operation in program order:
-        earliest = max(next unused cycle,
-                       each input producer's issue cycle + its latency,
-                       each memory predecessor's issue cycle + 1)
-        Append empty bundles (stalls) until earliest.
-        Append a bundle issuing only this operation; record its issue cycle.
-    Return scratch allocations and bundles.
-
-    All timing rules must hold (AND); their maximum is the earliest legal cycle.
-    """
+    """Frozen serial baseline used to calculate speedup."""
 
     scratch: dict[str, int] = {}
     cursor = 0
@@ -296,7 +264,6 @@ def serial_compile(program: dict) -> dict:
             else:
                 scratch[operation["dest"]] = cursor
                 cursor += 1
-    # TODO(hadriano): Add a test case that exceeds scratch capacity here but fits with more efficient allocation.
     if cursor > SCRATCH_WORDS:
         raise CompileError("serial allocation exceeds scratch capacity")
 
@@ -425,7 +392,6 @@ def _collect_issue_cycles(program: dict, bundles: list) -> dict[int, int]:
                     f"limit is {ENGINE_LIMITS[engine]}"
                 )
             for op_id in op_ids:
-                # TODO(hadriano): Restricting schedules to original operations blocks algebraic simplification, one of our main prongs of attack.
                 if not _plain_int(op_id) or not 0 <= op_id < len(operations):
                     raise CompileError(f"bundle {cycle} contains unknown operation {op_id!r}")
                 if op_id in issue_cycle:
@@ -509,14 +475,7 @@ def run_compilation(program: dict, compilation: dict, case: dict) -> dict[str, l
 
 
 def check_case(program: dict, compilation: dict, case: dict) -> None:
-    if "expected" in case:
-        raise NotImplementedError("Cases with expected outputs are not supported")
-        expected = case["expected"]["buffers"]
-        if case["expected"]["mode"] == "agree_with_reference_compiler":
-            if run_reference(program, case) != expected:
-                raise CompileError("reference output does not match expected buffers")
-    else:
-        expected = run_reference(program, case)
+    expected = run_reference(program, case)
     actual = run_compilation(program, compilation, case)
     if actual != expected:
         mismatches = []

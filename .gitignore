@@ -4,8 +4,3 @@ __pycache__/
 .DS_Store
 *.schedule.json
 trace.json
-.autoresearch
-.autoresearch-openevolve
-autoresearch-openevolve/.env
-deleteme*
-/dag-gallery/

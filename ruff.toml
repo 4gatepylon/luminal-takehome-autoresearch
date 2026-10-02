@@ -1,5 +1,0 @@
-line-length = 150
-
-[lint]
-# Scripts are invoked with python3 and do not need executable permissions.
-ignore = ["EXE001"]
