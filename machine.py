@@ -194,6 +194,8 @@ def validate_case(program: dict, case: dict, case_index: int | None = None) -> N
     label = "case" if case_index is None else f"case {case_index}"
     if not isinstance(case, dict):
         raise ProgramError(f"{label} must be an object")
+    if "expected" in case:
+        raise NotImplementedError("Cases with expected outputs are not supported")
     expected_buffers = set(program["buffers"])
     actual_buffers = set(case)
     if actual_buffers != expected_buffers:
@@ -510,12 +512,8 @@ def run_compilation(program: dict, compilation: dict, case: dict) -> dict[str, l
 
 def check_case(program: dict, compilation: dict, case: dict) -> None:
     if "expected" in case:
-        expected = case["expected"]["buffers"]
-        if case["expected"]["mode"] == "agree_with_reference_compiler":
-            if run_reference(program, case) != expected:
-                raise CompileError("reference output does not match expected buffers")
-    else:
-        expected = run_reference(program, case)
+        raise NotImplementedError("Cases with expected outputs are not supported")
+    expected = run_reference(program, case)
     actual = run_compilation(program, compilation, case)
     if actual != expected:
         mismatches = []

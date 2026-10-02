@@ -328,23 +328,8 @@ Programs use the following JSON shape:
 Operations are listed in SSA dependency order. IDs are consecutive starting at
 zero. Every argument names a result defined by an earlier operation.
 
-Cases can include `expected` with mode `agree_with_reference_compiler` to require expected, reference, and compiled outputs to match, or `ignore_reference_compiler` to check only expected and compiled outputs; without `expected`, compiled output is checked against the reference.
-
-```json
-{
-  "inputs": {
-    "x": [1, 2, 3, 4, 5, 6, 7, 8],
-    "out": [0, 0, 0, 0, 0, 0, 0, 0]
-  },
-  "expected": {
-    "mode": "agree_with_reference_compiler",
-    "buffers": {
-      "x": [1, 2, 3, 4, 5, 6, 7, 8],
-      "out": [1, 2, 3, 4, 5, 6, 7, 8]
-    }
-  }
-}
-```
+Cases containing `expected` raise `NotImplementedError`: expected outputs are not supported.
+Compiled output is checked against the reference.
 
 ## Memory ordering
 
