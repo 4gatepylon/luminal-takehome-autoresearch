@@ -330,49 +330,7 @@ zero. Every argument names a result defined by an earlier operation.
 
 ### Optional expected outputs
 
-Existing cases are initial-memory maps and use regression testing against the
-reference interpreter. A case can instead wrap its initial memory in `inputs`
-and supply an expected-output policy. For the vector-copy program above:
-
-```json
-{
-  "inputs": {
-    "x": [1, 2, 3, 4, 5, 6, 7, 8],
-    "out": [0, 0, 0, 0, 0, 0, 0, 0]
-  },
-  "expected": {
-    "mode": "agree_with_reference",
-    "buffers": {"out": [1, 2, 3, 4, 5, 6, 7, 8]}
-  }
-}
-```
-
-| Expected-output policy | Correctness check |
-| --- | --- |
-| No `expected` field | Compiled output must equal reference output. |
-| `agree_with_reference` | Supplied expectation, reference output, and compiled output must all agree. |
-| `ignore_reference` | Compiled output must equal the supplied expectation; the reference interpreter is not run. |
-
-`inputs` must contain every declared buffer. `expected.buffers` must specify the
-complete final contents of every buffer targeted by a `store` or `vstore`,
-including unchanged words in partially written buffers. Omitted read-only
-buffers are checked against their initial contents. Full final-memory maps are
-also accepted. Words are normalized modulo `2**32`, just like execution inputs.
-
-`expected` requires exactly `mode` and `buffers`; there is no implicit mode.
-Unknown modes, unknown fields or buffers, missing written buffers, wrong lengths,
-non-integer words (including booleans), and `null` expectations are rejected.
-Omitting `expected` from an `inputs` wrapper retains reference-based testing.
-Legacy cases and either policy can be mixed in one program. Buffer names
-`inputs` and `expected` remain legal: the wrapper has an object-valued `inputs`,
-whereas buffer contents are lists. Both JSON and SSA preserve these forms.
-
-Explicit expectations are intended for independently hand-verified answers,
-including programs that exceed the default serial compiler's scratch capacity.
-The reference interpreter is distinct from that compiler and has no scratch
-allocation limit. Neither mode bypasses schedule validation or provides a
-performance baseline. Existing benchmark cases are unchanged; adding expectations
-to them is separate from support for this format.
+Cases can optionally wrap initial memory in `inputs` and supply `expected: {"mode": "agree_with_reference_compiler" | "ignore_reference_compiler", "buffers": {...}}` to require three-way agreement or skip the reference check, while omitting `expected` preserves regression testing ([format details](docs/program-ssa.md#expected-outputs)).
 
 ## Memory ordering
 

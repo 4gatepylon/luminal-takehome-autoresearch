@@ -191,7 +191,7 @@ def _validate_memory_operation(program: dict, operation: dict) -> None:
 
 
 def validate_case(program: dict, case: dict, case_index: int | None = None) -> None:
-    """Validate legacy input maps or inputs with an optional expected-output policy."""
+    """Validate existing input maps or inputs with an optional expected-output policy."""
     label = "case" if case_index is None else f"case {case_index}"
     if not isinstance(case, dict):
         raise ProgramError(f"{label} must be an object")
@@ -207,8 +207,8 @@ def validate_case(program: dict, case: dict, case_index: int | None = None) -> N
         expected = case["expected"]
         if not isinstance(expected, dict) or expected.keys() != {"mode", "buffers"}:
             raise ProgramError(f"{label} expected requires exactly 'mode' and 'buffers'")
-        if expected["mode"] not in ("agree_with_reference", "ignore_reference"):
-            raise ProgramError(f"{label} expected mode must be 'agree_with_reference' or 'ignore_reference'")
+        if expected["mode"] not in ("agree_with_reference_compiler", "ignore_reference_compiler"):
+            raise ProgramError(f"{label} expected mode must be 'agree_with_reference_compiler' or 'ignore_reference_compiler'")
         buffers = expected["buffers"]
         if not isinstance(buffers, dict):
             raise ProgramError(f"{label} expected buffers must be an object")
@@ -220,7 +220,7 @@ def validate_case(program: dict, case: dict, case_index: int | None = None) -> N
 
 
 def _case_inputs(case: dict) -> dict:
-    # Lists remain legacy buffer contents, even for a buffer named inputs.
+    # Lists remain existing buffer contents, even for a buffer named inputs.
     return case["inputs"] if isinstance(case.get("inputs"), dict) else case
 
 
@@ -549,7 +549,7 @@ def check_case(program: dict, compilation: dict, case: dict) -> None:
         expectation = case["expected"]
         expected = _copy_memory(inputs | expectation["buffers"])
         source = "explicit expected output"
-        if expectation["mode"] == "agree_with_reference":
+        if expectation["mode"] == "agree_with_reference_compiler":
             reference = run_reference(program, case)
             if reference != expected:
                 mismatches = [buffer for buffer in program["buffers"] if reference[buffer] != expected[buffer]]

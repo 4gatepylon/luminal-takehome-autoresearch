@@ -93,7 +93,7 @@ class RoundTripTests(unittest.TestCase):
         program["operations"][0]["buffer"] = "input data"
         inputs = {"input data": [7], "out": [0]}
         program["cases"] = [inputs, {"inputs": inputs}]
-        for mode in ("agree_with_reference", "ignore_reference"):
+        for mode in ("agree_with_reference_compiler", "ignore_reference_compiler"):
             program["cases"].append({"inputs": inputs, "expected": {"mode": mode, "buffers": {"out": [21]}}})
         self.assert_round_trip(program)
         self.assertEqual(JsonRepresentation().decode(JsonRepresentation().encode(program)), program)

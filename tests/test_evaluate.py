@@ -57,7 +57,7 @@ class EvaluationTests(unittest.TestCase):
             "json.dump(machine.serial_compile(machine.load_program(sys.argv[1])), sys.stdout)\n"
         )
         path = self.compiler_path.with_name("program.json")
-        for mode in ("agree_with_reference", "ignore_reference"):
+        for mode in ("agree_with_reference_compiler", "ignore_reference_compiler"):
             with self.subTest(mode=mode):
                 program = micro_program()
                 expectation = {"mode": mode, "buffers": {"out": [42]}}

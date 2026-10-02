@@ -108,7 +108,7 @@ class ExpectedOutputTests(unittest.TestCase):
     def case(self, mode, output=42):
         return {"inputs": {"out": [0]}, "expected": {"mode": mode, "buffers": {"out": [output]}}}
 
-    def test_legacy_and_input_only_cases_use_reference(self):
+    def test_existing_and_input_only_cases_use_reference(self):
         for case in ({"out": [0]}, {"inputs": {"out": [0]}}):
             with self.subTest(case=case), patch("machine.run_reference", wraps=machine.run_reference) as reference:
                 machine.check_case(self.program, self.compilation, case)
@@ -117,11 +117,11 @@ class ExpectedOutputTests(unittest.TestCase):
                 with self.assertRaisesRegex(machine.CompileError, "reference output"):
                     machine.check_case(self.program, self.compilation, case)
 
-    def test_agree_with_reference_requires_all_three_outputs_to_match(self):
+    def test_agree_with_reference_compiler_requires_all_three_outputs_to_match(self):
         # Exercise each possible disagreement, including both executions agreeing
         # with each other but not with the hand-authored answer.
         for expected, reference, actual in ((42, 42, 42), (43, 42, 42), (42, 43, 42), (42, 42, 43)):
-            case = self.case("agree_with_reference", expected)
+            case = self.case("agree_with_reference_compiler", expected)
             with self.subTest(expected=expected, reference=reference, actual=actual):
                 with patch("machine.run_reference", return_value={"out": [reference]}) as run_reference:
                     with patch("machine.run_compilation", return_value={"out": [actual]}):
@@ -133,15 +133,15 @@ class ExpectedOutputTests(unittest.TestCase):
                                 machine.check_case(self.program, self.compilation, case)
                     run_reference.assert_called_once_with(self.program, case)
 
-    def test_ignore_reference_never_runs_reference_and_still_rejects_wrong_output(self):
+    def test_ignore_reference_compiler_never_runs_reference_and_still_rejects_wrong_output(self):
         with patch("machine.run_reference", side_effect=AssertionError("must not run reference")):
-            machine.check_case(self.program, self.compilation, self.case("ignore_reference"))
+            machine.check_case(self.program, self.compilation, self.case("ignore_reference_compiler"))
             with self.assertRaisesRegex(machine.CompileError, "out.*explicit expected output"):
-                machine.check_case(self.program, self.compilation, self.case("ignore_reference", 43))
+                machine.check_case(self.program, self.compilation, self.case("ignore_reference_compiler", 43))
 
     def test_mixed_modes_do_not_mutate_cases(self):
         self.program["cases"] += [
-            {"inputs": {"out": [99]}}, self.case("agree_with_reference"), self.case("ignore_reference"),
+            {"inputs": {"out": [99]}}, self.case("agree_with_reference_compiler"), self.case("ignore_reference_compiler"),
         ]
         before = deepcopy(self.program)
         for case in self.program["cases"]:
@@ -151,7 +151,7 @@ class ExpectedOutputTests(unittest.TestCase):
     def test_words_wrap_and_omitted_read_only_buffers_remain_checked(self):
         self.program["buffers"]["untouched"] = 1
         self.program["cases"] = [{"out": [0], "untouched": [-1]}]
-        for mode in ("agree_with_reference", "ignore_reference"):
+        for mode in ("agree_with_reference_compiler", "ignore_reference_compiler"):
             case = self.case(mode, 2**32 + 42)
             case["inputs"]["untouched"] = [-1]
             with self.subTest(mode=mode):
@@ -165,7 +165,7 @@ class ExpectedOutputTests(unittest.TestCase):
     def test_partial_writes_require_complete_expected_buffer(self):
         self.program["buffers"]["out"] = 2
         self.program["cases"] = [{"out": [0, 7]}]
-        case = self.case("ignore_reference")
+        case = self.case("ignore_reference_compiler")
         case["inputs"]["out"] = [0, 7]
         with self.assertRaisesRegex(machine.ProgramError, "expected.*2 words"):
             machine.check_case(self.program, self.compilation, case)
@@ -173,18 +173,18 @@ class ExpectedOutputTests(unittest.TestCase):
         machine.check_case(self.program, self.compilation, case)
 
     def test_neither_mode_bypasses_schedule_validation(self):
-        for mode in ("agree_with_reference", "ignore_reference"):
+        for mode in ("agree_with_reference_compiler", "ignore_reference_compiler"):
             with self.subTest(mode=mode), self.assertRaises(machine.CompileError):
                 machine.check_case(self.program, {"scratch": {}, "bundles": []}, self.case(mode))
 
     def test_invalid_expected_schema_is_rejected(self):
-        invalid = [None, [], {}, {"buffers": {"out": [42]}}, {"mode": "ignore_reference"}]
+        invalid = [None, [], {}, {"buffers": {"out": [42]}}, {"mode": "ignore_reference_compiler"}]
         for mode in (None, True, [], {}, "unknown"):
             invalid.append({"mode": mode, "buffers": {"out": [42]}})
         for buffers in (None, [], {}, {"out": []}, {"out": [True]}, {"out": [1.5]}, {"out": ["42"]},
                         {"out": [42], "unknown": [0]}):
-            invalid.append({"mode": "ignore_reference", "buffers": buffers})
-        invalid.append({"mode": "ignore_reference", "buffers": {"out": [42]}, "extra": True})
+            invalid.append({"mode": "ignore_reference_compiler", "buffers": buffers})
+        invalid.append({"mode": "ignore_reference_compiler", "buffers": {"out": [42]}, "extra": True})
         for expected in invalid:
             case = {"inputs": {"out": [0]}, "expected": expected}
             with self.subTest(expected=expected), self.assertRaisesRegex(machine.ProgramError, "case 0 expected"):
@@ -199,7 +199,7 @@ class ExpectedOutputTests(unittest.TestCase):
     def test_inputs_and_expected_remain_legal_buffer_names(self):
         self.program["buffers"].update(inputs=1, expected=1)
         memory = {"out": [0], "inputs": [3], "expected": [4]}
-        case = self.case("ignore_reference")
+        case = self.case("ignore_reference_compiler")
         case["inputs"] = memory
         self.program["cases"] = [memory, case]
         for case in self.program["cases"]:
