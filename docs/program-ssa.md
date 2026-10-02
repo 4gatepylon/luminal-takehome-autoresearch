@@ -55,7 +55,7 @@ The same optional expected-output policy as JSON is supported, on one line:
 compiled output to agree. `ignore_reference_compiler` compares compiled output
 with the expectation without running the reference interpreter. Omit `expected`
 for reference-based regression testing. The reference implementation is the
-existing interpreter, distinct from the serial compiler and its scratch limit;
+interpreter, distinct from the serial compiler and its scratch limit;
 neither mode bypasses schedule validation or provides a performance baseline.
 
 `inputs` must include every declared buffer. `expected.buffers` must include
@@ -66,7 +66,7 @@ Full final-memory maps are also accepted. Words are normalized modulo `2**32`.
 modes, fields or buffers, missing written buffers, wrong lengths, non-integer
 words (including booleans), and `null` expectations are rejected.
 
-Existing cases, input-only wrappers, and either mode can be mixed in one program.
+Cases with and without expected outputs can be mixed in one program.
 Buffer names `inputs` and `expected` remain legal: a wrapper has an object-valued
 `inputs`, whereas buffer contents are lists. Conversion preserves each case form
 exactly, including original buffer names in both `inputs` and `expected.buffers`.

@@ -191,7 +191,7 @@ def _validate_memory_operation(program: dict, operation: dict) -> None:
 
 
 def validate_case(program: dict, case: dict, case_index: int | None = None) -> None:
-    """Validate existing input maps or inputs with an optional expected-output policy."""
+    """Validate case inputs and optional expected-output policies."""
     label = "case" if case_index is None else f"case {case_index}"
     if not isinstance(case, dict):
         raise ProgramError(f"{label} must be an object")
@@ -220,7 +220,7 @@ def validate_case(program: dict, case: dict, case_index: int | None = None) -> N
 
 
 def _case_inputs(case: dict) -> dict:
-    # Lists remain existing buffer contents, even for a buffer named inputs.
+    # Lists are buffer contents, even for a buffer named inputs.
     return case["inputs"] if isinstance(case.get("inputs"), dict) else case
 
 

@@ -108,7 +108,7 @@ class ExpectedOutputTests(unittest.TestCase):
     def case(self, mode, output=42):
         return {"inputs": {"out": [0]}, "expected": {"mode": mode, "buffers": {"out": [output]}}}
 
-    def test_existing_and_input_only_cases_use_reference(self):
+    def test_cases_without_expected_use_reference(self):
         for case in ({"out": [0]}, {"inputs": {"out": [0]}}):
             with self.subTest(case=case), patch("machine.run_reference", wraps=machine.run_reference) as reference:
                 machine.check_case(self.program, self.compilation, case)
