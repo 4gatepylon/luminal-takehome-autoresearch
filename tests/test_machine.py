@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 import machine
 
@@ -28,6 +29,35 @@ def micro_program() -> dict:
 
 
 class MachineTests(unittest.TestCase):
+    def test_expected_modes(self):
+        program = micro_program()
+        compilation = {
+            "scratch": {"a": 0, "b": 1, "product": 2},
+            "bundles": [{"load": [0, 1]}, {"scalar": [2]}, {}, {"store": [3]}],
+        }
+        case = {"inputs": {"out": [0]}, "expected": {
+            "mode": "ignore_reference_compiler", "buffers": {"out": [42]},
+        }}
+        program["cases"] = [case]
+        with patch("machine.run_reference", side_effect=AssertionError("reference ran")) as reference:
+            machine.check_case(program, compilation, case)
+            case["expected"]["buffers"]["out"] = [43]
+            with self.assertRaisesRegex(machine.CompileError, "incorrect final memory"):
+                machine.check_case(program, compilation, case)
+            reference.assert_not_called()
+        case["expected"]["mode"] = "agree_with_reference_compiler"
+        with self.assertRaisesRegex(machine.CompileError, "reference output"):
+            machine.check_case(program, compilation, case)
+        case["expected"]["buffers"]["out"] = [42]
+        machine.check_case(program, compilation, case)
+        case["expected"]["mode"] = "unknown"
+        with self.assertRaisesRegex(machine.ProgramError, "unknown expected mode"):
+            machine.check_case(program, compilation, case)
+        del case["expected"]
+        with patch("machine.run_reference", wraps=machine.run_reference) as reference:
+            machine.check_case(program, compilation, case)
+            reference.assert_called_once_with(program, case)
+
     def test_serial_compiler_executes_correctly(self):
         program = micro_program()
         compilation = machine.serial_compile(program)
