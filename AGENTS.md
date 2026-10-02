@@ -4,6 +4,16 @@
   or explicitly supplied by the user, including in code, test names,
   documentation, and explanations.
 
+# Simplicity
+
+Implement every feature with the smallest scope and simplest code possible,
+making it easy to read, debug, and extend without compiler-level performance
+optimizations or unrequested "better" versions.
+Keep PRs small and reviewable, ideally 10–100 changed lines, unless the user
+explicitly requests otherwise.
+If a task cannot be completed within these constraints, stop and ask the user
+how to proceed.
+
 # Python conventions
 
 - All compiler and AI-written candidate code must execute inside `run_in_sandbox`.
