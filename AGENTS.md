@@ -1,3 +1,9 @@
+# Terminology
+
+- Never introduce new terminology. Use only terms already used in the repository
+  or explicitly supplied by the user, including in code, test names,
+  documentation, and explanations.
+
 # Python conventions
 
 - All compiler and AI-written candidate code must execute inside `run_in_sandbox`.
