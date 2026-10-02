@@ -80,22 +80,19 @@ def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
     producer = machine.producer_map(program)
 
     for operation in operations:
-        spec = machine.OP_SPECS[operation["op"]]
-        engine = spec["engine"]
-        earliest = max(
-            len(bundles), earliest_issue_cycle(program, operation, producer, issue_cycle)
-        )
-
-        if len(curr_bundle.get(engine, [])) >= machine.ENGINE_LIMITS[engine]:
-            earliest = max(earliest, len(bundles) + 1)
+        engine = machine.OP_SPECS[operation["op"]]["engine"]
+        earliest = earliest_issue_cycle(program, operation, producer, issue_cycle)
 
         # Flush the current bundle, then emit empty stalls until this op is ready.
-        while len(bundles) < earliest:
+        while (
+            len(bundles) < earliest
+            or len(curr_bundle.get(engine, [])) >= machine.ENGINE_LIMITS[engine]
+        ):
             bundles.append(curr_bundle)
             curr_bundle = {}
 
         curr_bundle.setdefault(engine, []).append(operation["id"])
-        issue_cycle[operation["id"]] = earliest
+        issue_cycle[operation["id"]] = len(bundles)
 
     if curr_bundle:
         bundles.append(curr_bundle)
