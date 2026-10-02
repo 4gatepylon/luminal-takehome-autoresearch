@@ -10,7 +10,7 @@ virtual value to the machine's scratchpad and schedule every operation into
 VLIW bundles. Correctness is required; shorter schedules and smaller scratch footprints score better.
 
 The starter compiler is deliberately simple and serial. It handles programs
-01–17, 20–23, and 27–29; programs 18–19 and 24–26 intentionally exceed its scratch allocation
+01–17, 20–23, and 27–31; programs 18–19 and 24–26 intentionally exceed its scratch allocation
 capacity and require scratch reuse. You can improve the compiler incrementally.
 
 ## Readable program files
@@ -85,7 +85,7 @@ The overlapping `original`, `load_heavy`, and `algebraic_simplification` groups
 provide performance breakdowns, with geometric means over non-failing programs
 and expected failures excluded from every group, including the overall aggregate.
 Each program is evaluated once, failures are reported and counted, and unexpected
-outcomes, missing required files, or a program count other than 29 raise an error.
+outcomes, missing required files, or a program count other than 31 raise an error.
 
 The same functions are available from Python:
 
@@ -251,7 +251,7 @@ scratch space before it can be consumed.
 SIMD vectors contain eight words and occupy eight consecutive scratch words.
 Vector allocations must begin at an address divisible by eight. Scalar values
 occupy one word. Values may share all or part of their scratch ranges when their
-live intervals do not overlap. Programs 01–17, 20–23, and 27–29 fit without spilling even with
+live intervals do not overlap. Programs 01–17, 20–23, and 27–31 fit without spilling even with
 the starter's allocation. Program 18 needs 793 words with separate storage per
 result but fits in 41 words with scratch reuse. Program 19 needs 504 words with
 separate storage but fits in 24 words by interleaving loads and computation and
@@ -393,6 +393,8 @@ traffic, and inputs for optimization experiments. All arithmetic wraps modulo
 | [27_sum_17_scalars.json](programs/json/27_sum_17_scalars.json) | Loads 17 numbers individually from one contiguous buffer, reduces them through 16 left-associated scalar additions, and stores one scalar sum. Includes an input where only the seventeenth element is nonzero to exercise tail handling. |
 | [28_sum_16_scalars.json](programs/json/28_sum_16_scalars.json) | Loads 16 numbers individually from one contiguous buffer, reduces them through 15 left-associated scalar additions, and stores one scalar sum. Provides a power-of-two counterpart to program 27. |
 | [29_sum_64_scalars.json](programs/json/29_sum_64_scalars.json) | Loads 64 numbers individually from one contiguous buffer, reduces them through 63 left-associated scalar additions, and stores one scalar sum. Provides a longer scalar reduction that still fits the starter's allocation at 127 words. Cases cover zero, one, varied values, overflow, and a nonzero final element. |
+| [30_dot_product_running_sum.json](programs/json/30_dot_product_running_sum.json) | Computes one eight-element dot product with an accumulator initialized to zero. Each unrolled step loads one scalar from each input, multiplies the pair, and adds the product to the running sum before the next pair is loaded in source order. Stores the final scalar result modulo 2**32. Cases cover zeros, ones, distinct inputs, a nonzero final pair, disjoint nonzero positions, and multiplication/accumulation overflow. |
+| [31_matrix_transpose_3x3.json](programs/json/31_matrix_transpose_3x3.json) | Loads a row-major 3x3 matrix with nine scalar loads and stores its transpose into a separate row-major output: `out[3*r+c] = input[3*c+r]`. Cases include distinct entries, reversed entries, zeros, identity, one off-diagonal nonzero, and high-bit values. The input remains unchanged. |
 
 Programs 09–18 and 22 expose opportunities for dead-code elimination and algebraic
 simplification; programs 20–21 expose scalar-to-vector conversion, and program 23
@@ -423,7 +425,7 @@ relative to the frozen serial baseline across all public and hidden programs. Fo
 program these ratios are `baseline_cycles / cycles` and
 `baseline_scratch_words / scratch_words`. The combined score is
 `sqrt(cycle_speedup_geomean * scratch_reduction_geomean)`, giving equal weight
-to both objectives. On programs 01–17, 20–23, and 27–29 the starter scores 1.000x on each metric;
+to both objectives. On programs 01–17, 20–23, and 27–31 the starter scores 1.000x on each metric;
 programs 18–19 and 24–26 currently block full-suite scoring as described above. Public scoring
 uses the same formula on the visible programs; the private grader reports
 the final combined result on all public and hidden programs. We also review compiler structure, clarity, and the
