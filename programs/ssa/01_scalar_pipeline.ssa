@@ -1,0 +1,25 @@
+========================================BUFFERS========================================
+name "scalar_pipeline"
+buffers {"a": 1, "b": 1, "c": 1, "out": 1}
+
+========================================PROGRAM========================================
+load buff[a][0] into a0
+load buff[b][0] into b0
+load buff[c][0] into c0
+product = a0 * b0
+sum = product + c0
+key = 2654435769
+mixed = sum ^ key
+shift = 5
+left = mixed << shift
+right = mixed >> shift
+joined = left | right
+clipped = joined & key
+adjusted = clipped - c0
+is_equal = adjusted == a0
+result = select(is_equal, b0, adjusted)
+store result into buff[out][0]
+
+========================================CASES========================================
+{"a": [3], "b": [11], "c": [7], "out": [0]}
+{"a": [4294967295], "b": [17], "c": [99], "out": [123]}

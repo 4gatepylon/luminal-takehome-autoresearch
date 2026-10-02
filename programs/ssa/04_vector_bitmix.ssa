@@ -1,0 +1,22 @@
+========================================BUFFERS========================================
+name "vector_bitmix"
+buffers {"data": 16, "mask": 16, "out": 16}
+
+========================================PROGRAM========================================
+shift = 5
+vshift = splat(shift)
+vload buff[data][0] into data0
+vload buff[mask][0] into mask0
+vload buff[data][8] into data1
+vload buff[mask][8] into mask1
+mixed0 = data0 ^ mask0
+mixed1 = data1 ^ mask1
+shifted0 = mixed0 << vshift
+shifted1 = mixed1 << vshift
+result0 = shifted0 + data0
+result1 = shifted1 + data1
+vstore result0 into buff[out][0]
+vstore result1 into buff[out][8]
+
+========================================CASES========================================
+{"data": [3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181], "mask": [4294967295, 0, 17, 31, 63, 127, 255, 511, 1023, 2047, 4095, 8191, 16383, 32767, 65535, 131071], "out": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}

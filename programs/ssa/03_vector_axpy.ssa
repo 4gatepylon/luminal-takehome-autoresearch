@@ -1,0 +1,20 @@
+========================================BUFFERS========================================
+name "vector_axpy"
+buffers {"x": 16, "y": 16, "out": 16}
+
+========================================PROGRAM========================================
+alpha = 3
+valpha = splat(alpha)
+vload buff[x][0] into x0
+vload buff[y][0] into y0
+vload buff[x][8] into x1
+vload buff[y][8] into y1
+scaled0 = x0 * valpha
+scaled1 = x1 * valpha
+result0 = scaled0 + y0
+result1 = scaled1 + y1
+vstore result0 into buff[out][0]
+vstore result1 into buff[out][8]
+
+========================================CASES========================================
+{"x": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], "y": [16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1], "out": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}

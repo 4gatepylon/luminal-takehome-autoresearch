@@ -9,7 +9,7 @@ import compiler
 import machine
 
 
-PROGRAM_DIR = Path(__file__).parents[1] / "programs"
+PROGRAM_DIR = Path(__file__).parents[1] / "programs" / "json"
 
 
 class PublicProgramTests(unittest.TestCase):

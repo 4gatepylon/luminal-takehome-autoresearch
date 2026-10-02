@@ -1,0 +1,29 @@
+========================================BUFFERS========================================
+name "scalar_selects"
+buffers {"scores": 4, "thresholds": 4, "out": 4}
+
+========================================PROGRAM========================================
+load buff[scores][0] into s0
+load buff[thresholds][0] into t0
+load buff[scores][1] into s1
+load buff[thresholds][1] into t1
+load buff[scores][2] into s2
+load buff[thresholds][2] into t2
+load buff[scores][3] into s3
+load buff[thresholds][3] into t3
+c0 = s0 < t0
+c1 = s1 < t1
+c2 = s2 < t2
+c3 = s3 < t3
+m0 = select(c0, t0, s0)
+m1 = select(c1, t1, s1)
+m2 = select(c2, t2, s2)
+m3 = select(c3, t3, s3)
+store m0 into buff[out][0]
+store m1 into buff[out][1]
+store m2 into buff[out][2]
+store m3 into buff[out][3]
+
+========================================CASES========================================
+{"scores": [3, 40, 5, 99], "thresholds": [10, 20, 5, 100], "out": [0, 0, 0, 0]}
+{"scores": [4294967295, 0, 17, 18], "thresholds": [1, 1, 16, 19], "out": [7, 7, 7, 7]}

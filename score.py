@@ -10,7 +10,7 @@ import compiler
 import machine
 
 
-PROGRAM_DIR = Path(__file__).parent / "programs"
+PROGRAM_DIR = Path(__file__).parent / "programs" / "json"
 
 
 def main() -> int:

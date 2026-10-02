@@ -47,14 +47,82 @@ python3 score.py
 Compile one program to a JSON schedule with:
 
 ```sh
-python3 compiler.py programs/03_vector_axpy.json > axpy.schedule.json
-python3 machine.py programs/03_vector_axpy.json axpy.schedule.json
+python3 compiler.py programs/json/03_vector_axpy.json > axpy.schedule.json
+python3 machine.py programs/json/03_vector_axpy.json axpy.schedule.json
 ```
 
-Eight public programs are in `programs/`. Submission grading uses another
+Eight public JSON programs are in `programs/json/`, with matching readable SSA
+files in `programs/ssa/`. Submission grading uses another
 eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
+
+## Readable SSA programs
+
+Each `programs/json/<name>.json` has a matching `programs/ssa/<name>.ssa`.
+The SSA representation preserves the program name, buffer sizes, every operation
+in source order, and every input case. Tests require each checked-in SSA file to
+parse to exactly the same JSON object as its matching fixture. JSON remains the
+input format for the compiler, simulator, and benchmark.
+
+An SSA file has exactly three sections, in order, with 40 equals signs on each
+side of the section name:
+
+```text
+========================================BUFFERS========================================
+name "example"
+buffers {"input": 1, "out": 1}
+
+========================================PROGRAM========================================
+# Full-line comments and blank lines are allowed in every section.
+load buff[input][0] into a
+b = 3
+x = a + b
+y = x | a
+store y into buff[out][0]
+
+========================================CASES========================================
+{"input": [5], "out": [0]}
+{"input": [4294967295], "out": [99]}
+```
+
+The BUFFERS section contains `name` followed by a JSON string and `buffers`
+followed by a JSON object mapping buffer names to word counts. The CASES section
+is JSONL: one complete initial-memory object per line, including output buffers.
+Indented full-line `#` comments are allowed; inline comments are rejected.
+
+The PROGRAM section has one instruction per line:
+
+| Syntax | Meaning |
+| --- | --- |
+| `load buff[name][offset] into x` | Scalar load |
+| `vload buff[name][offset] into x` | Eight-word vector load |
+| `store x into buff[name][offset]` | Scalar store |
+| `vstore x into buff[name][offset]` | Eight-word vector store |
+| `x = 42` | Scalar constant; signed decimal and hexadecimal literals are accepted |
+| `x = a + b` | Binary operation; supports `+`, `-`, `*`, `^`, `&`, `\|`, `<<`, `>>`, `==`, `<` |
+| `x = splat(a)` | Broadcast a scalar to eight lanes |
+| `x = select(c, a, b)` | Scalar conditional selection |
+| `x = vselect(c, a, b)` | Lane-wise vector conditional selection |
+
+Binary operations infer scalar/vector type from their operands. Both operands
+must have the same type; `==` and `<` are scalar-only. Expressions contain one
+operation with named operands: use a separate constant assignment for immediates.
+Names use letters, digits, and underscores (not starting with a digit), or JSON
+strings for other names, such as `load buff["input data"][0] into "my value"`.
+Operation IDs are assigned consecutively in source order. SSA definitions,
+operand types, memory bounds, and cases follow the existing machine contract.
+
+`ssa.py` exposes `to_ssa(program: dict) -> str` and
+`from_ssa(source: str) -> dict`. It also provides a stdout-only conversion CLI:
+
+```sh
+python3 ssa.py to-ssa programs/json/03_vector_axpy.json
+python3 ssa.py to-json programs/ssa/03_vector_axpy.ssa
+```
+
+Conversion preserves the documented JSON program fields and values; JSON
+whitespace/key order and SSA comments are not preserved.
 
 ## Machine model
 
