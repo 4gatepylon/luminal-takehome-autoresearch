@@ -1,0 +1,20 @@
+{
+  "name": "shared_value_branches",
+  "buffers": {"data": 16, "out": 16},
+  "operations": [
+    {"id": 0, "op": "vload", "dest": "left", "buffer": "data", "offset": 0},
+    {"id": 1, "op": "vload", "dest": "right", "buffer": "data", "offset": 8},
+    {"id": 2, "op": "vmul", "dest": "shared", "args": ["left", "left"]},
+    {"id": 3, "op": "vadd", "dest": "early", "args": ["shared", "right"]},
+    {"id": 4, "op": "vstore", "args": ["early"], "buffer": "out", "offset": 0},
+    {"id": 5, "op": "vmul", "dest": "square", "args": ["right", "right"]},
+    {"id": 6, "op": "vmul", "dest": "fourth", "args": ["square", "square"]},
+    {"id": 7, "op": "vadd", "dest": "late", "args": ["shared", "fourth"]},
+    {"id": 8, "op": "vstore", "args": ["late"], "buffer": "out", "offset": 8}
+  ],
+  "cases": [
+    {"data": [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48], "out": [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]},
+    {"data": [4294967295, 4294967294, 0, 1, 2147483648, 2147483647, 7, 13, 4294967295, 4294967294, 0, 1, 2147483648, 2147483647, 7, 13], "out": [2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481]},
+    {"data": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "out": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+  ]
+}
