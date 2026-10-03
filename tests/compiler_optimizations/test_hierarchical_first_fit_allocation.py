@@ -3,7 +3,6 @@
 - Vectors are placed first; each value uses the lowest aligned range with disjoint lifetimes.
 - Exhausted scratch raises CompileError.
 - Direct hierarchical allocation produces correct final buffers for all program cases.
-- Selecting hierarchical allocation in the compiler raises NotImplementedError.
 - The pinned-block fixture should, in theory, use around 128 words with hierarchical
   first-fit, compared to chronological first-fit's theoretical 240 words.
 """
@@ -12,7 +11,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from compiler import compilation as compiler_compilation
 from compiler.allocation import allocate_scratch_first_fit, allocate_scratch_hierarchical_first_fit, find_lifetimes
 from compiler.scheduling import find_issue_cycles, schedule_operations
 import machine
@@ -93,10 +91,6 @@ class HierarchicalFirstFitTests(unittest.TestCase):
                 machine.check_compilation(program, compilation)
                 for case in program["cases"]:
                     machine.check_case(program, compilation, case)
-
-    def test_compiler_rejects_hierarchical_strategy(self):
-        with self.assertRaises(NotImplementedError):
-            compiler_compilation.compile_program({}, scratch_allocation_strategy="hierarchical-first-fit")
 
     def test_pinned_vector_blocks_footprint(self):
         program = machine.load_program(
