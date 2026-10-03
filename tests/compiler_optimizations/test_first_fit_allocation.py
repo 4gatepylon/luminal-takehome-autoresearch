@@ -40,7 +40,7 @@ class FirstFitAllocationTests(unittest.TestCase):
                     for value_name, _, write_cycle_incl, last_live_cycle_incl in values
                 }
                 self.assertEqual(
-                    allocate_scratch_first_fit(program, value_name2lifetime_incl),
+                    allocate_scratch_first_fit(program, value_name2lifetime_incl, mode="default"),
                     expected_value_name2scratch_address,
                 )
 

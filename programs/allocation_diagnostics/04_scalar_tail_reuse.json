@@ -1,0 +1,19 @@
+{
+  "name": "scalar_tail_reuse",
+  "buffers": {"data": 8, "out": 19},
+  "operations": [
+    {"op": "vload", "dest": "v", "buffer": "data", "offset": 0, "id": 0},
+    {"op": "vstore", "args": ["v"], "buffer": "out", "offset": 0, "id": 1},
+    {"op": "const", "dest": "a", "value": 1, "id": 2},
+    {"op": "store", "args": ["a"], "buffer": "out", "offset": 16, "id": 3},
+    {"op": "const", "dest": "b", "value": 2, "id": 4},
+    {"op": "store", "args": ["b"], "buffer": "out", "offset": 17, "id": 5},
+    {"op": "const", "dest": "c", "value": 3, "id": 6},
+    {"op": "store", "args": ["c"], "buffer": "out", "offset": 18, "id": 7},
+    {"op": "vstore", "args": ["v"], "buffer": "out", "offset": 8, "id": 8}
+  ],
+  "cases": [
+    {"data": [1, 2, 3, 4, 5, 6, 7, 8], "out": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+    {"data": [0, 4294967295, 7, 13, 4294967294, 19, 23, 29], "out": [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]}
+  ]
+}
