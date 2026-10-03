@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 import machine
@@ -44,23 +45,32 @@ class OperationDependencies:
         # No transitive search is needed: each indirect prerequisite precedes
         # one of these direct prerequisites in any valid ordering.
         return max(
-            (ordering.index(pred["id"]) for pred in self.op_id2prev_ops[operation["id"]]),
+            (
+                ordering.index(pred["id"])
+                for pred in self.op_id2prev_ops[operation["id"]]
+            ),
             default=-1,
         )
 
 
-def reorder_program(
+def reordered_program(
     program: dict[str, Any], ordering: tuple[int, ...]
 ) -> dict[str, Any]:
-    """Copy a valid operation ordering into a program with consecutive new IDs.
+    """Deep-copy operations into `ordering`, replacing each operation ID with its new index.
 
-    Ordering contains original operation IDs and must preserve dependencies.
-    The input is unchanged; SSA names and buffer accesses are preserved.
+    Hypothetical argument: ordering = (2, 0, 1)
+    original:    [{"id": 0, ... op0}, {"id": 1, ... op1}, {"id": 2, ... op2}]
+    transformed: [{"id": 0, ... op2}, {"id": 1, ... op0}, {"id": 2, ... op1}]
+    preserved:   every field except "id", and the input program
     """
-    return {
-        **program,
-        "operations": [
-            dict(program["operations"][op_id], id=op_index)
-            for op_index, op_id in enumerate(ordering)
-        ],
-    }
+    reordered = copy.deepcopy(
+        {
+            **program,
+            "operations": [
+                dict(program["operations"][op_id], id=op_index)
+                for op_index, op_id in enumerate(ordering)
+            ],
+        }
+    )
+    # WARNING: original operation IDs are not kept on the returned program. This is a lossy transformation.
+    return reordered

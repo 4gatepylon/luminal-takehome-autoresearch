@@ -5,7 +5,7 @@ import unittest
 
 from compiler import compile_program
 from compiler.custom_scheduling.dag_pressure_codex import dag_ordering, dag_orderings
-from compiler.reordering import reorder_program
+from compiler.reordering import reordered_program
 import machine
 
 
@@ -34,7 +34,7 @@ class DagReorderingTests(unittest.TestCase):
             for predecessor in predecessors:
                 self.assertLess(positions[predecessor], positions[operation["id"]])
 
-        reordered = reorder_program(program, ordering)
+        reordered = reordered_program(program, ordering)
         machine.validate_program(reordered)
         compilation = compile_program(reordered, scheduling_strategy="source")
         compilation["bundles"] = [
