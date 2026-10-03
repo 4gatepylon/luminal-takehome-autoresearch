@@ -16,7 +16,7 @@ class OrderingSearchContractTests(unittest.TestCase):
             "name": "independent_stores", "buffers": {"out": 2},
             "operations": [
                 {"id": 0, "op": "const", "dest": "a", "value": 7},
-                {"id": 1, "op": "const", "dest": "b", "value": 9},
+                {"id": 1, "op": "add", "dest": "b", "args": ["a", "a"]},
                 {"id": 2, "op": "store", "args": ["a"], "buffer": "out", "offset": 0},
                 {"id": 3, "op": "store", "args": ["b"], "buffer": "out", "offset": 1},
             ],
@@ -30,7 +30,7 @@ class OrderingSearchContractTests(unittest.TestCase):
         ) as compile_ordering:
             optimizer = OrderingOptimizer(self.program)
             with self.assertWarnsRegex(RuntimeWarning, "No unseen reachable ordering"):
-                best_ordering = optimizer.optimize_ordering_for_greedy_scheduler(128)
+                best_ordering = optimizer.optimize_ordering_for_greedy_scheduler(4)
             evaluated_orderings = [call.args[1] for call in compile_ordering.call_args_list]
             self.assertEqual(len(evaluated_orderings), len(set(evaluated_orderings)))
             optimizer._evaluate_single(best_ordering)
@@ -46,18 +46,18 @@ class OrderingSearchContractTests(unittest.TestCase):
             attempt.speedup * attempt.memory_improvement for attempt in optimizer.database.values()
         ))
         with self.assertRaisesRegex(RuntimeError, "No unseen reachable ordering"):
-            optimizer.optimize_ordering_for_greedy_scheduler(1, crash_on_sampling_failure=True)
+            optimizer.optimize_ordering_for_greedy_scheduler(4, crash_on_sampling_failure=True)
 
     def test_inner_retry_limit_and_retired_rows(self):
         optimizer = OrderingOptimizer(self.program)
-        optimizer._evaluate_single((1, 0, 2, 3))
+        optimizer._evaluate_single((0, 2, 1, 3))
         with patch.object(optimizer, "_sample_unseen_reachable_ordering", return_value=None) as sample:
             with self.assertWarns(RuntimeWarning):
-                optimizer.optimize_ordering_for_greedy_scheduler(1, max_inner_iterations=1)
+                optimizer.optimize_ordering_for_greedy_scheduler(4, max_inner_iterations=1)
             self.assertEqual(sample.call_count, 1)
             self.assertEqual(sum(attempt.can_reorder for attempt in optimizer.database.values()), 1)
             with self.assertWarns(RuntimeWarning):
-                optimizer.optimize_ordering_for_greedy_scheduler(1, max_inner_iterations=32)
+                optimizer.optimize_ordering_for_greedy_scheduler(4, max_inner_iterations=32)
             self.assertEqual(sample.call_count, 2)
             self.assertNotEqual(sample.call_args_list[0], sample.call_args_list[1])
 

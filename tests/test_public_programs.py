@@ -19,7 +19,7 @@ class PublicProgramTests(unittest.TestCase):
         for path in paths:
             with self.subTest(program=path.name):
                 program = machine.load_program(path)
-                compilation = compile_program(program)
+                compilation = compile_program(program, n_optimization_iterations=4)
                 machine.check_compilation(program, compilation)
                 for case in program["cases"]:
                     machine.check_case(program, compilation, case)
