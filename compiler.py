@@ -15,6 +15,9 @@ import sys
 import machine
 
 
+Operation = dict[str, int | str | list[str]]
+
+
 class OperationDependencies:
     """Data and memory prerequisites for a validated program."""
 
@@ -22,27 +25,27 @@ class OperationDependencies:
         self.program = program
         operations = program["operations"]
         producer = machine.producer_map(program)
-        self.dependencies: dict[int, list[dict]] = {}
+        self.op_id2prev_ops: dict[int, list[Operation]] = {}
         for operation in operations:
             data = [producer[arg] for arg in operation.get("args", [])]
             memory = machine.memory_predecessors(program, operation["id"])
             predecessors = data + memory
             assert all(type(pred_id) is int for pred_id in predecessors)
-            self.dependencies[operation["id"]] = [
+            self.op_id2prev_ops[operation["id"]] = [
                 operations[pred_id] for pred_id in sorted(set(predecessors))
             ]
 
     def latest_dependency(
-        self, operation: dict, ordering: tuple[int, ...] | None = None
+        self, operation: Operation, ordering: tuple[int, ...] | None = None
     ) -> int:
         """Return the latest prerequisite's index in the ordering, or -1."""
         if ordering is None:
-            ordering = tuple(range(len(self.dependencies)))
+            ordering = tuple(range(len(self.op_id2prev_ops)))
         assert all(type(op_id) is int for op_id in ordering)
         # No transitive search is needed: each indirect prerequisite precedes
         # one of these direct prerequisites in any valid ordering.
         return max(
-            (ordering.index(pred["id"]) for pred in self.dependencies[operation["id"]]),
+            (ordering.index(pred["id"]) for pred in self.op_id2prev_ops[operation["id"]]),
             default=-1,
         )
 
