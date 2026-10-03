@@ -30,12 +30,16 @@ class OperationDependencies:
         # Each operation ID maps to its prerequisite operation dictionaries.
         self.op_id2prev_ops: dict[int, list[Operation]] = {}
         for operation in operations:
-            data = [producer[arg] for arg in operation.get("args", [])]
-            memory = machine.memory_predecessors(program, operation["id"])
-            predecessors = data + memory
-            assert all(type(pred_id) is int for pred_id in predecessors)
+            data_predecessor_ids: list[int] = [
+                producer[arg] for arg in operation.get("args", [])
+            ]
+            memory_predecessor_ids: list[int] = machine.memory_predecessors(
+                program, operation["id"]
+            )
+            predecessor_ids: list[int] = data_predecessor_ids + memory_predecessor_ids
+            assert all(type(pred_id) is int for pred_id in predecessor_ids)
             self.op_id2prev_ops[operation["id"]] = [
-                operations[pred_id] for pred_id in sorted(set(predecessors))
+                operations[pred_id] for pred_id in sorted(set(predecessor_ids))
             ]
 
     def latest_dependency(
