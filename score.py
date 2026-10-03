@@ -30,6 +30,8 @@ PROGRAM_GROUPS = {
         "allocation_diagnostics/03_vector_lifetime_gaps.json",
         "allocation_diagnostics/04_scalar_tail_reuse.json",
         "allocation_diagnostics/05_inclusive_boundary.json",
+        "allocation_diagnostics/06_retained_vectors_16.json",
+        "allocation_diagnostics/07_rolling_vectors_15_of_16.json",
     ],
 }
 

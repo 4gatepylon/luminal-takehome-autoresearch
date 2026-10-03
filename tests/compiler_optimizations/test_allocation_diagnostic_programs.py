@@ -11,6 +11,13 @@ import score
 
 
 class AllocationDiagnosticProgramTests(unittest.TestCase):
+    def test_extreme_programs_fill_disjoint_scratch_capacity(self):
+        for filename in ("06_retained_vectors_16.json", "07_rolling_vectors_15_of_16.json"):
+            with self.subTest(program=filename):
+                program = machine.load_program(score.PROGRAM_DIR / "allocation_diagnostics" / filename)
+                baseline = machine.serial_compile(program)
+                self.assertEqual(machine.scratch_footprint(program, baseline), machine.SCRATCH_WORDS)
+
     def test_diagnostic_programs_with_each_supported_strategy(self):
         for filename in score.PROGRAM_GROUPS["allocation_diagnostics"]:
             program = machine.load_program(score.PROGRAM_DIR / filename)
