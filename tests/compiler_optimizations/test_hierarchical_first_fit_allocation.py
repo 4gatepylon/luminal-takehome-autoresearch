@@ -5,6 +5,8 @@
 - Direct hierarchical allocation produces correct final buffers for all program cases.
 - The pinned-block fixture should, in theory, use around 128 words with hierarchical
   first-fit, compared to chronological first-fit's theoretical 240 words.
+
+TODO(hadriano) no human has read this.
 """
 
 import unittest

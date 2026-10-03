@@ -3,6 +3,8 @@
 - Automatic selection chooses the smallest successful footprint.
 - Forcing a strategy invokes that allocator and returns its allocation.
 - Disjoint allocation failure stops compilation; forced reuse failure raises RuntimeError.
+
+TODO(hadriano) no human has read this.
 """
 
 import unittest

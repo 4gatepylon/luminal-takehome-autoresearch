@@ -77,7 +77,12 @@ def make_allocation_sort_key(
     value_name2lifetime_incl: dict[str, tuple[int, int]],
 ) -> Callable[[str], tuple[bool, int, int, str]]:
     return lambda value_name: (
-        mode == "vectors_first" and value_name2width[value_name] == 1,
+        # This will pick a constant if you are not doing vectors-first;
+        # Otherwise, it will basically use the width below as a no-op.
+        # When in vectors-first:
+        # - Vectors have width != 1 so the value becomes 0, putting it earlier in the list
+        # - Scalars have width == 1 so the value becomes 1, putting it later in the list
+        int(mode == "vectors_first" and value_name2width[value_name] == 1),
         value_name2lifetime_incl[value_name][0],
         -value_name2width[value_name],
         value_name,
@@ -91,11 +96,19 @@ def allocate_scratch_first_fit(
 ) -> dict[str, int]:
     """Place each value at the lowest width-aligned range with disjoint lifetimes.
 
-    "default" orders by (write_cycle_incl, -width, name); "vectors_first" orders
-    by (-width, write_cycle_incl, name). Lifetimes [s, e] are inclusive: sharing
-    a word requires e < other_s or other_e < s for every reserved interval.
-    Every search starts at address 0, including gaps below earlier allocations.
-    Raise CompileError when no range fits within scratch capacity.
+    Conceptually:
+    - "default" orders by (write_cycle_incl, -width, name)
+    - "vectors_first" orders by (-width, write_cycle_incl, name).
+    (read `make_allocation_sort_key` for exact details)
+
+    These orders are traversed once and allocations occur when the instruction is reached
+    at the earliest possible address (taking into account VLEN/alignement needs for vectors,
+    lifespans, etc...). You can think of the memory space as being, conceptually, treated
+    like a queue.
+    
+    Lifetimes [s, e] are inclusive: sharing a word requires e < other_s or other_e < s
+    for every reserved interval. Every search starts at address 0, including gaps below
+    earlier allocations. Raise CompileError when no range fits within scratch capacity.
     """
     value_name2width = {
         operation["dest"]: (
