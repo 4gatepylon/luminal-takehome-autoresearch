@@ -1,4 +1,12 @@
-"""Check diagnostic programs' execution and disjoint scratch capacity."""
+"""Check these properties of the allocation diagnostic programs:
+
+- The three capacity fixtures require exactly 256 disjoint scratch words.
+- Automatic, forced first-fit, and forced disjoint allocation produce the same
+  final buffers as the reference interpreter for every input case.
+- Each compilation issues every operation exactly once, respects operand readiness,
+  memory ordering and engine limits, and uses aligned, in-bounds scratch ranges
+  that do not overlap for simultaneously live values.
+"""
 
 import unittest
 
