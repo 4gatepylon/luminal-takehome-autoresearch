@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Optional, Literal
+from typing import Any, Optional, Literal
 
 import machine
 
 from .allocation import allocate_scratch_first_fit, allocate_unique_scratch, find_lifetimes
+from .reordering import reorder_program
 from .scheduling import find_issue_cycles, schedule_operations
 
 
-def compile_program(program: dict, scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint"]] = None) -> dict:
-    """Schedule a validated program and choose the smallest successful allocation."""
+def compile_with_ordering(
+    program: dict[str, Any],
+    ordering: tuple[int, ...],
+    scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint"]] = None,
+) -> dict[str, Any]:
+    """Compile a valid ordering of original IDs; preserve the input and output IDs."""
+    program = reorder_program(program, ordering)
     bundles = schedule_operations(program)
     op_id2issue_cycle = find_issue_cycles(program, bundles)
     value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
@@ -36,4 +42,17 @@ def compile_program(program: dict, scratch_allocation_strategy: Optional[Literal
         except machine.CompileError as e:
             if scratch_allocation_strategy == "first-fit":
                 raise RuntimeError(f"first-fit allocation failed by running out of space and therefore cannot occur!") from e
+    bundles = [
+        {engine: [ordering[op_id] for op_id in op_ids] for engine, op_ids in bundle.items()}
+        for bundle in bundles
+    ]
     return {"scratch": value_name2scratch_address, "bundles": bundles}
+
+
+def compile_program(
+    program: dict[str, Any],
+    scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint"]] = None,
+) -> dict[str, Any]:
+    """Compile in the program's original order using the requested scratch strategy."""
+    ordering = tuple(range(len(program["operations"])))
+    return compile_with_ordering(program, ordering, scratch_allocation_strategy)
