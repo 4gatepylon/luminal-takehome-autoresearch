@@ -9,7 +9,7 @@ from compiler import compile_program
 import machine
 
 
-PROGRAM_DIR = Path(__file__).parents[1] / "programs"
+PROGRAM_DIR = Path(__file__).parents[1] / "programs" / "original_programs"
 
 
 class PublicProgramTests(unittest.TestCase):
