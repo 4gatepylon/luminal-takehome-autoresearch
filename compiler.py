@@ -340,8 +340,8 @@ class OperationDAG:
         )
 
 
-def compile_program(program: dict) -> dict:
-    """Compile one validated IR program into scratch allocations and bundles."""
+def allocate_scratch(program: dict) -> dict[str, int]:
+    """Assign scratch addresses to every SSA result."""
 
     # A simple non-overlapping allocation. Vectors are placed first so their
     # alignment does not create holes between scalar values.
@@ -367,6 +367,13 @@ def compile_program(program: dict) -> dict:
         raise machine.CompileError(
             f"program requires {cursor} scratch words, limit is {machine.SCRATCH_WORDS}"
         )
+
+    return scratch
+
+
+def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
+    """Schedule operations into bundles in source order."""
+    operations = program["operations"]
 
     # Serial, source-order scheduling with explicit latency stalls. This is a
     # correct baseline, but it leaves almost all VLIW slots empty.
@@ -395,6 +402,13 @@ def compile_program(program: dict) -> dict:
         bundles.append({spec["engine"]: [operation["id"]]})
         issue_cycle[operation["id"]] = earliest
 
+    return bundles
+
+
+def compile_program(program: dict) -> dict:
+    """Compile one validated IR program into scratch allocations and bundles."""
+    scratch = allocate_scratch(program)
+    bundles = schedule_operations(program)
     return {"scratch": scratch, "bundles": bundles}
 
 
