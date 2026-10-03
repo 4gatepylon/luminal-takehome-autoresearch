@@ -1,0 +1,31 @@
+========================================BUFFERS========================================
+name "vector_block_migration"
+buffers {"data": 8, "out": 32}
+
+========================================PROGRAM========================================
+vload {buff[data][0]} into {v}
+vload {buff[data][0]} into {w}
+vstore {v} into {buff[out][0]}
+a0 = 1
+a1 = 2
+a2 = 3
+a3 = 4
+a4 = 5
+a5 = 6
+a6 = 7
+a7 = 8
+vload {buff[data][0]} into {u}
+vstore {w} into {buff[out][8]}
+vstore {u} into {buff[out][16]}
+store {a0} into {buff[out][24]}
+store {a1} into {buff[out][25]}
+store {a2} into {buff[out][26]}
+store {a3} into {buff[out][27]}
+store {a4} into {buff[out][28]}
+store {a5} into {buff[out][29]}
+store {a6} into {buff[out][30]}
+store {a7} into {buff[out][31]}
+
+========================================CASES========================================
+{"data": [1, 2, 3, 4, 5, 6, 7, 8], "out": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+{"data": [0, 4294967295, 7, 13, 4294967294, 19, 23, 29], "out": [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]}

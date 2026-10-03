@@ -105,7 +105,7 @@ def allocate_scratch_first_fit(
     at the earliest possible address (taking into account VLEN/alignement needs for vectors,
     lifespans, etc...). You can think of the memory space as being, conceptually, treated
     like a queue.
-    
+
     Lifetimes [s, e] are inclusive: sharing a word requires e < other_s or other_e < s
     for every reserved interval. Every search starts at address 0, including gaps below
     earlier allocations. Raise CompileError when no range fits within scratch capacity.

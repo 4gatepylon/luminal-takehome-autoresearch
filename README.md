@@ -56,14 +56,112 @@ python3 score.py
 Compile one program to a JSON schedule with:
 
 ```sh
-python3 -m compiler.compiler programs/original_programs/03_vector_axpy.json > axpy.schedule.json
-python3 machine.py programs/original_programs/03_vector_axpy.json axpy.schedule.json
+python3 -m compiler.compiler programs/json/03_vector_axpy.json > axpy.schedule.json
+python3 machine.py programs/json/03_vector_axpy.json axpy.schedule.json
 ```
 
-Eight public programs are in `programs/original_programs/`. Submission grading uses another
+Eight public JSON programs are in `programs/json/`, with matching readable SSA
+files in `programs/ssa/`. Submission grading uses another
 eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
+
+## Readable SSA programs
+
+Each JSON file under `programs/json/` has a matching `.ssa` file at the same
+relative path under `programs/ssa/`, including the `allocation_diagnostics/` group.
+The SSA representation preserves the program name, buffer sizes, every operation
+in source order, and every input case. Tests require each checked-in SSA file to
+parse to exactly the same JSON object as its matching fixture. JSON remains the
+input format for the compiler, simulator, and benchmark.
+
+An SSA file has exactly three sections, in order, with 40 equals signs on each
+side of the section name:
+
+```text
+========================================BUFFERS========================================
+name "example"
+buffers {"input": 1, "out": 1}
+
+========================================PROGRAM========================================
+# Full-line comments and blank lines are allowed in every section.
+load {buff[input][0]} into {a}
+b = 3
+x = a + b
+y = x | a
+store {y} into {buff[out][0]}
+
+========================================CASES========================================
+{"input": [5], "out": [0]}
+{"input": [4294967295], "out": [99]}
+```
+
+The BUFFERS section contains `name` followed by a JSON string and `buffers`
+followed by a JSON object mapping buffer names to word counts. The CASES section
+is JSONL: one complete initial-memory object per line, including output buffers.
+Indented full-line `#` comments are allowed; inline comments are rejected.
+Blank lines (including whitespace-only lines) are ignored in all three sections.
+
+The PROGRAM section has one instruction per line:
+
+| Syntax | Meaning |
+| --- | --- |
+| `load {buff[name][offset]} into {x}` | Scalar load |
+| `vload {buff[name][offset]} into {x}` | Eight-word vector load |
+| `store {x} into {buff[name][offset]}` | Scalar store |
+| `vstore {x} into {buff[name][offset]}` | Eight-word vector store |
+| `x = 42` | Scalar constant; signed decimal and hexadecimal literals are accepted |
+| `x = a + b` | Binary operation; supports `+`, `-`, `*`, `^`, `&`, `\|`, `<<`, `>>`, `==`, `<` |
+| `x = splat(a)` | Broadcast a scalar to eight lanes |
+| `x = a if {c} else b` | Scalar or lane-wise vector conditional selection |
+
+Load and store operands require braces. Any amount of whitespace is allowed
+inside the braces and around the buffer indexing delimiters, for example
+`store { value  } into {    buff[out][0] }`. The emitter uses compact braces.
+
+Binary operations infer scalar/vector type from their operands. Both operands
+must have the same type; `==` and `<` are scalar-only. Expressions contain one
+operation with named operands: use a separate constant assignment for immediates.
+Selections choose `a` when `c` is nonzero, otherwise `b`. All three operands
+must be previously defined scalars or all vectors; vector selection acts lane
+by lane. The condition is a named value, so write comparisons separately, such
+as `c = a < b` followed by `x = a if {c} else b`.
+Variable and buffer names must match `[A-Za-z_][A-Za-z_0-9]*` and cannot be Python
+keywords. Quoted names are not allowed. Conversion rejects invalid identifiers
+instead of renaming them, preserving exact JSON/SSA parity. The program's
+descriptive `name` remains an unrestricted JSON string.
+Operation IDs are assigned consecutively in source order. SSA definitions,
+operand types, memory bounds, and cases follow the existing machine contract.
+
+`ssa.py` exposes `to_ssa(program: dict) -> str` and
+`from_ssa(source: str) -> dict`. Single-file CLI conversion writes to stdout:
+
+```sh
+python3 ssa.py to-ssa programs/json/03_vector_axpy.json
+python3 ssa.py to-json programs/ssa/03_vector_axpy.ssa
+```
+
+Use `all` to recursively convert every source file into the matching destination
+folder, preserving program-group subdirectories:
+
+```sh
+python3 ssa.py to-ssa all
+python3 ssa.py to-json all
+python3 ssa.py to-ssa all --clobber
+python3 ssa.py to-json all --clobber
+```
+
+These commands use `programs/json/` and `programs/ssa/` next to `ssa.py`, regardless
+of the working directory. Missing destination files are created. Existing files
+are compared as parsed program dictionaries: JSON key ordering/formatting and SSA
+comments/spacing do not affect equivalence. Equivalent files are left untouched,
+including their timestamps. Without `--clobber`, any differing or invalid
+destination causes exit status 1 with the conflicting paths, before any files
+are written. With `--clobber`, those destinations are replaced. Invalid source
+programs still fail. `--clobber` is only accepted with `all`.
+
+Conversion preserves the documented JSON program fields and values; JSON
+whitespace/key order and SSA comments are not preserved.
 
 ## Machine model
 

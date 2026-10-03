@@ -1,0 +1,28 @@
+========================================BUFFERS========================================
+name "parallel_memory"
+buffers {"a": 16, "b": 16, "c": 16, "d": 16, "out0": 16, "out1": 16}
+
+========================================PROGRAM========================================
+vload {buff[a][0]} into {a0}
+vload {buff[b][0]} into {b0}
+vload {buff[c][0]} into {c0}
+vload {buff[d][0]} into {d0}
+vload {buff[a][8]} into {a1}
+vload {buff[b][8]} into {b1}
+vload {buff[c][8]} into {c1}
+vload {buff[d][8]} into {d1}
+sum0 = a0 + b0
+sum1 = a1 + b1
+diff0 = c0 - d0
+diff1 = c1 - d1
+product0 = sum0 * diff0
+product1 = sum1 * diff1
+mixed0 = product0 ^ a0
+mixed1 = product1 ^ a1
+vstore {product0} into {buff[out0][0]}
+vstore {product1} into {buff[out0][8]}
+vstore {mixed0} into {buff[out1][0]}
+vstore {mixed1} into {buff[out1][8]}
+
+========================================CASES========================================
+{"a": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], "b": [17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32], "c": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115], "d": [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33], "out0": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "out1": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}

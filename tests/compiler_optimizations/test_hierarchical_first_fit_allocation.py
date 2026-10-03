@@ -96,7 +96,7 @@ class HierarchicalFirstFitTests(unittest.TestCase):
 
     def test_pinned_vector_blocks_footprint(self):
         program = machine.load_program(
-            Path(__file__).parents[2] / "programs" / "allocation_diagnostics" / "08_pinned_vector_blocks.json"
+            Path(__file__).parents[2] / "programs" / "json" / "allocation_diagnostics" / "08_pinned_vector_blocks.json"
         )
         bundles = schedule_operations(program)
         value_name2lifetime_incl = find_lifetimes(program, find_issue_cycles(program, bundles))

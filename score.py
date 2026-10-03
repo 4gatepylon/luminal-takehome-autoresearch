@@ -11,18 +11,18 @@ from compiler import compile_program
 import machine
 
 
-PROGRAM_DIR = Path(__file__).parent / "programs"
+PROGRAM_DIR = Path(__file__).parent / "programs" / "json"
 # Filenames are relative to PROGRAM_DIR. The special "all" group is discovered.
 PROGRAM_GROUPS = {
     "original": [
-        "original_programs/01_scalar_pipeline.json",
-        "original_programs/02_scalar_dual_chain.json",
-        "original_programs/03_vector_axpy.json",
-        "original_programs/04_vector_bitmix.json",
-        "original_programs/05_mixed_broadcast.json",
-        "original_programs/06_parallel_memory.json",
-        "original_programs/07_scalar_selects.json",
-        "original_programs/08_vector_reduction.json",
+        "01_scalar_pipeline.json",
+        "02_scalar_dual_chain.json",
+        "03_vector_axpy.json",
+        "04_vector_bitmix.json",
+        "05_mixed_broadcast.json",
+        "06_parallel_memory.json",
+        "07_scalar_selects.json",
+        "08_vector_reduction.json",
     ],
     "allocation_diagnostics": [
         "allocation_diagnostics/01_alignment_holes.json",
