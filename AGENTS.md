@@ -14,15 +14,11 @@
 - Make inclusive and exclusive bounds explicit in names or documentation, using
   `_incl` and `_excl` when useful. For example, `np.random.randint(low_incl, high_excl)`
   includes the lower bound and excludes the upper bound.
-- Choose and document return values that are easy to use correctly. A latest
-  predecessor index of `-1` means there is no predecessor, so legal earlier
-  insertion indices are `[previous_index + 1, current_index)`. Check that the
-  interval is nonempty before sampling.
 - Use simple assertions where they clarify an important assumption, such as
   `assert all(type(op_id) is int for op_id in predecessor_ids)`.
-- Explain non-obvious reasoning in comments. For example, no transitive dependency
-  search is needed to find the latest prerequisite in a valid ordering because
-  each indirect prerequisite precedes one of the direct prerequisites.
+- Do not add comments unless the user explicitly requests them. Use docstrings
+  to define interfaces clearly and describe precisely and succinctly what each
+  function or method does, including its inputs, outputs, and relevant assumptions.
 - Test enduring correctness contracts rather than freezing an algorithm that is
   expected to change. Prefer dependency, resource-limit, and execution checks over
   exact bundle layouts unless that layout is itself a required contract.
