@@ -51,14 +51,7 @@ python3 -m unittest -v
 python3 score.py
 ```
 
-Scoring evaluates each JSON program under `programs/` once, including subdirectories,
-then prints aggregates for every group in `score.py`'s `PROGRAM_GROUPS`. The
-`original` group explicitly lists the eight supplied programs; the special `all`
-group includes every discovered program. Groups may overlap without rerunning files.
-Add a named list of relative filenames to compare another group separately.
-
-Use `python3 score.py --strategy first-fit` or `--strategy disjoint` to force
-an allocator for the whole run. Omitting the flag uses automatic selection.
+`python3 score.py` evaluates each program once and reports every `PROGRAM_GROUPS` aggregate plus `all`, using automatic allocation unless `--strategy first-fit` or `--strategy disjoint` is supplied.
 
 Compile one program to a JSON schedule with:
 
