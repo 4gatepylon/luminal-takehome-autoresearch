@@ -3,43 +3,89 @@
 
 from __future__ import annotations
 
+import argparse
 import math
 from pathlib import Path
 
-import compiler
+from compiler import compile_program
 import machine
 
 
 PROGRAM_DIR = Path(__file__).parent / "programs" / "json"
+# Filenames are relative to PROGRAM_DIR. The special "all" group is discovered.
+PROGRAM_GROUPS = {
+    "original": [
+        "01_scalar_pipeline.json",
+        "02_scalar_dual_chain.json",
+        "03_vector_axpy.json",
+        "04_vector_bitmix.json",
+        "05_mixed_broadcast.json",
+        "06_parallel_memory.json",
+        "07_scalar_selects.json",
+        "08_vector_reduction.json",
+    ],
+    "allocation_diagnostics": [
+        "allocation_diagnostics/01_alignment_holes.json",
+        "allocation_diagnostics/02_vector_block_migration.json",
+        "allocation_diagnostics/03_vector_lifetime_gaps.json",
+        "allocation_diagnostics/04_scalar_tail_reuse.json",
+        "allocation_diagnostics/05_inclusive_boundary.json",
+        "allocation_diagnostics/06_retained_vectors_16.json",
+        "allocation_diagnostics/07_rolling_vectors_15_of_16.json",
+        "allocation_diagnostics/08_pinned_vector_blocks.json",
+    ],
+}
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--allocation-strategy",
+        choices=("any", "first-fit", "disjoint", "hierarchical-first-fit"),
+        default="any",
+        help="scratch allocator; any tries every allocator and keeps the smallest footprint",
+    )
+    args = parser.parse_args(argv)
+    group_name2filenames = {
+        **PROGRAM_GROUPS,
+        "all": sorted(path.relative_to(PROGRAM_DIR).as_posix() for path in PROGRAM_DIR.rglob("*.json")),
+    }
+    for group_name, filenames in group_name2filenames.items():
+        missing_filenames = set(filenames) - set(group_name2filenames["all"])
+        if missing_filenames:
+            raise ValueError(f"group {group_name!r} has missing programs: {sorted(missing_filenames)}")
+
     print("Luminal Compiler Take Home — compiler engineering public benchmark")
-    speedups = []
-    reductions = []
+    print(f"scratch allocation strategy: {args.allocation_strategy}")
+    filename2speedup_and_scratch_reduction: dict[str, tuple[float, float]] = {}
     print(f"{'program':30} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
     print("-" * 60)
-    for path in sorted(PROGRAM_DIR.glob("*.json")):
-        program = machine.load_program(path)
-        compilation = compiler.compile_program(program)
+    for filename in group_name2filenames["all"]:
+        program = machine.load_program(PROGRAM_DIR / filename)
+        compilation = compile_program(program, scratch_allocation_strategy=args.allocation_strategy)
         cycles = machine.check_compilation(program, compilation)
         for case in program["cases"]:
             machine.check_case(program, compilation, case)
-        baseline = machine.check_compilation(program, machine.serial_compile(program))
+        baseline_compilation = machine.serial_compile(program)
+        baseline = machine.check_compilation(program, baseline_compilation)
         speedup = baseline / cycles
-        speedups.append(speedup)
         words = machine.scratch_footprint(program, compilation)
-        baseline_words = machine.scratch_footprint(program, machine.serial_compile(program))
+        baseline_words = machine.scratch_footprint(program, baseline_compilation)
         reduction = baseline_words / words
-        reductions.append(reduction)
+        filename2speedup_and_scratch_reduction[filename] = (speedup, reduction)
         print(f"{program['name']:30} {cycles:8d} {baseline:9d} {speedup:8.3f}x {words:8d} {reduction:9.3f}x")
 
-    geometric_mean = math.prod(speedups) ** (1 / len(speedups))
-    print("-" * 60)
-    print(f"public geometric-mean speedup: {geometric_mean:.3f}x")
-    scratch_mean = math.prod(reductions) ** (1 / len(reductions))
-    print(f"public geometric-mean scratch reduction: {scratch_mean:.3f}x")
-    print(f"public combined score: {math.sqrt(geometric_mean * scratch_mean):.3f}x")
+    for group_name, filenames in group_name2filenames.items():
+        print(f"\naggregate for {group_name} ({len(filenames)} programs):")
+        if not filenames:
+            print("no programs")
+            continue
+        speedups, reductions = zip(*(filename2speedup_and_scratch_reduction[name] for name in filenames))
+        geometric_mean = math.prod(speedups) ** (1 / len(speedups))
+        scratch_mean = math.prod(reductions) ** (1 / len(reductions))
+        print(f"geometric-mean speedup: {geometric_mean:.3f}x")
+        print(f"geometric-mean scratch reduction: {scratch_mean:.3f}x")
+        print(f"combined score: {math.sqrt(geometric_mean * scratch_mean):.3f}x")
     return 0
 
 

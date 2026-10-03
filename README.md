@@ -15,8 +15,15 @@ change.
 
 ## Candidate task
 
-Implement scheduling and scratch allocation in `compile_program()` in `compiler.py`.
-You may add helpers and standard-library imports to that file. Do not modify `machine.py`, the
+Implement scheduling and scratch allocation in the `compiler/` package:
+
+- `scheduling.py` schedules operations and maps them to issue cycles.
+- `allocation.py` analyzes value lifetimes and assigns scratch space.
+- `compilation.py` implements `compile_program()` and selects an allocation.
+- `compiler.py` provides the command-line interface.
+
+Import the public entry point with `from compiler import compile_program`.
+You may add helpers and standard-library imports to these files. Do not modify `machine.py`, the
 public programs, or the tests when preparing a submission.
 
 Your compiler receives a parsed program dictionary and returns:
@@ -44,10 +51,12 @@ python3 -m unittest -v
 python3 score.py
 ```
 
+`python3 score.py` evaluates each program once and reports every `PROGRAM_GROUPS` aggregate plus `all`. `--allocation-strategy` defaults to `any`, which tries every allocator and keeps the smallest footprint; `first-fit`, `disjoint`, and `hierarchical-first-fit` force one allocator.
+
 Compile one program to a JSON schedule with:
 
 ```sh
-python3 compiler.py programs/json/03_vector_axpy.json > axpy.schedule.json
+python3 -m compiler.compiler programs/json/03_vector_axpy.json > axpy.schedule.json
 python3 machine.py programs/json/03_vector_axpy.json axpy.schedule.json
 ```
 
@@ -59,7 +68,8 @@ special-case public filenames, operation IDs, or constants will not generalize.
 
 ## Readable SSA programs
 
-Each `programs/json/<name>.json` has a matching `programs/ssa/<name>.ssa`.
+Each JSON file under `programs/json/` has a matching `.ssa` file at the same
+relative path under `programs/ssa/`, including the `allocation_diagnostics/` group.
 The SSA representation preserves the program name, buffer sizes, every operation
 in source order, and every input case. Tests require each checked-in SSA file to
 parse to exactly the same JSON object as its matching fixture. JSON remains the
@@ -131,7 +141,8 @@ python3 ssa.py to-ssa programs/json/03_vector_axpy.json
 python3 ssa.py to-json programs/ssa/03_vector_axpy.ssa
 ```
 
-Use `all` to convert every source file into the matching destination folder:
+Use `all` to recursively convert every source file into the matching destination
+folder, preserving program-group subdirectories:
 
 ```sh
 python3 ssa.py to-ssa all
@@ -275,7 +286,7 @@ tools used and how you checked their output. You should be able to explain and
 modify your submission in a follow-up discussion. Do not share the exercise or
 solution publicly or collaborate with another person.
 
-Email `compiler.py` and a short `SUBMISSION.md` to
+Email the `compiler/` package and a short `SUBMISSION.md` to
 [submissions@luminal.com](mailto:submissions@luminal.com). Include time spent,
 your scheduling and allocation approach, measured public scores, tradeoffs, unfinished work, and
 any tool assistance. You may include additional tests separately; do not alter

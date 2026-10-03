@@ -22,10 +22,13 @@ def source_with(body: str) -> str:
 
 class SSATests(unittest.TestCase):
     def test_public_files_are_one_to_one_and_execute(self):
-        json_paths = sorted((PROGRAM_DIR / "json").glob("*.json"))
-        ssa_paths = sorted((PROGRAM_DIR / "ssa").glob("*.ssa"))
-        self.assertEqual(len(json_paths), 8)
-        self.assertEqual([p.stem for p in json_paths], [p.stem for p in ssa_paths])
+        json_paths = sorted((PROGRAM_DIR / "json").rglob("*.json"))
+        ssa_paths = sorted((PROGRAM_DIR / "ssa").rglob("*.ssa"))
+        self.assertTrue(json_paths)
+        self.assertEqual(
+            [p.relative_to(PROGRAM_DIR / "json").with_suffix("") for p in json_paths],
+            [p.relative_to(PROGRAM_DIR / "ssa").with_suffix("") for p in ssa_paths],
+        )
         for json_path, ssa_path in zip(json_paths, ssa_paths):
             with self.subTest(program=json_path.stem):
                 original = json.loads(json_path.read_text())

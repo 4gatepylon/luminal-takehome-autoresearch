@@ -170,7 +170,8 @@ def convert_all(direction: str, program_dir: Path, *, clobber: bool = False) -> 
     if direction not in {"to-ssa", "to-json"}:
         raise ValueError(f"unknown conversion direction {direction!r}")
     source_format, target_format = ("json", "ssa") if direction == "to-ssa" else ("ssa", "json")
-    sources = sorted((program_dir / source_format).glob(f"*.{source_format}"))
+    source_dir = program_dir / source_format
+    sources = sorted(source_dir.rglob(f"*.{source_format}"))
     if not sources:
         raise ValueError(f"no .{source_format} files found in {program_dir / source_format}")
 
@@ -185,7 +186,7 @@ def convert_all(direction: str, program_dir: Path, *, clobber: bool = False) -> 
     for source in sources:
         program = read_program(source, source_format)
         output = to_ssa(program) if target_format == "ssa" else json.dumps(program, indent=2) + "\n"
-        target = program_dir / target_format / source.with_suffix(f".{target_format}").name
+        target = program_dir / target_format / source.relative_to(source_dir).with_suffix(f".{target_format}")
         if target.exists():
             try:
                 equivalent = read_program(target, target_format) == program

@@ -57,6 +57,20 @@ class BatchConversionTests(unittest.TestCase):
                     self.assertEqual(ssa.convert_all(direction, self.root, clobber=clobber), (0, 1))
                     self.assertEqual(self.snapshot(), before)
 
+    def test_nested_groups_preserve_paths_in_both_directions(self):
+        self.write("json", "first/example")
+        changed = {**self.program, "name": "second"}
+        self.write("json", "second/example", changed)
+        self.assertEqual(ssa.convert_all("to-ssa", self.root), (2, 0))
+        for group, expected in (("first", self.program), ("second", changed)):
+            path = self.root / "ssa" / group / "example.ssa"
+            self.assertEqual(ssa.from_ssa(path.read_text()), expected)
+            (self.root / "json" / group / "example.json").unlink()
+        self.assertEqual(ssa.convert_all("to-json", self.root), (2, 0))
+        for group, expected in (("first", self.program), ("second", changed)):
+            path = self.root / "json" / group / "example.json"
+            self.assertEqual(json.loads(path.read_text()), expected)
+
     def test_conflicts_prevent_all_writes_and_clobber_resolves_them(self):
         for direction, source, target in (("to-ssa", "json", "ssa"), ("to-json", "ssa", "json")):
             with self.subTest(direction=direction):
