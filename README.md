@@ -55,6 +55,8 @@ python3 score.py
 
 `--scheduler dag-pressure-codex` selects a deterministic DAG reorderer with forward/backward critical-path and scratch-pressure priorities. It compares candidate orders and source order using cycles times allocated scratch. Both `score.py` and `python3 -m compiler.compiler` accept this option; the default is `source`. Custom schedulers live in `compiler/custom_scheduling/<name>/` and register an operation-order generator in `SCHEDULER_NAME2ORDERINGS_FN`. Each generated tuple must contain every original operation ID once and preserve data and memory dependencies.
 
+`--scheduler beam-pressure-codex` combines those DAG candidates with bounded beam search. Partial schedules are ranked using lower bounds on cycles and live scratch, with separate histories retained for different issued-operation sets. Search uses fixed expansion and graph-size limits; completed orders compete using their allocated footprint. The `scheduling_diagnostics` benchmark group covers shared-value branches, mixed-width overlap, and partial memory barriers.
+
 Compile one program to a JSON schedule with:
 
 ```sh
