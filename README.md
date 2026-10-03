@@ -69,6 +69,11 @@ budget. Python callers can pass `n_optimization_iterations=0` to `compile_progra
 Sampling defaults to `uniform_at_random`; `--sample-strategy softmax --temperature 1`
 weights attempts by the geometric mean of speedup and memory improvement. Python
 callers configure this through `sample_strategy` and `sample_strategy_kwargs`.
+Both CLIs also accept `--sample-strategy power --cutoff 0 --power 2`: weights are
+`(score - cutoff) ** power` for scores strictly above the cutoff, otherwise zero.
+The cutoff defaults to 0 and the power to 2 (finite and positive); `score` is the
+geometric mean of speedup and memory improvement. If every eligible score is
+excluded, search uses the same failure handling as exhausted orderings.
 Search warns and stops after `--max-inner-iterations` unsuccessful samples (default
 32), or when all attempts are exhausted; `--crash-on-sampling-failure` raises instead.
 Progress goes to stderr; stdout remains schedule JSON with original operation IDs.
