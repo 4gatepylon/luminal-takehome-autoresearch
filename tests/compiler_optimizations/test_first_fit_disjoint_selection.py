@@ -6,7 +6,9 @@ TODO(hadriano) no human has read these unit tests.
 import unittest
 from unittest.mock import patch
 
-from compiler import compiler
+from compiler import compile_program
+from compiler.allocation import allocate_scratch_first_fit, find_lifetimes
+from compiler.scheduling import find_issue_cycles, schedule_operations
 import machine
 
 
@@ -24,26 +26,26 @@ class FirstFitDisjointSelectionTests(unittest.TestCase):
             ],
             "cases": [{"data": list(range(8)), "out": [0] * 17}],
         }
-        bundles = compiler.schedule_operations(program)
-        op_id2issue_cycle = compiler.find_issue_cycles(program, bundles)
-        value_name2lifetime_incl = compiler.find_lifetimes(program, op_id2issue_cycle)
+        bundles = schedule_operations(program)
+        op_id2issue_cycle = find_issue_cycles(program, bundles)
+        value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
         for scratch_words in (17, 24):
             with self.subTest(scratch_words=scratch_words), patch.object(machine, "SCRATCH_WORDS", scratch_words):
                 if scratch_words == 17:
                     with self.assertRaisesRegex(machine.CompileError, "no scratch space"):
-                        compiler.allocate_scratch_first_fit(program, value_name2lifetime_incl)
+                        allocate_scratch_first_fit(program, value_name2lifetime_incl)
                 else:
                     self.assertEqual(
-                        compiler.allocate_scratch_first_fit(program, value_name2lifetime_incl),
+                        allocate_scratch_first_fit(program, value_name2lifetime_incl),
                         {"a": 0, "v": 8, "w": 16},
                     )
-                compilation = compiler.compile_program(program, scratch_allocation_strategy=None)
+                compilation = compile_program(program, scratch_allocation_strategy=None)
                 self.assertEqual(compilation["scratch"], {"v": 0, "w": 8, "a": 16})
                 machine.check_compilation(program, compilation)
                 machine.check_case(program, compilation, program["cases"][0])
         with patch.object(machine, "SCRATCH_WORDS", 16):
             with self.assertRaises(machine.CompileError):
-                compiler.compile_program(program, scratch_allocation_strategy=None)
+                compile_program(program, scratch_allocation_strategy=None)
 
     def test_auto_preserves_disjoint_failure_and_selects_smaller_first_fit(self):
         program = {
@@ -62,11 +64,11 @@ class FirstFitDisjointSelectionTests(unittest.TestCase):
                     with self.assertRaises(machine.CompileError):
                         machine.serial_compile(program)
                     with self.assertRaises(machine.CompileError):
-                        compiler.compile_program(program, scratch_allocation_strategy=None)
+                        compile_program(program, scratch_allocation_strategy=None)
                     continue
-                first_fit = compiler.compile_program(program, scratch_allocation_strategy="first-fit")
+                first_fit = compile_program(program, scratch_allocation_strategy="first-fit")
                 self.assertEqual(machine.scratch_footprint(program, first_fit), 1)
-                compilation = compiler.compile_program(program, scratch_allocation_strategy=None)
+                compilation = compile_program(program, scratch_allocation_strategy=None)
                 self.assertEqual(compilation["scratch"], first_fit["scratch"])
                 machine.check_compilation(program, compilation)
                 machine.check_case(program, compilation, program["cases"][0])

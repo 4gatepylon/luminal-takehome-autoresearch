@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from compiler import compiler
+from compiler import compile_program
 import machine
 
 
@@ -19,7 +19,7 @@ class PublicProgramTests(unittest.TestCase):
         for path in paths:
             with self.subTest(program=path.name):
                 program = machine.load_program(path)
-                compilation = compiler.compile_program(program)
+                compilation = compile_program(program)
                 machine.check_compilation(program, compilation)
                 for case in program["cases"]:
                     machine.check_case(program, compilation, case)
