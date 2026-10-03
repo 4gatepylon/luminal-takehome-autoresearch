@@ -1,7 +1,4 @@
-"""Tests allocation diagnostic fixtures for correct execution under supported strategies.
-
-Checks the machine contract and final memory, not heuristic address choices or scores.
-"""
+"""Check diagnostic programs' execution and disjoint scratch capacity."""
 
 import unittest
 
