@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import traceback
-from typing import Literal
+from typing import Any, Literal
 
 import machine
 
@@ -12,6 +12,7 @@ from .allocation import (
     allocate_unique_scratch,
     find_lifetimes,
 )
+from .reordering import reorder_program
 from .scheduling import find_issue_cycles, schedule_operations
 
 
@@ -25,14 +26,16 @@ ALLOCATION_NAME2ALLOCATOR_FN = {
 }
 
 
-def compile_program(
-    program: dict,
+def compile_with_ordering(
+    program: dict[str, Any],
+    ordering: tuple[int, ...],
     scratch_allocation_strategy: Literal[
         "any", "first-fit", "disjoint", "hierarchical-first-fit"
     ] = "any",
     verbose: bool = False,
-) -> dict:
-    """Schedule a validated program and choose the smallest successful allocation."""
+) -> dict[str, Any]:
+    """Compile a valid ordering of original IDs; preserve the input and output IDs."""
+    program = reorder_program(program, ordering)
     bundles = schedule_operations(program)
     op_id2issue_cycle = find_issue_cycles(program, bundles)
     value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
@@ -71,4 +74,20 @@ def compile_program(
             program, {"scratch": value_name2address}
         ),
     )
+    bundles = [
+        {engine: [ordering[op_id] for op_id in op_ids] for engine, op_ids in bundle.items()}
+        for bundle in bundles
+    ]
     return {"scratch": value_name2scratch_address, "bundles": bundles}
+
+
+def compile_program(
+    program: dict[str, Any],
+    scratch_allocation_strategy: Literal[
+        "any", "first-fit", "disjoint", "hierarchical-first-fit"
+    ] = "any",
+    verbose: bool = False,
+) -> dict[str, Any]:
+    """Compile in the program's original order using the requested scratch strategy."""
+    ordering = tuple(range(len(program["operations"])))
+    return compile_with_ordering(program, ordering, scratch_allocation_strategy, verbose)
