@@ -194,6 +194,7 @@ def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
     issue_cycle: dict[int, int] = {}
     producer = machine.producer_map(program)
 
+    # Traverse top to bottom so every predecessor already has an issue cycle.
     for operation in operations:
         engine = machine.OP_SPECS[operation["op"]]["engine"]
         earliest = earliest_issue_cycle(program, operation, producer, issue_cycle)
