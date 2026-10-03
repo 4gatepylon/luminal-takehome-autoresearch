@@ -1,12 +1,6 @@
-# Allocation diagnostics
+# Group: `allocation_diagnostics`
 
-These eight programs isolate allocation tradeoffs while keeping the schedule fixed
-across strategies. Each has two input cases, and all fit the original disjoint
-allocator. They form the `allocation_diagnostics` scoring group; the eight supplied
-programs remain in `original`, and `all` includes both groups.
-
-Run each supported strategy and compare the per-program scratch column and group
-aggregates:
+These programs are meant to showcase the benefits of hierarchical allocation over default first-fit allocation.
 
 ```sh
 python3 score.py
