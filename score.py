@@ -6,7 +6,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-from compiler import compiler
+from compiler import compile_program
 import machine
 
 
@@ -21,7 +21,7 @@ def main() -> int:
     print("-" * 60)
     for path in sorted(PROGRAM_DIR.glob("*.json")):
         program = machine.load_program(path)
-        compilation = compiler.compile_program(program)
+        compilation = compile_program(program)
         cycles = machine.check_compilation(program, compilation)
         for case in program["cases"]:
             machine.check_case(program, compilation, case)
