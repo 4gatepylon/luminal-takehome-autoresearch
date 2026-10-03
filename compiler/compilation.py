@@ -10,8 +10,10 @@ from .allocation import allocate_scratch_first_fit, allocate_unique_scratch, fin
 from .scheduling import find_issue_cycles, schedule_operations
 
 
-def compile_program(program: dict, scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint"]] = None) -> dict:
+def compile_program(program: dict, scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint", "hierarchical-first-fit"]] = None) -> dict:
     """Schedule a validated program and choose the smallest successful allocation."""
+    if scratch_allocation_strategy == "hierarchical-first-fit":
+        raise NotImplementedError("hierarchical-first-fit compiler integration is not implemented")
     bundles = schedule_operations(program)
     op_id2issue_cycle = find_issue_cycles(program, bundles)
     value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)

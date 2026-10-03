@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Literal
+
 import machine
 
 
@@ -68,28 +71,31 @@ def allocate_unique_scratch(program: dict) -> dict[str, int]:
     return scratch
 
 
+def make_allocation_sort_key(
+    mode: Literal["vectors_first", "default"],
+    value_name2width: dict[str, int],
+    value_name2lifetime_incl: dict[str, tuple[int, int]],
+) -> Callable[[str], tuple[bool, int, int, str]]:
+    return lambda value_name: (
+        mode == "vectors_first" and value_name2width[value_name] == 1,
+        value_name2lifetime_incl[value_name][0],
+        -value_name2width[value_name],
+        value_name,
+    )
+
+
 def allocate_scratch_first_fit(
     program: dict,
     value_name2lifetime_incl: dict[str, tuple[int, int]],
+    *, mode: Literal["vectors_first", "default"] = "default",
 ) -> dict[str, int]:
-    """Return value_name2scratch_address using aligned first-fit.
+    """Place each value at the lowest width-aligned range with disjoint lifetimes.
 
-    For lifetime [s_v, e_v] (both inclusive) and width w_v (VLEN or 1),
-    process values by ascending (s_v, -w_v, name_v). Vectors precede scalars
-    only for equal write cycles; equal-width ties use Python string ordering.
-    Source order and operand position have no separate precedence.
-
-    Choose the smallest a >= 0 with a % w_v == 0 and a + w_v <= SCRATCH_WORDS
-    such that every word x in [a, a + w_v) has last_live_cycle_incl[x] < s_v.
-    Initialize these last-live cycles to -1, then set allocated words to e_v.
-    Processing by start time makes this exclude all overlapping lifetimes.
-    Strict inequality is necessary because writes happen before reads.
-    EVERY value searches again from address 0, not from the previous allocation's
-    end. Alignment holes remain free: placing a vector at a higher address does
-    not claim the gap below it. Only the chosen words are reserved, through e_v.
-
-    Raise CompileError if no aligned range fits; first-fit does not guarantee
-    minimum footprint.
+    "default" orders by (write_cycle_incl, -width, name); "vectors_first" orders
+    by (-width, write_cycle_incl, name). Lifetimes [s, e] are inclusive: sharing
+    a word requires e < other_s or other_e < s for every reserved interval.
+    Every search starts at address 0, including gaps below earlier allocations.
+    Raise CompileError when no range fits within scratch capacity.
     """
     value_name2width = {
         operation["dest"]: (
@@ -100,13 +106,11 @@ def allocate_scratch_first_fit(
     }
     ordered_value_names = sorted(
         value_name2lifetime_incl,
-        key=lambda value_name: (
-            value_name2lifetime_incl[value_name][0],
-            -value_name2width[value_name],
-            value_name,
-        ),
+        key=make_allocation_sort_key(mode, value_name2width, value_name2lifetime_incl),
     )
-    scratch_address2last_live_cycle_incl = [-1] * machine.SCRATCH_WORDS
+    scratch_address2lifetimes_incl: list[list[tuple[int, int]]] = [
+        [] for _ in range(machine.SCRATCH_WORDS)
+    ]
     value_name2scratch_address: dict[str, int] = {}
     for value_name in ordered_value_names:
         write_cycle_incl, last_live_cycle_incl = value_name2lifetime_incl[value_name]
@@ -114,13 +118,17 @@ def allocate_scratch_first_fit(
         for scratch_start_incl in range(0, machine.SCRATCH_WORDS - width + 1, width):
             scratch_end_excl = scratch_start_incl + width
             if all(
-                scratch_address2last_live_cycle_incl[scratch_address] < write_cycle_incl
+                last_live_cycle_incl < other_write_cycle_incl
+                or other_last_live_cycle_incl < write_cycle_incl
                 for scratch_address in range(scratch_start_incl, scratch_end_excl)
+                for other_write_cycle_incl, other_last_live_cycle_incl
+                in scratch_address2lifetimes_incl[scratch_address]
             ):
                 value_name2scratch_address[value_name] = scratch_start_incl
-                scratch_address2last_live_cycle_incl[scratch_start_incl:scratch_end_excl] = (
-                    [last_live_cycle_incl] * width
-                )
+                for scratch_address in range(scratch_start_incl, scratch_end_excl):
+                    scratch_address2lifetimes_incl[scratch_address].append(
+                        (write_cycle_incl, last_live_cycle_incl)
+                    )
                 break
         else:
             raise machine.CompileError(f"no scratch space for {value_name!r}")
