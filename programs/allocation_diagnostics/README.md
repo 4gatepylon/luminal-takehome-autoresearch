@@ -6,6 +6,7 @@ These programs are meant to showcase the benefits of hierarchical allocation ove
 python3 score.py
 python3 score.py --allocation-strategy first-fit
 python3 score.py --allocation-strategy disjoint
+python3 score.py --allocation-strategy hierarchical-first-fit
 ```
 
 | Program | What it isolates |
