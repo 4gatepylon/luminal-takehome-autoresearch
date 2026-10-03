@@ -154,6 +154,57 @@ def allocate_scratch(
     return value_name2scratch_address
 
 
+def allocate_hierarchical_scratch(
+    program: dict,
+    value_name2lifetime_incl: dict[str, tuple[int, int]],
+) -> dict[str, int]:
+    """First-fit all vectors, then all scalars, by (write_cycle_incl, name).
+
+    Each value searches from address 0, aligned to its width. A range fits iff
+    its lifetime [s, e] and EVERY reserved lifetime [s_other, e_other] in those
+    words satisfy e < s_other or e_other < s (all endpoints inclusive).
+    Thus scalars can reuse vector words before, between, or after vector
+    lifetimes, and share scalar words when lifetimes do not overlap. Only if
+    no earlier range fits do they extend the footprint. Raise CompileError
+    when no range fits within scratch capacity.
+    """
+    value_name2kind = machine.result_kinds(program)
+    ordered_value_names = sorted(
+        value_name2lifetime_incl,
+        key=lambda value_name: (
+            value_name2kind[value_name] != "vector",
+            value_name2lifetime_incl[value_name][0],
+            value_name,
+        ),
+    )
+    # Keep every interval: the scalar pass can go back in time after vectors.
+    scratch_address2lifetimes_incl: list[list[tuple[int, int]]] = [
+        [] for _ in range(machine.SCRATCH_WORDS)
+    ]
+    value_name2scratch_address: dict[str, int] = {}
+    for value_name in ordered_value_names:
+        write_cycle_incl, last_live_cycle_incl = value_name2lifetime_incl[value_name]
+        width = machine.VLEN if value_name2kind[value_name] == "vector" else 1
+        for scratch_start_incl in range(0, machine.SCRATCH_WORDS - width + 1, width):
+            scratch_end_excl = scratch_start_incl + width
+            if all(
+                last_live_cycle_incl < other_write_cycle_incl
+                or other_last_live_cycle_incl < write_cycle_incl
+                for scratch_address in range(scratch_start_incl, scratch_end_excl)
+                for other_write_cycle_incl, other_last_live_cycle_incl
+                in scratch_address2lifetimes_incl[scratch_address]
+            ):
+                value_name2scratch_address[value_name] = scratch_start_incl
+                for scratch_address in range(scratch_start_incl, scratch_end_excl):
+                    scratch_address2lifetimes_incl[scratch_address].append(
+                        (write_cycle_incl, last_live_cycle_incl)
+                    )
+                break
+        else:
+            raise machine.CompileError(f"no scratch space for {value_name!r}")
+    return value_name2scratch_address
+
+
 def earliest_issue_cycle(
     program: dict,
     operation: dict,
@@ -213,22 +264,24 @@ def compile_program(program: dict) -> dict:
     bundles = schedule_operations(program)
     op_id2issue_cycle = find_issue_cycles(program, bundles)
     value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
-    try:
-        value_name2scratch_address = allocate_scratch(program, value_name2lifetime_incl)
-    except machine.CompileError:
-        value_name2scratch_address = allocate_unique_scratch(program)
-    else:
+    scratch_candidates = []
+    for allocator, arguments in (
+        (allocate_scratch, (program, value_name2lifetime_incl)),
+        (allocate_unique_scratch, (program,)),
+        (allocate_hierarchical_scratch, (program, value_name2lifetime_incl)),
+    ):
         try:
-            unique_value_name2scratch_address = allocate_unique_scratch(program)
+            scratch_candidates.append(allocator(*arguments))
         except machine.CompileError:
-            pass  # Reuse can fit even when disjoint allocation cannot.
-        else:
-            value_name2scratch_address = min(
-                (value_name2scratch_address, unique_value_name2scratch_address),
-                key=lambda candidate_value_name2scratch_address: machine.scratch_footprint(
-                    program, {"scratch": candidate_value_name2scratch_address}
-                ),
-            )
+            continue
+    if not scratch_candidates:
+        raise machine.CompileError("no scratch allocation strategy fits within capacity")
+    value_name2scratch_address = min(
+        scratch_candidates,
+        key=lambda candidate_value_name2scratch_address: machine.scratch_footprint(
+            program, {"scratch": candidate_value_name2scratch_address}
+        ),
+    )
     return {"scratch": value_name2scratch_address, "bundles": bundles}
 
 
