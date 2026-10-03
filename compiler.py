@@ -115,14 +115,6 @@ def allocate_scratch(
     end. Alignment holes remain free: placing a vector at a higher address does
     not claim the gap below it. Only the chosen words are reserved, through e_v.
 
-    Examples, each with initially empty scratch and VLEN = 8:
-    * vec1:[1,9], scalar1:[2,9], vec2:[3,9], scalar2:[4,9] get addresses
-      0, 8, 16, 9 respectively. scalar2 fills the gap at 9, NOT address 24
-      after vec2. Further simultaneous scalars can fill addresses 10 through 15.
-    * Scalar a:[4,6], vector z:[4,6]: z gets 0, a gets 8 (width before name).
-    * Vector input:[4,5], scalar output:[6,6]: both get 0. If output instead
-      lives at [5,5], it gets 8: input is still live on its final read cycle.
-
     If first-fit runs out of space, discard it and use allocate_unique_scratch:
     vectors then scalars, in source order within each kind. Neither strategy
     guarantees minimum footprint; the fallback fits the supplied programs.
