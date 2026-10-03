@@ -45,7 +45,7 @@ class FirstFitDisjointSelectionTests(unittest.TestCase):
             with self.assertRaises(machine.CompileError):
                 compiler.compile_program(program, scratch_allocation_strategy=None)
 
-    def test_auto_chooses_first_fit_when_disjoint_fails_or_uses_more_space(self):
+    def test_auto_preserves_disjoint_failure_and_selects_smaller_first_fit(self):
         program = {
             "name": "reuse", "buffers": {"out": 2},
             "operations": [
@@ -58,8 +58,16 @@ class FirstFitDisjointSelectionTests(unittest.TestCase):
         }
         for scratch_words in (1, 2):
             with self.subTest(scratch_words=scratch_words), patch.object(machine, "SCRATCH_WORDS", scratch_words):
+                if scratch_words == 1:
+                    with self.assertRaises(machine.CompileError):
+                        machine.serial_compile(program)
+                    with self.assertRaises(machine.CompileError):
+                        compiler.compile_program(program, scratch_allocation_strategy=None)
+                    continue
+                first_fit = compiler.compile_program(program, scratch_allocation_strategy="first-fit")
+                self.assertEqual(machine.scratch_footprint(program, first_fit), 1)
                 compilation = compiler.compile_program(program, scratch_allocation_strategy=None)
-                self.assertEqual(compilation["scratch"], {"a": 0, "b": 0})
+                self.assertEqual(compilation["scratch"], first_fit["scratch"])
                 machine.check_compilation(program, compilation)
                 machine.check_case(program, compilation, program["cases"][0])
 
