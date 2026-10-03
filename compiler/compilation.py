@@ -13,7 +13,7 @@ from .allocation import (
     find_lifetimes,
 )
 from .custom_scheduling import SCHEDULER_NAME2ORDERINGS_FN
-from .reordering import OperationDependencies, reorder_program
+from .reordering import OperationDependencies, reordered_program
 from .scheduling import find_issue_cycles, schedule_operations
 
 
@@ -28,7 +28,7 @@ ALLOCATION_NAME2ALLOCATOR_FN = {
 
 
 def compile_with_ordering(
-    program: dict[str, Any],
+    original_program: dict[str, Any],
     ordering: tuple[int, ...],
     scratch_allocation_strategy: Literal[
         "any", "first-fit", "disjoint", "hierarchical-first-fit"
@@ -36,9 +36,9 @@ def compile_with_ordering(
     verbose: bool = False,
 ) -> dict[str, Any]:
     """Compile a valid ordering of original IDs; preserve the input and output IDs."""
-    program = reorder_program(program, ordering)
-    bundles = schedule_operations(program)
-    op_id2issue_cycle = find_issue_cycles(program, bundles)
+    program = reordered_program(original_program, ordering)
+    bundles_with_reordered_ids = schedule_operations(program)
+    op_id2issue_cycle = find_issue_cycles(program, bundles_with_reordered_ids)
     value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
     # NOTE: we use disjoint allocation always by default since it was originally used and is used by
     # our baseline. It can crash on memory-intensive programs that better allocators might not crash
@@ -75,11 +75,14 @@ def compile_with_ordering(
             program, {"scratch": value_name2address}
         ),
     )
-    bundles = [
-        {engine: [ordering[op_id] for op_id in op_ids] for engine, op_ids in bundle.items()}
-        for bundle in bundles
+    bundles_with_original_ids = [
+        {
+            engine: [ordering[op_id] for op_id in op_ids]
+            for engine, op_ids in bundle.items()
+        }
+        for bundle in bundles_with_reordered_ids
     ]
-    return {"scratch": value_name2scratch_address, "bundles": bundles}
+    return {"scratch": value_name2scratch_address, "bundles": bundles_with_original_ids}
 
 
 def compile_program(

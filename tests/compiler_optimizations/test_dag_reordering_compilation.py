@@ -9,7 +9,7 @@ from compiler import compile_program
 from compiler import compilation as compiler_compilation
 from compiler.custom_scheduling import SCHEDULER_NAME2ORDERINGS_FN
 from compiler.custom_scheduling.dag_pressure_codex import dag_orderings
-from compiler.reordering import reorder_program
+from compiler.reordering import reordered_program
 from compiler.scheduling import schedule_operations
 import machine
 
@@ -93,7 +93,7 @@ class DagReorderingCompilationTests(unittest.TestCase):
         }
         source = compile_program(program, "first-fit", scheduling_strategy="source")
         candidate = (0, 2, 1, 3)
-        faster = compile_program(reorder_program(program, candidate), "first-fit")
+        faster = compile_program(reordered_program(program, candidate), "first-fit")
         self.assertLess(len(faster["bundles"]), len(source["bundles"]))
         source_product = len(source["bundles"]) * machine.scratch_footprint(program, source)
         self.assertGreater(
