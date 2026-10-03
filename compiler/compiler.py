@@ -239,7 +239,7 @@ def compile_program(program: dict, scratch_allocation_strategy: Optional[Literal
 
 def main(argv: list[str]) -> int:
     if len(argv) != 1:
-        print("usage: python3 compiler.py <program.json>", file=sys.stderr)
+        print("usage: python3 -m compiler.compiler <program.json>", file=sys.stderr)
         return 2
 
     program = machine.load_program(argv[0])

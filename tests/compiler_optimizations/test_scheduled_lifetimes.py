@@ -5,7 +5,7 @@ TODO(hadriano) no human has read these unit tests.
 
 import unittest
 
-import compiler
+from compiler import compiler
 import machine
 
 
