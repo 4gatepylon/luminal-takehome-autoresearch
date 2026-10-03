@@ -7,3 +7,4 @@
 # Documentation
 
 - All documentation must describe the code as it is and its algorithmic, implementation, or design choices. Never reference PR discussions, conversations, or unrelated work history. READMEs must not reference planned or unimplemented features, work in progress, or pending PRs.
+- State what code does without adding contrasts that only make sense with outside conversational context. Never write a docstring like "Checks the machine contract and final memory, not heuristic address choices or scores." Write "Checks the machine contract and final memory."
