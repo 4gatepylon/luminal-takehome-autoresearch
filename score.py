@@ -45,6 +45,11 @@ def main(argv: list[str] | None = None) -> int:
         default="any",
         help="scratch allocator; any tries every allocator and keeps the smallest footprint",
     )
+    parser.add_argument(
+        "--sample-strategy", choices=("uniform_at_random", "softmax"),
+        default="uniform_at_random", help="distribution for sampling previous orderings",
+    )
+    parser.add_argument("--temperature", type=float, default=1.0, help="softmax sampling temperature")
     args = parser.parse_args(argv)
     group_name2filenames = {
         **PROGRAM_GROUPS,
@@ -57,12 +62,19 @@ def main(argv: list[str] | None = None) -> int:
 
     print("Luminal Compiler Take Home — compiler engineering public benchmark")
     print(f"scratch allocation strategy: {args.allocation_strategy}")
+    print(f"ordering sample strategy: {args.sample_strategy}")
+    if args.sample_strategy == "softmax":
+        print(f"softmax temperature: {args.temperature}")
     filename2speedup_and_scratch_reduction: dict[str, tuple[float, float]] = {}
     print(f"{'program':30} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
     print("-" * 60)
     for filename in group_name2filenames["all"]:
         program = machine.load_program(PROGRAM_DIR / filename)
-        compilation = compile_program(program, scratch_allocation_strategy=args.allocation_strategy)
+        compilation = compile_program(
+            program, scratch_allocation_strategy=args.allocation_strategy,
+            sample_strategy=args.sample_strategy,
+            sample_strategy_kwargs={"temperature": args.temperature},
+        )
         cycles = machine.check_compilation(program, compilation)
         for case in program["cases"]:
             machine.check_case(program, compilation, case)
