@@ -123,7 +123,7 @@ class CompilerTests(unittest.TestCase):
                     expected_value_name2scratch_address,
                 )
 
-    def test_hierarchical_allocation(self):
+    def test_hierarchical_first_fit_allocation(self):
         # Each value is (name, width, write_cycle_incl, last_live_cycle_incl).
         examples = [
             (
@@ -168,13 +168,13 @@ class CompilerTests(unittest.TestCase):
                     for value_name, _, write_cycle_incl, last_live_cycle_incl in values
                 }
                 self.assertEqual(
-                    compiler.allocate_hierarchical_scratch(program, value_name2lifetime_incl),
+                    compiler.allocate_scratch_hierarchical_first_fit(program, value_name2lifetime_incl),
                     expected_value_name2scratch_address,
                 )
 
-    def test_compiler_selects_hierarchical_when_smaller_or_only_strategy_that_fits(self):
+    def test_compiler_selects_hierarchical_first_fit_when_smaller_or_only_strategy_that_fits(self):
         program = {
-            "name": "hierarchical", "buffers": {"data": 8, "out": 25},
+            "name": "hierarchical-first-fit", "buffers": {"data": 8, "out": 25},
             "operations": [
                 {"id": 0, "op": "vload", "dest": "v", "buffer": "data", "offset": 0},
                 {"id": 1, "op": "const", "dest": "a", "value": 7},
@@ -196,7 +196,7 @@ class CompilerTests(unittest.TestCase):
                          {"v": 0, "w": 8, "u": 16, "a": 24})
         strategy_name2expected_scratch = {
             None: {"v": 0, "w": 8, "u": 0, "a": 16},
-            "hierarchical": {"v": 0, "w": 8, "u": 0, "a": 16},
+            "hierarchical-first-fit": {"v": 0, "w": 8, "u": 0, "a": 16},
             "first-fit": {"a": 0, "v": 8, "w": 16, "u": 8},
             "disjoint": {"v": 0, "w": 8, "u": 16, "a": 24},
         }
@@ -213,9 +213,9 @@ class CompilerTests(unittest.TestCase):
                     machine.check_case(program, compilation, program["cases"][0])
         with patch.object(machine, "SCRATCH_WORDS", 16):
             with self.assertRaisesRegex(machine.CompileError, "no scratch space"):
-                compiler.allocate_hierarchical_scratch(program, value_name2lifetime_incl)
+                compiler.allocate_scratch_hierarchical_first_fit(program, value_name2lifetime_incl)
 
-    def test_forced_hierarchical_on_public_programs(self):
+    def test_forced_hierarchical_first_fit_on_public_programs(self):
         with (
             patch.object(compiler, "allocate_scratch", side_effect=AssertionError("unexpected first-fit")),
             patch.object(compiler, "allocate_unique_scratch", side_effect=AssertionError("unexpected disjoint")),
@@ -223,7 +223,7 @@ class CompilerTests(unittest.TestCase):
             for path in sorted((Path(__file__).parents[1] / "programs").glob("*.json")):
                 with self.subTest(program=path.name):
                     program = machine.load_program(path)
-                    compilation = compiler.compile_program(program, scratch_allocation_strategy="hierarchical")
+                    compilation = compiler.compile_program(program, scratch_allocation_strategy="hierarchical-first-fit")
                     machine.check_compilation(program, compilation)
                     for case in program["cases"]:
                         machine.check_case(program, compilation, case)

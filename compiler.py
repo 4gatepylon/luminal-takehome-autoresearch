@@ -154,7 +154,7 @@ def allocate_scratch(
     return value_name2scratch_address
 
 
-def allocate_hierarchical_scratch(
+def allocate_scratch_hierarchical_first_fit(
     program: dict,
     value_name2lifetime_incl: dict[str, tuple[int, int]],
 ) -> dict[str, int]:
@@ -261,7 +261,7 @@ def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
 
 def compile_program(
     program: dict,
-    scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint", "hierarchical"]] = None,
+    scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint", "hierarchical-first-fit"]] = None,
 ) -> dict:
     """Use the requested allocator, or choose the smallest successful allocation."""
     bundles = schedule_operations(program)
@@ -271,7 +271,7 @@ def compile_program(
     for strategy_name, allocator, arguments in (
         ("first-fit", allocate_scratch, (program, value_name2lifetime_incl)),
         ("disjoint", allocate_unique_scratch, (program,)),
-        ("hierarchical", allocate_hierarchical_scratch, (program, value_name2lifetime_incl)),
+        ("hierarchical-first-fit", allocate_scratch_hierarchical_first_fit, (program, value_name2lifetime_incl)),
     ):
         if scratch_allocation_strategy not in (None, strategy_name):
             continue
