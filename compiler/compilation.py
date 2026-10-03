@@ -2,62 +2,102 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Literal
+import traceback
+from typing import Any, Literal
 
 import machine
 
-from .allocation import allocate_scratch_first_fit, allocate_unique_scratch, find_lifetimes
-from .reordering import OrderingOptimizer, reorder_program
+from .allocation import (
+    allocate_scratch_first_fit,
+    allocate_unique_scratch,
+    find_lifetimes,
+)
+from .reordering import OrderingOptimizer, reordered_program
 from .scheduling import find_issue_cycles, schedule_operations
 
 
+ALLOCATION_NAME2ALLOCATOR_FN = {
+    "first-fit": lambda program, value_name2lifetime_incl: allocate_scratch_first_fit(
+        program, value_name2lifetime_incl, mode="default"
+    ),
+    "hierarchical-first-fit": lambda program, value_name2lifetime_incl: allocate_scratch_first_fit(
+        program, value_name2lifetime_incl, mode="vectors_first"
+    ),
+}
+
+
 def compile_with_ordering(
-    program: dict[str, Any],
+    original_program: dict[str, Any],
     ordering: tuple[int, ...],
-    scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint"]] = None,
+    scratch_allocation_strategy: Literal[
+        "any", "first-fit", "disjoint", "hierarchical-first-fit"
+    ] = "any",
+    verbose: bool = False,
 ) -> dict[str, Any]:
     """Compile a valid ordering of original IDs; preserve the input and output IDs."""
-    program = reorder_program(program, ordering)
-    bundles = schedule_operations(program)
-    op_id2issue_cycle = find_issue_cycles(program, bundles)
+    program = reordered_program(original_program, ordering)
+    bundles_with_reordered_ids = schedule_operations(program)
+    op_id2issue_cycle = find_issue_cycles(program, bundles_with_reordered_ids)
     value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
-    # NOTE: we want to run this disjoint allocation first to fail in the same was as the original compiler.
-    # for programs that COULD be fit more efficiently, but the original compiler failed, this maintains the
-    # exact same behavior. However, we may change this once we have more deeply validated the compiler.
-    value_name2scratch_address = allocate_unique_scratch(program)
-    if scratch_allocation_strategy != "disjoint":
+    # NOTE: we use disjoint allocation always by default since it was originally used and is used by
+    # our baseline. It can crash on memory-intensive programs that better allocators might not crash
+    # on. However, we think it's worth keeping the exact same behavior.
+    scratch_allocations = [allocate_unique_scratch(program)]
+    if scratch_allocation_strategy not in ("any", "disjoint"):
         try:
-            unique_value_name2scratch_address = allocate_scratch_first_fit(program, value_name2lifetime_incl)
-            # Overwrite only if needed (force-using first-fit is possible)
-            if scratch_allocation_strategy == "first-fit":
-                value_name2scratch_address = unique_value_name2scratch_address
-            else:
-                assert scratch_allocation_strategy != "disjoint"
-                value_name2scratch_address = min(
-                    (value_name2scratch_address, unique_value_name2scratch_address),
-                    key=lambda candidate_value_name2scratch_address: machine.scratch_footprint(
-                        program, {"scratch": candidate_value_name2scratch_address}
-                    ),
+            scratch_allocations[0] = ALLOCATION_NAME2ALLOCATOR_FN[
+                scratch_allocation_strategy
+            ](program, value_name2lifetime_incl)
+        except machine.CompileError as error:
+            raise RuntimeError(
+                f"{scratch_allocation_strategy} allocation failed. However, it was required by user request. The compilation cannot proceed."
+            ) from error
+    elif scratch_allocation_strategy == "any":
+        for allocator_fn in ALLOCATION_NAME2ALLOCATOR_FN.values():
+            try:
+                scratch_allocations.append(
+                    allocator_fn(program, value_name2lifetime_incl)
                 )
-        except machine.CompileError as e:
-            if scratch_allocation_strategy == "first-fit":
-                raise RuntimeError(f"first-fit allocation failed by running out of space and therefore cannot occur!") from e
-    bundles = [
-        {engine: [ordering[op_id] for op_id in op_ids] for engine, op_ids in bundle.items()}
-        for bundle in bundles
+            except machine.CompileError as e:
+                if verbose:
+                    print("=" * 100)
+                    print(
+                        "WARNING: Allocation failed, but it was NOT required by user request. "
+                        "Ignoring failure..."
+                    )
+                    traceback.print_exc()
+                    print("=" * 100)
+                continue
+    value_name2scratch_address = min(
+        scratch_allocations,
+        key=lambda value_name2address: machine.scratch_footprint(
+            program, {"scratch": value_name2address}
+        ),
+    )
+    bundles_with_original_ids = [
+        {
+            engine: [ordering[op_id] for op_id in op_ids]
+            for engine, op_ids in bundle.items()
+        }
+        for bundle in bundles_with_reordered_ids
     ]
-    return {"scratch": value_name2scratch_address, "bundles": bundles}
+    return {"scratch": value_name2scratch_address, "bundles": bundles_with_original_ids}
 
 
 def compile_program(
     program: dict[str, Any],
-    scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint"]] = None,
+    scratch_allocation_strategy: Literal[
+        "any", "first-fit", "disjoint", "hierarchical-first-fit"
+    ] = "any",
+    verbose: bool = False,
     *,
     n_optimization_iterations: int = 256,
 ) -> dict[str, Any]:
-    """Search for an ordering, or use the original order when iterations is zero."""
+    """Search valid orderings; zero iterations compiles in the original order."""
     ordering = tuple(range(len(program["operations"])))
     if n_optimization_iterations > 0:
-        optimizer = OrderingOptimizer(program, scratch_allocation_strategy)
+        optimizer = OrderingOptimizer(program, scratch_allocation_strategy, verbose)
         ordering = optimizer.optimize_ordering_for_greedy_scheduler(n_optimization_iterations)
-    return compile_with_ordering(program, ordering, scratch_allocation_strategy)
+    return compile_with_ordering(
+        program, ordering, scratch_allocation_strategy, verbose
+    )

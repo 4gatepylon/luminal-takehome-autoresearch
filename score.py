@@ -15,14 +15,24 @@ PROGRAM_DIR = Path(__file__).parent / "programs"
 # Filenames are relative to PROGRAM_DIR. The special "all" group is discovered.
 PROGRAM_GROUPS = {
     "original": [
-        "01_scalar_pipeline.json",
-        "02_scalar_dual_chain.json",
-        "03_vector_axpy.json",
-        "04_vector_bitmix.json",
-        "05_mixed_broadcast.json",
-        "06_parallel_memory.json",
-        "07_scalar_selects.json",
-        "08_vector_reduction.json",
+        "original_programs/01_scalar_pipeline.json",
+        "original_programs/02_scalar_dual_chain.json",
+        "original_programs/03_vector_axpy.json",
+        "original_programs/04_vector_bitmix.json",
+        "original_programs/05_mixed_broadcast.json",
+        "original_programs/06_parallel_memory.json",
+        "original_programs/07_scalar_selects.json",
+        "original_programs/08_vector_reduction.json",
+    ],
+    "allocation_diagnostics": [
+        "allocation_diagnostics/01_alignment_holes.json",
+        "allocation_diagnostics/02_vector_block_migration.json",
+        "allocation_diagnostics/03_vector_lifetime_gaps.json",
+        "allocation_diagnostics/04_scalar_tail_reuse.json",
+        "allocation_diagnostics/05_inclusive_boundary.json",
+        "allocation_diagnostics/06_retained_vectors_16.json",
+        "allocation_diagnostics/07_rolling_vectors_15_of_16.json",
+        "allocation_diagnostics/08_pinned_vector_blocks.json",
     ],
 }
 
@@ -30,8 +40,10 @@ PROGRAM_GROUPS = {
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--strategy", choices=("first-fit", "disjoint"),
-        help="force a scratch allocator; omit to use automatic selection",
+        "--allocation-strategy",
+        choices=("any", "first-fit", "disjoint", "hierarchical-first-fit"),
+        default="any",
+        help="scratch allocator; any tries every allocator and keeps the smallest footprint",
     )
     args = parser.parse_args(argv)
     group_name2filenames = {
@@ -44,13 +56,13 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(f"group {group_name!r} has missing programs: {sorted(missing_filenames)}")
 
     print("Luminal Compiler Take Home — compiler engineering public benchmark")
-    print(f"scratch allocation strategy: {args.strategy or 'automatic'}")
+    print(f"scratch allocation strategy: {args.allocation_strategy}")
     filename2speedup_and_scratch_reduction: dict[str, tuple[float, float]] = {}
     print(f"{'program':30} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
     print("-" * 60)
     for filename in group_name2filenames["all"]:
         program = machine.load_program(PROGRAM_DIR / filename)
-        compilation = compile_program(program, scratch_allocation_strategy=args.strategy)
+        compilation = compile_program(program, scratch_allocation_strategy=args.allocation_strategy)
         cycles = machine.check_compilation(program, compilation)
         for case in program["cases"]:
             machine.check_case(program, compilation, case)

@@ -1,0 +1,18 @@
+{
+  "name": "alignment_holes",
+  "buffers": {"data": 8, "out": 25},
+  "operations": [
+    {"op": "vload", "dest": "v", "buffer": "data", "offset": 0, "id": 0},
+    {"op": "const", "dest": "a", "value": 7, "id": 1},
+    {"op": "vload", "dest": "w", "buffer": "data", "offset": 0, "id": 2},
+    {"op": "vstore", "args": ["w"], "buffer": "out", "offset": 0, "id": 3},
+    {"op": "vstore", "args": ["v"], "buffer": "out", "offset": 8, "id": 4},
+    {"op": "vload", "dest": "u", "buffer": "data", "offset": 0, "id": 5},
+    {"op": "vstore", "args": ["u"], "buffer": "out", "offset": 16, "id": 6},
+    {"op": "store", "args": ["a"], "buffer": "out", "offset": 24, "id": 7}
+  ],
+  "cases": [
+    {"data": [1, 2, 3, 4, 5, 6, 7, 8], "out": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+    {"data": [0, 4294967295, 7, 13, 4294967294, 19, 23, 29], "out": [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]}
+  ]
+}

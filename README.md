@@ -52,13 +52,13 @@ python3 -m unittest -v
 python3 score.py
 ```
 
-`python3 score.py` evaluates each program once and reports every `PROGRAM_GROUPS` aggregate plus `all`, using automatic allocation unless `--strategy first-fit` or `--strategy disjoint` is supplied.
+`python3 score.py` evaluates each program once and reports every `PROGRAM_GROUPS` aggregate plus `all`. `--allocation-strategy` defaults to `any`, which tries every allocator and keeps the smallest footprint; `first-fit`, `disjoint`, and `hierarchical-first-fit` force one allocator.
 
 Compile one program to a JSON schedule with:
 
 ```sh
-python3 -m compiler.compiler programs/03_vector_axpy.json > axpy.schedule.json
-python3 machine.py programs/03_vector_axpy.json axpy.schedule.json
+python3 -m compiler.compiler programs/original_programs/03_vector_axpy.json > axpy.schedule.json
+python3 machine.py programs/original_programs/03_vector_axpy.json axpy.schedule.json
 ```
 
 Compilation searches 256 operation orderings by default. Pass
@@ -66,7 +66,7 @@ Compilation searches 256 operation orderings by default. Pass
 budget. Python callers can pass `n_optimization_iterations=0` to `compile_program()`.
 Progress goes to stderr; stdout remains schedule JSON with original operation IDs.
 
-Eight public programs are in `programs/`. Submission grading uses another
+Eight public programs are in `programs/original_programs/`. Submission grading uses another
 eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
