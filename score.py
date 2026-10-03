@@ -50,6 +50,10 @@ def main(argv: list[str] | None = None) -> int:
         default="uniform_at_random", help="distribution for sampling previous orderings",
     )
     parser.add_argument("--temperature", type=float, default=1.0, help="softmax sampling temperature")
+    parser.add_argument(
+        "--n-optimization-iterations", type=int, default=128,
+        help="ordering search iterations per program (default: 128; 0 skips search)",
+    )
     args = parser.parse_args(argv)
     group_name2filenames = {
         **PROGRAM_GROUPS,
@@ -63,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
     print("Luminal Compiler Take Home — compiler engineering public benchmark")
     print(f"scratch allocation strategy: {args.allocation_strategy}")
     print(f"ordering sample strategy: {args.sample_strategy}")
+    print(f"ordering search iterations: {args.n_optimization_iterations}")
     if args.sample_strategy == "softmax":
         print(f"softmax temperature: {args.temperature}")
     filename2speedup_and_scratch_reduction: dict[str, tuple[float, float]] = {}
@@ -72,6 +77,7 @@ def main(argv: list[str] | None = None) -> int:
         program = machine.load_program(PROGRAM_DIR / filename)
         compilation = compile_program(
             program, scratch_allocation_strategy=args.allocation_strategy,
+            n_optimization_iterations=args.n_optimization_iterations,
             sample_strategy=args.sample_strategy,
             sample_strategy_kwargs={"temperature": args.temperature},
         )
