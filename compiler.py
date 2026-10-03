@@ -2,7 +2,7 @@
 """Luminal Compiler Take Home — compiler engineering candidate implementation.
 
 The compiler allocates every SSA value once and greedily packs operations into
-bundles in source order. Improve compile_program without
+bundles in the supplied order. Improve compile_program without
 changing its input or output contract. Reuse scratch for values whose scheduled
 lifetimes do not overlap to improve the scratch-footprint component of the score.
 """
@@ -16,9 +16,10 @@ import machine
 
 
 class OperationDependencies:
-    """Data and memory prerequisites in the validated program's original order."""
+    """Data and memory prerequisites for a validated program."""
 
     def __init__(self, program: dict):
+        self.program = program
         operations = program["operations"]
         producer = machine.producer_map(program)
         self.dependencies: dict[int, list[dict]] = {}
@@ -30,12 +31,16 @@ class OperationDependencies:
             ]
             self.dependencies[operation["id"]] = data + memory
 
-    def latest_dependency(self, operation: dict) -> dict | None:
-        """Return the latest prerequisite operation, or None if independent."""
-        # IDs follow dependency order, so indirect prerequisites are earlier too.
+    def latest_dependency(
+        self, operation: dict, ordering: tuple[int, ...] | None = None
+    ) -> dict | None:
+        """Return the latest prerequisite in a valid ordering, or None."""
+        if ordering is None:
+            ordering = tuple(range(len(self.dependencies)))
+        # In any valid ordering, indirect prerequisites precede direct ones.
         return max(
             self.dependencies[operation["id"]],
-            key=lambda pred: pred["id"],
+            key=lambda pred: ordering.index(pred["id"]),
             default=None,
         )
 
@@ -95,16 +100,21 @@ def earliest_issue_cycle(
     return earliest
 
 
-def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
-    """Greedily fill bundles in source order, stalling when necessary."""
+def schedule_operations(
+    program: dict, ordering: tuple[int, ...] | None = None
+) -> list[dict[str, list[int]]]:
+    """Greedily fill bundles in the given order, stalling when necessary."""
     operations = program["operations"]
+    if ordering is None:
+        ordering = tuple(range(len(operations)))
 
     bundles: list[dict[str, list[int]]] = []
     curr_bundle: dict[str, list[int]] = {}
     issue_cycle: dict[int, int] = {}
     producer = machine.producer_map(program)
 
-    for operation in operations:
+    for op_id in ordering:
+        operation = operations[op_id]
         engine = machine.OP_SPECS[operation["op"]]["engine"]
         earliest = earliest_issue_cycle(program, operation, producer, issue_cycle)
 
@@ -125,10 +135,10 @@ def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
     return bundles
 
 
-def compile_program(program: dict) -> dict:
+def compile_program(program: dict, ordering: tuple[int, ...] | None = None) -> dict:
     """Compile one validated IR program into scratch allocations and bundles."""
     scratch = allocate_scratch(program)
-    bundles = schedule_operations(program)
+    bundles = schedule_operations(program, ordering)
     return {"scratch": scratch, "bundles": bundles}
 
 
