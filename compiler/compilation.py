@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import traceback
 from typing import Optional, Literal
 
 import machine
 
-from .allocation import allocate_scratch_first_fit, allocate_unique_scratch, find_lifetimes
+from .allocation import (
+    allocate_scratch_first_fit,
+    allocate_unique_scratch,
+    find_lifetimes,
+)
 from .scheduling import find_issue_cycles, schedule_operations
 
 
@@ -20,28 +25,50 @@ ALLOCATION_NAME2ALLOCATOR_FN = {
 }
 
 
-def compile_program(program: dict, scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint", "hierarchical-first-fit"]] = None) -> dict:
+def compile_program(
+    program: dict,
+    scratch_allocation_strategy: Optional[
+        Literal["first-fit", "disjoint", "hierarchical-first-fit"]
+    ] = None,
+    verbose: bool = False,
+) -> dict:
     """Schedule a validated program and choose the smallest successful allocation."""
     bundles = schedule_operations(program)
     op_id2issue_cycle = find_issue_cycles(program, bundles)
     value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
-    # Disjoint allocation must fit before any strategy is attempted.
+    # NOTE: we use disjoint allocation always by default since it was originally used and is used by
+    # our baseline. It can crash on memory-intensive programs that better allocators might not crash
+    # on. However, we think it's worth keeping the exact same behavior.
     scratch_allocations = [allocate_unique_scratch(program)]
     if scratch_allocation_strategy not in (None, "disjoint"):
         try:
-            scratch_allocations[0] = ALLOCATION_NAME2ALLOCATOR_FN[scratch_allocation_strategy](
-                program, value_name2lifetime_incl
-            )
+            scratch_allocations[0] = ALLOCATION_NAME2ALLOCATOR_FN[
+                scratch_allocation_strategy
+            ](program, value_name2lifetime_incl)
         except machine.CompileError as error:
-            raise RuntimeError(f"{scratch_allocation_strategy} allocation failed") from error
+            raise RuntimeError(
+                f"{scratch_allocation_strategy} allocation failed. However, it was required by user request. The compilation cannot proceed."
+            ) from error
     elif scratch_allocation_strategy is None:
         for allocator_fn in ALLOCATION_NAME2ALLOCATOR_FN.values():
             try:
-                scratch_allocations.append(allocator_fn(program, value_name2lifetime_incl))
-            except machine.CompileError:
+                scratch_allocations.append(
+                    allocator_fn(program, value_name2lifetime_incl)
+                )
+            except machine.CompileError as e:
+                if verbose:
+                    print("=" * 100)
+                    print(
+                        "WARNING: Allocation failed, but it was NOT required by user request. "
+                        "Ignoring failure..."
+                    )
+                    traceback.print_exc()
+                    print("=" * 100)
                 continue
     value_name2scratch_address = min(
         scratch_allocations,
-        key=lambda value_name2address: machine.scratch_footprint(program, {"scratch": value_name2address}),
+        key=lambda value_name2address: machine.scratch_footprint(
+            program, {"scratch": value_name2address}
+        ),
     )
     return {"scratch": value_name2scratch_address, "bundles": bundles}
