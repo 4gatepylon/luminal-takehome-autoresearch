@@ -24,12 +24,11 @@ class OperationDependencies:
         producer = machine.producer_map(program)
         self.dependencies: dict[int, list[dict]] = {}
         for operation in operations:
-            data = [operations[producer[arg]] for arg in operation.get("args", [])]
-            memory = [
-                operations[pred_id]
-                for pred_id in machine.memory_predecessors(program, operation["id"])
+            data = [producer[arg] for arg in operation.get("args", [])]
+            memory = machine.memory_predecessors(program, operation["id"])
+            self.dependencies[operation["id"]] = [
+                operations[pred_id] for pred_id in sorted(set(data + memory))
             ]
-            self.dependencies[operation["id"]] = data + memory
 
     def latest_dependency(
         self, operation: dict, ordering: tuple[int, ...] | None = None
@@ -37,7 +36,8 @@ class OperationDependencies:
         """Return the latest prerequisite in a valid ordering, or None."""
         if ordering is None:
             ordering = tuple(range(len(self.dependencies)))
-        # In any valid ordering, indirect prerequisites precede direct ones.
+        # No transitive search is needed: each indirect prerequisite precedes
+        # one of these direct prerequisites in any valid ordering.
         return max(
             self.dependencies[operation["id"]],
             key=lambda pred: ordering.index(pred["id"]),
