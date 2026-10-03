@@ -58,7 +58,7 @@ class CompilerTests(unittest.TestCase):
                     "buffers": {"data": 8, "out": 8},
                     "cases": [{"data": list(range(8)), "out": [0] * 8}],
                 }
-                op_id2issue_cycle = compiler.find_issue_cycles(bundles)
+                op_id2issue_cycle = compiler.find_issue_cycles(program, bundles)
                 self.assertEqual(op_id2issue_cycle, expected_op_id2issue_cycle)
                 value_name2lifetime_incl = compiler.find_lifetimes(program, op_id2issue_cycle)
                 self.assertEqual(value_name2lifetime_incl, expected_value_name2lifetime_incl)
@@ -68,6 +68,14 @@ class CompilerTests(unittest.TestCase):
                 }
                 machine.check_compilation(program, compilation)
                 machine.check_case(program, compilation, program["cases"][0])
+
+    def test_issue_cycles_require_all_program_ids(self):
+        program = {"operations": [{"id": op_id} for op_id in range(3)]}
+        for op_ids in ([], [0, 1], [0, 2], [1, 2], [1, 2, 3], [-1, 0, 1], [0, 1, 2, 3]):
+            with self.subTest(op_ids=op_ids):
+                bundles = [{"load": [op_id]} for op_id in op_ids]
+                with self.assertRaisesRegex(machine.CompileError, "must cover exactly"):
+                    compiler.find_issue_cycles(program, bundles)
 
     def test_allocation_order_and_reuse(self):
         # Each value is (name, width, write_cycle_incl, last_live_cycle_incl).

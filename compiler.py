@@ -45,15 +45,21 @@ def allocate_unique_scratch(program: dict) -> dict[str, int]:
 
 
 def find_issue_cycles(
+    program: dict,
     bundles: list[dict[str, list[int]]],
 ) -> dict[int, int]:
-    """Return op_id2issue_cycle for a valid schedule, including empty cycles."""
-    return {
+    """Return op_id2issue_cycle, checking coverage of IDs 0 through len(ops)-1."""
+    op_id2issue_cycle = {
         op_id: issue_cycle
         for issue_cycle, engine2op_ids in enumerate(bundles)
         for op_ids in engine2op_ids.values()
         for op_id in op_ids
     }
+    if set(op_id2issue_cycle) != set(range(len(program["operations"]))):
+        raise machine.CompileError(
+            f"schedule operation IDs must cover exactly range({len(program['operations'])})"
+        )
+    return op_id2issue_cycle
 
 
 def find_lifetimes(
@@ -211,7 +217,7 @@ def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
 def compile_program(program: dict) -> dict:
     """Compile one validated IR program into scratch allocations and bundles."""
     bundles = schedule_operations(program)
-    op_id2issue_cycle = find_issue_cycles(bundles)
+    op_id2issue_cycle = find_issue_cycles(program, bundles)
     value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
     value_name2scratch_address = allocate_scratch(program, value_name2lifetime_incl)
     return {"scratch": value_name2scratch_address, "bundles": bundles}
