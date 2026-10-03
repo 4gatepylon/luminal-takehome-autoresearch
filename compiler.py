@@ -95,7 +95,7 @@ def find_lifetimes(
     return value_name2lifetime_incl
 
 
-def allocate_scratch(
+def allocate_scratch_first_fit(
     program: dict,
     value_name2lifetime_incl: dict[str, tuple[int, int]],
 ) -> dict[str, int]:
@@ -267,28 +267,28 @@ def compile_program(
     bundles = schedule_operations(program)
     op_id2issue_cycle = find_issue_cycles(program, bundles)
     value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
-    scratch_candidates = []
-    for strategy_name, allocator, arguments in (
-        ("first-fit", allocate_scratch, (program, value_name2lifetime_incl)),
-        ("disjoint", allocate_unique_scratch, (program,)),
-        ("hierarchical-first-fit", allocate_scratch_hierarchical_first_fit, (program, value_name2lifetime_incl)),
+    # Preserve the original compiler's failure when disjoint allocation cannot fit,
+    # even if a reuse strategy could succeed. This also applies to forced strategies.
+    value_name2scratch_address = allocate_unique_scratch(program)
+    for strategy_name, allocator in (
+        ("first-fit", allocate_scratch_first_fit),
+        ("hierarchical-first-fit", allocate_scratch_hierarchical_first_fit),
     ):
         if scratch_allocation_strategy not in (None, strategy_name):
             continue
         try:
-            scratch_candidates.append(allocator(*arguments))
-        except machine.CompileError:
-            if scratch_allocation_strategy is not None:
-                raise
+            candidate_value_name2scratch_address = allocator(program, value_name2lifetime_incl)
+        except machine.CompileError as error:
+            if scratch_allocation_strategy == strategy_name:
+                raise RuntimeError(f"{strategy_name} allocation failed by running out of space") from error
             continue
-    if not scratch_candidates:
-        raise machine.CompileError("no scratch allocation strategy fits within capacity")
-    value_name2scratch_address = min(
-        scratch_candidates,
-        key=lambda candidate_value_name2scratch_address: machine.scratch_footprint(
-            program, {"scratch": candidate_value_name2scratch_address}
-        ),
-    )
+        if scratch_allocation_strategy == strategy_name:
+            value_name2scratch_address = candidate_value_name2scratch_address
+            break
+        value_name2scratch_address = min(
+            (value_name2scratch_address, candidate_value_name2scratch_address),
+            key=lambda allocation: machine.scratch_footprint(program, {"scratch": allocation}),
+        )
     return {"scratch": value_name2scratch_address, "bundles": bundles}
 
 
