@@ -54,6 +54,8 @@ python3 score.py
 
 `python3 score.py` evaluates each program once and reports every `PROGRAM_GROUPS` aggregate plus `all`. `--allocation-strategy` defaults to `any`, which tries every allocator and keeps the smallest footprint; `first-fit`, `disjoint`, and `hierarchical-first-fit` force one allocator.
 
+`python3 score.py --sample-strategy softmax --temperature 1` selects softmax ordering search; sampling defaults to `uniform_at_random`.
+
 Compile one program to a JSON schedule with:
 
 ```sh
