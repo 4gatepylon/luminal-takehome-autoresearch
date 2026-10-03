@@ -51,7 +51,7 @@ class ScratchStrategySelectionTests(unittest.TestCase):
                 patch.object(compiler_compilation, "allocate_unique_scratch", side_effect=[disjoint_result]) as disjoint,
                 patch.object(compiler_compilation, "allocate_scratch_first_fit", side_effect=allocate) as first_fit,
             ):
-                compilation = compiler_compilation.compile_program(self.program, scratch_allocation_strategy=strategy)
+                compilation = compiler_compilation.compile_program(self.program, scratch_allocation_strategy=strategy, n_optimization_iterations=0)
                 self.assertEqual(compilation["scratch"], expected_result)
                 disjoint.assert_called_once()
                 expected_modes = {
@@ -73,7 +73,7 @@ class ScratchStrategySelectionTests(unittest.TestCase):
                 patch.object(compiler_compilation, "allocate_scratch_first_fit") as first_fit,
             ):
                 with self.assertRaisesRegex(machine.CompileError, "baseline full"):
-                    compiler_compilation.compile_program(self.program, scratch_allocation_strategy=strategy)
+                    compiler_compilation.compile_program(self.program, scratch_allocation_strategy=strategy, n_optimization_iterations=0)
                 first_fit.assert_not_called()
 
     def test_forced_reuse_failure_does_not_fall_back(self):
@@ -82,7 +82,7 @@ class ScratchStrategySelectionTests(unittest.TestCase):
                 compiler_compilation, "allocate_scratch_first_fit", side_effect=machine.CompileError("out of space")
             ):
                 with self.assertRaisesRegex(RuntimeError, f"{strategy} allocation failed") as raised:
-                    compiler_compilation.compile_program(self.program, scratch_allocation_strategy=strategy)
+                    compiler_compilation.compile_program(self.program, scratch_allocation_strategy=strategy, n_optimization_iterations=0)
                 self.assertIsInstance(raised.exception.__cause__, machine.CompileError)
 
 

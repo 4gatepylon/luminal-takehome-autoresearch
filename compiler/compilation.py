@@ -12,7 +12,7 @@ from .allocation import (
     allocate_unique_scratch,
     find_lifetimes,
 )
-from .reordering import reordered_program
+from .reordering import OrderingOptimizer, reordered_program
 from .scheduling import find_issue_cycles, schedule_operations
 
 
@@ -90,9 +90,23 @@ def compile_program(
         "any", "first-fit", "disjoint", "hierarchical-first-fit"
     ] = "any",
     verbose: bool = False,
+    *,
+    n_optimization_iterations: int = 128,
+    max_inner_iterations: int = 32,
+    crash_on_sampling_failure: bool = False,
+    sample_strategy: Literal["uniform_at_random", "softmax"] = "uniform_at_random",
+    sample_strategy_kwargs: dict[str, float] | None = None,
 ) -> dict[str, Any]:
-    """Compile in the program's original order using the requested scratch strategy."""
+    """Search valid orderings; zero iterations compiles in the original order."""
     ordering = tuple(range(len(program["operations"])))
+    if n_optimization_iterations > 0:
+        optimizer = OrderingOptimizer(
+            program, scratch_allocation_strategy, verbose, sample_strategy, sample_strategy_kwargs
+        )
+        ordering = optimizer.optimize_ordering_for_greedy_scheduler(
+            n_optimization_iterations, max_inner_iterations=max_inner_iterations,
+            crash_on_sampling_failure=crash_on_sampling_failure,
+        )
     return compile_with_ordering(
         program, ordering, scratch_allocation_strategy, verbose
     )
