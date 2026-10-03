@@ -15,6 +15,8 @@ import sys
 import machine
 
 
+# Operation fields: id/value/offset are ints, op/dest/buffer are strings,
+# and args is a list of SSA value names (strings).
 Operation = dict[str, int | str | list[str]]
 
 
@@ -25,6 +27,7 @@ class OperationDependencies:
         self.program = program
         operations = program["operations"]
         producer = machine.producer_map(program)
+        # Each operation ID maps to its prerequisite operation dictionaries.
         self.op_id2prev_ops: dict[int, list[Operation]] = {}
         for operation in operations:
             data = [producer[arg] for arg in operation.get("args", [])]
