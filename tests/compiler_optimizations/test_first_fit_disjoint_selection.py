@@ -1,4 +1,4 @@
-"""Tests automatic selection between first-fit and disjoint scratch allocations.
+"""Tests first-fit/disjoint allocation selection with ordering search disabled.
 
 TODO(hadriano) no human has read these unit tests.
 """
@@ -39,13 +39,13 @@ class FirstFitDisjointSelectionTests(unittest.TestCase):
                         allocate_scratch_first_fit(program, value_name2lifetime_incl),
                         {"a": 0, "v": 8, "w": 16},
                     )
-                compilation = compile_program(program, scratch_allocation_strategy=None)
+                compilation = compile_program(program, scratch_allocation_strategy=None, n_optimization_iterations=0)
                 self.assertEqual(compilation["scratch"], {"v": 0, "w": 8, "a": 16})
                 machine.check_compilation(program, compilation)
                 machine.check_case(program, compilation, program["cases"][0])
         with patch.object(machine, "SCRATCH_WORDS", 16):
             with self.assertRaises(machine.CompileError):
-                compile_program(program, scratch_allocation_strategy=None)
+                compile_program(program, scratch_allocation_strategy=None, n_optimization_iterations=0)
 
     def test_auto_preserves_disjoint_failure_and_selects_smaller_first_fit(self):
         program = {
@@ -64,11 +64,11 @@ class FirstFitDisjointSelectionTests(unittest.TestCase):
                     with self.assertRaises(machine.CompileError):
                         machine.serial_compile(program)
                     with self.assertRaises(machine.CompileError):
-                        compile_program(program, scratch_allocation_strategy=None)
+                        compile_program(program, scratch_allocation_strategy=None, n_optimization_iterations=0)
                     continue
-                first_fit = compile_program(program, scratch_allocation_strategy="first-fit")
+                first_fit = compile_program(program, scratch_allocation_strategy="first-fit", n_optimization_iterations=0)
                 self.assertEqual(machine.scratch_footprint(program, first_fit), 1)
-                compilation = compile_program(program, scratch_allocation_strategy=None)
+                compilation = compile_program(program, scratch_allocation_strategy=None, n_optimization_iterations=0)
                 self.assertEqual(compilation["scratch"], first_fit["scratch"])
                 machine.check_compilation(program, compilation)
                 machine.check_case(program, compilation, program["cases"][0])

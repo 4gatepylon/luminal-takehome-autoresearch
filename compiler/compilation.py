@@ -7,7 +7,7 @@ from typing import Any, Optional, Literal
 import machine
 
 from .allocation import allocate_scratch_first_fit, allocate_unique_scratch, find_lifetimes
-from .reordering import reorder_program
+from .reordering import OrderingOptimizer, reorder_program
 from .scheduling import find_issue_cycles, schedule_operations
 
 
@@ -52,7 +52,12 @@ def compile_with_ordering(
 def compile_program(
     program: dict[str, Any],
     scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint"]] = None,
+    *,
+    n_optimization_iterations: int = 256,
 ) -> dict[str, Any]:
-    """Compile in the program's original order using the requested scratch strategy."""
+    """Search for an ordering, or use the original order when iterations is zero."""
     ordering = tuple(range(len(program["operations"])))
+    if n_optimization_iterations > 0:
+        optimizer = OrderingOptimizer(program, scratch_allocation_strategy)
+        ordering = optimizer.optimize_ordering_for_greedy_scheduler(n_optimization_iterations)
     return compile_with_ordering(program, ordering, scratch_allocation_strategy)

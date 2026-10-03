@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
+
+import numpy as np
+from tqdm import tqdm
 
 import machine
 
@@ -64,3 +67,54 @@ def reorder_program(
             for op_index, op_id in enumerate(ordering)
         ],
     }
+
+
+class OrderingOptimizer:
+    def __init__(
+        self, program: dict[str, Any],
+        scratch_allocation_strategy: Literal["first-fit", "disjoint"] | None = None,
+    ) -> None:
+        self.program = program
+        self.scratch_allocation_strategy = scratch_allocation_strategy
+        self.dependencies = OperationDependencies(program)
+        baseline: dict[str, Any] = machine.serial_compile(program)
+        self.baseline_cycles = len(baseline["bundles"])
+        self.baseline_memory = machine.scratch_footprint(program, baseline)
+        ordering: tuple[int, ...] = tuple(range(len(program["operations"])))
+        self.database: list[tuple[float, float, tuple[int, ...]]] = [self._evaluate(ordering)]
+
+    def _evaluate(
+        self, ordering: tuple[int, ...]
+    ) -> tuple[float, float, tuple[int, ...]]:
+        from .compilation import compile_with_ordering
+
+        compilation = compile_with_ordering(self.program, ordering, self.scratch_allocation_strategy)
+        cycles = machine.check_compilation(self.program, compilation)
+        memory = machine.scratch_footprint(self.program, compilation)
+        return (self.baseline_cycles / cycles, self.baseline_memory / memory, ordering)
+
+    def _sample_ordering(self) -> tuple[int, ...]:
+        return self.database[np.random.randint(len(self.database))][2]
+
+    def optimize_ordering_for_greedy_scheduler(
+        self, n_optimization_iterations: int = 256
+    ) -> tuple[int, ...]:
+        """Sample legal earlier moves and return the best combined-score ordering."""
+        for _ in tqdm(range(n_optimization_iterations), desc="Optimizing ordering"):
+            ordering = self._sample_ordering()
+            earliest_indices_incl: list[int] = []
+            for op_id in ordering:
+                operation = self.program["operations"][op_id]
+                predecessor_index = self.dependencies.latest_dependency(operation, ordering)
+                earliest_indices_incl.append(predecessor_index + 1)
+            movable_indices: list[int] = [
+                i for i in range(len(ordering)) if earliest_indices_incl[i] < i
+            ]
+            if not movable_indices:
+                break
+            current_index = int(np.random.choice(movable_indices))
+            destination_index = int(np.random.randint(earliest_indices_incl[current_index], current_index))
+            candidate_ordering: list[int] = list(ordering)
+            candidate_ordering.insert(destination_index, candidate_ordering.pop(current_index))
+            self.database.append(self._evaluate(tuple(candidate_ordering)))
+        return max(self.database, key=lambda row: row[0] * row[1])[2]
