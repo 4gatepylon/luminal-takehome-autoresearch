@@ -6,7 +6,7 @@ TODO(hadriano) no human has read these unit tests.
 import unittest
 from unittest.mock import patch
 
-from compiler import compiler
+from compiler.allocation import allocate_scratch_first_fit
 import machine
 
 
@@ -40,7 +40,7 @@ class FirstFitAllocationTests(unittest.TestCase):
                     for value_name, _, write_cycle_incl, last_live_cycle_incl in values
                 }
                 self.assertEqual(
-                    compiler.allocate_scratch_first_fit(program, value_name2lifetime_incl),
+                    allocate_scratch_first_fit(program, value_name2lifetime_incl),
                     expected_value_name2scratch_address,
                 )
 
