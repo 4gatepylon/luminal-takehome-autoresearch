@@ -48,13 +48,14 @@ def find_issue_cycles(
     program: dict,
     bundles: list[dict[str, list[int]]],
 ) -> dict[int, int]:
-    """Return op_id2issue_cycle, checking coverage of IDs 0 through len(ops)-1."""
-    op_id2issue_cycle = {
-        op_id: issue_cycle
-        for issue_cycle, engine2op_ids in enumerate(bundles)
-        for op_ids in engine2op_ids.values()
-        for op_id in op_ids
-    }
+    """Return op_id2issue_cycle; require each ID in range(len(ops)) exactly once."""
+    op_id2issue_cycle: dict[int, int] = {}
+    for issue_cycle, engine2op_ids in enumerate(bundles):
+        for op_ids in engine2op_ids.values():
+            for op_id in op_ids:
+                if op_id in op_id2issue_cycle:
+                    raise machine.CompileError(f"operation {op_id} appears more than once")
+                op_id2issue_cycle[op_id] = issue_cycle
     if set(op_id2issue_cycle) != set(range(len(program["operations"]))):
         raise machine.CompileError(
             f"schedule operation IDs must cover exactly range({len(program['operations'])})"

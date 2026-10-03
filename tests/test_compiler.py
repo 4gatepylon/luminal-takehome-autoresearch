@@ -77,6 +77,18 @@ class CompilerTests(unittest.TestCase):
                 with self.assertRaisesRegex(machine.CompileError, "must cover exactly"):
                     compiler.find_issue_cycles(program, bundles)
 
+    def test_issue_cycles_reject_duplicate_ids(self):
+        program = {"operations": [{"id": op_id} for op_id in range(3)]}
+        examples = [
+            ("within engine", [{"load": [0, 0]}, {"scalar": [1, 2]}]),
+            ("across engines", [{"load": [0, 1], "scalar": [0, 2]}]),
+            ("across cycles", [{"load": [0, 1]}, {"scalar": [2]}, {"load": [0]}]),
+        ]
+        for name, bundles in examples:
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(machine.CompileError, "operation 0 appears more than once"):
+                    compiler.find_issue_cycles(program, bundles)
+
     def test_allocation_order_and_reuse(self):
         # Each value is (name, width, write_cycle_incl, last_live_cycle_incl).
         examples = [
