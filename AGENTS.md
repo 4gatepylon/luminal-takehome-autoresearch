@@ -19,6 +19,7 @@
 - Do not add comments unless the user explicitly requests them. Use docstrings
   to define interfaces clearly and describe precisely and succinctly what each
   function or method does, including its inputs, outputs, and relevant assumptions.
-- Test enduring correctness contracts rather than freezing an algorithm that is
-  expected to change. Prefer dependency, resource-limit, and execution checks over
-  exact bundle layouts unless that layout is itself a required contract.
+- Assume the algorithm will change, so test correctness contracts rather than
+  algorithmic implementation, unless requested by the user.
+- Prefer dependency, resource-limit, execution, regression, and interface checks
+  over exact scheduling or scratch choices.
