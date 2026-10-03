@@ -8,6 +8,7 @@ import math
 from pathlib import Path
 
 from compiler import compile_program
+from compiler.custom_scheduling import SCHEDULER_NAME2ORDERINGS_FN
 import machine
 
 
@@ -40,6 +41,12 @@ PROGRAM_GROUPS = {
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--scheduler",
+        choices=("source", *SCHEDULER_NAME2ORDERINGS_FN),
+        default="source",
+        help="operation ordering strategy; custom schedulers also consider source order",
+    )
+    parser.add_argument(
         "--allocation-strategy",
         choices=("any", "first-fit", "disjoint", "hierarchical-first-fit"),
         default="any",
@@ -57,12 +64,16 @@ def main(argv: list[str] | None = None) -> int:
 
     print("Luminal Compiler Take Home — compiler engineering public benchmark")
     print(f"scratch allocation strategy: {args.allocation_strategy}")
+    print(f"scheduling strategy: {args.scheduler}")
     filename2speedup_and_scratch_reduction: dict[str, tuple[float, float]] = {}
     print(f"{'program':30} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
     print("-" * 60)
     for filename in group_name2filenames["all"]:
         program = machine.load_program(PROGRAM_DIR / filename)
-        compilation = compile_program(program, scratch_allocation_strategy=args.allocation_strategy)
+        compilation = compile_program(
+            program, scratch_allocation_strategy=args.allocation_strategy,
+            scheduling_strategy=args.scheduler,
+        )
         cycles = machine.check_compilation(program, compilation)
         for case in program["cases"]:
             machine.check_case(program, compilation, case)
