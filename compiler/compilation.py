@@ -91,13 +91,22 @@ def compile_program(
     ] = "any",
     verbose: bool = False,
     *,
-    n_optimization_iterations: int = 256,
+    n_optimization_iterations: int = 128,
+    max_inner_iterations: int = 32,
+    crash_on_sampling_failure: bool = False,
+    sample_strategy: Literal["uniform_at_random", "softmax"] = "uniform_at_random",
+    sample_strategy_kwargs: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """Search valid orderings; zero iterations compiles in the original order."""
     ordering = tuple(range(len(program["operations"])))
     if n_optimization_iterations > 0:
-        optimizer = OrderingOptimizer(program, scratch_allocation_strategy, verbose)
-        ordering = optimizer.optimize_ordering_for_greedy_scheduler(n_optimization_iterations)
+        optimizer = OrderingOptimizer(
+            program, scratch_allocation_strategy, verbose, sample_strategy, sample_strategy_kwargs
+        )
+        ordering = optimizer.optimize_ordering_for_greedy_scheduler(
+            n_optimization_iterations, max_inner_iterations=max_inner_iterations,
+            crash_on_sampling_failure=crash_on_sampling_failure,
+        )
     return compile_with_ordering(
         program, ordering, scratch_allocation_strategy, verbose
     )

@@ -61,9 +61,14 @@ python3 -m compiler.compiler programs/original_programs/03_vector_axpy.json > ax
 python3 machine.py programs/original_programs/03_vector_axpy.json axpy.schedule.json
 ```
 
-Compilation searches 256 operation orderings by default. Pass
+Compilation searches up to 128 unseen operation orderings by default. Pass
 `--n-optimization-iterations 0` to skip search, or another count to change the
 budget. Python callers can pass `n_optimization_iterations=0` to `compile_program()`.
+Sampling defaults to `uniform_at_random`; `--sample-strategy softmax --temperature 1`
+weights attempts by the geometric mean of speedup and memory improvement. Python
+callers configure this through `sample_strategy` and `sample_strategy_kwargs`.
+Search warns and stops after `--max-inner-iterations` unsuccessful samples (default
+32), or when all attempts are exhausted; `--crash-on-sampling-failure` raises instead.
 Progress goes to stderr; stdout remains schedule JSON with original operation IDs.
 
 Eight public programs are in `programs/original_programs/`. Submission grading uses another
