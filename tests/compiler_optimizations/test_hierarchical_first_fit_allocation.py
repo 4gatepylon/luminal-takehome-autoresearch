@@ -3,7 +3,8 @@
 - Vectors are placed first; each value uses the lowest aligned range with disjoint lifetimes.
 - Exhausted scratch raises CompileError.
 - Forced allocation executes the original programs correctly using this allocator.
-- The pinned-block fixture uses 128 words, compared with chronological first-fit's 240.
+- The pinned-block fixture should, in theory, use around 128 words with hierarchical
+  first-fit, compared to chronological first-fit's theoretical 240 words.
 """
 
 import unittest
