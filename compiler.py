@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Luminal Compiler Take Home — compiler engineering candidate implementation.
 
-The starter is intentionally conservative: it allocates every SSA value once
-and emits at most one operation per bundle. Improve compile_program without
+The compiler allocates every SSA value once and greedily packs operations into
+bundles in source order. Improve compile_program without
 changing its input or output contract. Reuse scratch for values whose scheduled
 lifetimes do not overlap to improve the scratch-footprint component of the score.
 """
@@ -46,36 +46,56 @@ def allocate_scratch(program: dict) -> dict[str, int]:
     return scratch
 
 
+def earliest_issue_cycle(
+    program: dict,
+    operation: dict,
+    producer: dict[str, int],
+    issue_cycle: dict[int, int],
+) -> int:
+    """Find the earliest cycle allowed by data dependencies and memory ordering."""
+    operations = program["operations"]
+    earliest = 0
+
+    for arg in operation.get("args", []):
+        pred_id = producer[arg]
+        pred = operations[pred_id]
+        earliest = max(
+            earliest,
+            issue_cycle[pred_id] + machine.OP_SPECS[pred["op"]]["latency"],
+        )
+
+    for pred_id in machine.memory_predecessors(program, operation["id"]):
+        earliest = max(earliest, issue_cycle[pred_id] + 1)
+
+    return earliest
+
+
 def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
-    """Schedule operations into bundles in source order."""
+    """Greedily fill bundles in source order, stalling when necessary."""
     operations = program["operations"]
 
-    # Serial, source-order scheduling with explicit latency stalls. This is a
-    # correct baseline, but it leaves almost all VLIW slots empty.
     bundles: list[dict[str, list[int]]] = []
+    curr_bundle: dict[str, list[int]] = {}
     issue_cycle: dict[int, int] = {}
     producer = machine.producer_map(program)
 
     for operation in operations:
-        spec = machine.OP_SPECS[operation["op"]]
-        earliest = len(bundles)
+        engine = machine.OP_SPECS[operation["op"]]["engine"]
+        earliest = earliest_issue_cycle(program, operation, producer, issue_cycle)
 
-        for arg in operation.get("args", []):
-            pred_id = producer[arg]
-            pred = operations[pred_id]
-            earliest = max(
-                earliest,
-                issue_cycle[pred_id] + machine.OP_SPECS[pred["op"]]["latency"],
-            )
+        # Flush the current bundle, then emit empty stalls until this op is ready.
+        while (
+            len(bundles) < earliest
+            or len(curr_bundle.get(engine, [])) >= machine.ENGINE_LIMITS[engine]
+        ):
+            bundles.append(curr_bundle)
+            curr_bundle = {}
 
-        for pred_id in machine.memory_predecessors(program, operation["id"]):
-            earliest = max(earliest, issue_cycle[pred_id] + 1)
+        curr_bundle.setdefault(engine, []).append(operation["id"])
+        issue_cycle[operation["id"]] = len(bundles)
 
-        while len(bundles) < earliest:
-            bundles.append({})
-
-        bundles.append({spec["engine"]: [operation["id"]]})
-        issue_cycle[operation["id"]] = earliest
+    if curr_bundle:
+        bundles.append(curr_bundle)
 
     return bundles
 
