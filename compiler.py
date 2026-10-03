@@ -6,7 +6,7 @@ reuses scratch for values whose scheduled lifetimes do not overlap.
 """
 
 from __future__ import annotations
-
+from typing import Optional, Literal
 import json
 import sys
 
@@ -259,20 +259,27 @@ def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
     return bundles
 
 
-def compile_program(program: dict) -> dict:
-    """Schedule a validated program and choose the smallest successful allocation."""
+def compile_program(
+    program: dict,
+    scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint", "hierarchical"]] = None,
+) -> dict:
+    """Use the requested allocator, or choose the smallest successful allocation."""
     bundles = schedule_operations(program)
     op_id2issue_cycle = find_issue_cycles(program, bundles)
     value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
     scratch_candidates = []
-    for allocator, arguments in (
-        (allocate_scratch, (program, value_name2lifetime_incl)),
-        (allocate_unique_scratch, (program,)),
-        (allocate_hierarchical_scratch, (program, value_name2lifetime_incl)),
+    for strategy_name, allocator, arguments in (
+        ("first-fit", allocate_scratch, (program, value_name2lifetime_incl)),
+        ("disjoint", allocate_unique_scratch, (program,)),
+        ("hierarchical", allocate_hierarchical_scratch, (program, value_name2lifetime_incl)),
     ):
+        if scratch_allocation_strategy not in (None, strategy_name):
+            continue
         try:
             scratch_candidates.append(allocator(*arguments))
         except machine.CompileError:
+            if scratch_allocation_strategy is not None:
+                raise
             continue
     if not scratch_candidates:
         raise machine.CompileError("no scratch allocation strategy fits within capacity")

@@ -1,6 +1,7 @@
 """Examples of scheduled lifetimes and scratch allocation rules."""
 
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import compiler
@@ -193,15 +194,39 @@ class CompilerTests(unittest.TestCase):
                          {"a": 0, "v": 8, "w": 16, "u": 8})
         self.assertEqual(compiler.allocate_unique_scratch(program),
                          {"v": 0, "w": 8, "u": 16, "a": 24})
-        for scratch_words in (17, 256):
-            with self.subTest(scratch_words=scratch_words), patch.object(machine, "SCRATCH_WORDS", scratch_words):
-                compilation = compiler.compile_program(program)
-                self.assertEqual(compilation["scratch"], {"v": 0, "w": 8, "u": 0, "a": 16})
-                machine.check_compilation(program, compilation)
-                machine.check_case(program, compilation, program["cases"][0])
+        strategy_name2expected_scratch = {
+            None: {"v": 0, "w": 8, "u": 0, "a": 16},
+            "hierarchical": {"v": 0, "w": 8, "u": 0, "a": 16},
+            "first-fit": {"a": 0, "v": 8, "w": 16, "u": 8},
+            "disjoint": {"v": 0, "w": 8, "u": 16, "a": 24},
+        }
+        for scratch_words in (16, 17, 256):
+            for strategy_name, expected_value_name2scratch_address in strategy_name2expected_scratch.items():
+                with self.subTest(scratch_words=scratch_words, strategy=strategy_name), patch.object(machine, "SCRATCH_WORDS", scratch_words):
+                    if scratch_words == 16 or (scratch_words == 17 and strategy_name in ("first-fit", "disjoint")):
+                        with self.assertRaises(machine.CompileError):
+                            compiler.compile_program(program, scratch_allocation_strategy=strategy_name)
+                        continue
+                    compilation = compiler.compile_program(program, scratch_allocation_strategy=strategy_name)
+                    self.assertEqual(compilation["scratch"], expected_value_name2scratch_address)
+                    machine.check_compilation(program, compilation)
+                    machine.check_case(program, compilation, program["cases"][0])
         with patch.object(machine, "SCRATCH_WORDS", 16):
             with self.assertRaisesRegex(machine.CompileError, "no scratch space"):
                 compiler.allocate_hierarchical_scratch(program, value_name2lifetime_incl)
+
+    def test_forced_hierarchical_on_public_programs(self):
+        with (
+            patch.object(compiler, "allocate_scratch", side_effect=AssertionError("unexpected first-fit")),
+            patch.object(compiler, "allocate_unique_scratch", side_effect=AssertionError("unexpected disjoint")),
+        ):
+            for path in sorted((Path(__file__).parents[1] / "programs").glob("*.json")):
+                with self.subTest(program=path.name):
+                    program = machine.load_program(path)
+                    compilation = compiler.compile_program(program, scratch_allocation_strategy="hierarchical")
+                    machine.check_compilation(program, compilation)
+                    for case in program["cases"]:
+                        machine.check_case(program, compilation, case)
 
     def test_compiler_chooses_unique_when_first_fit_fails_or_uses_more_space(self):
         program = {
