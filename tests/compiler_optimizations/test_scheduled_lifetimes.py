@@ -5,7 +5,8 @@ TODO(hadriano) no human has read these unit tests.
 
 import unittest
 
-import compiler
+from compiler.allocation import allocate_scratch_first_fit, find_lifetimes
+from compiler.scheduling import find_issue_cycles
 import machine
 
 
@@ -60,12 +61,12 @@ class ScheduledLifetimeTests(unittest.TestCase):
                     "buffers": {"data": 8, "out": 8},
                     "cases": [{"data": list(range(8)), "out": [0] * 8}],
                 }
-                op_id2issue_cycle = compiler.find_issue_cycles(program, bundles)
+                op_id2issue_cycle = find_issue_cycles(program, bundles)
                 self.assertEqual(op_id2issue_cycle, expected_op_id2issue_cycle)
-                value_name2lifetime_incl = compiler.find_lifetimes(program, op_id2issue_cycle)
+                value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
                 self.assertEqual(value_name2lifetime_incl, expected_value_name2lifetime_incl)
                 compilation = {
-                    "scratch": compiler.allocate_scratch_first_fit(program, value_name2lifetime_incl),
+                    "scratch": allocate_scratch_first_fit(program, value_name2lifetime_incl),
                     "bundles": bundles,
                 }
                 machine.check_compilation(program, compilation)
@@ -77,7 +78,7 @@ class ScheduledLifetimeTests(unittest.TestCase):
             with self.subTest(op_ids=op_ids):
                 bundles = [{"load": [op_id]} for op_id in op_ids]
                 with self.assertRaisesRegex(machine.CompileError, "must cover exactly"):
-                    compiler.find_issue_cycles(program, bundles)
+                    find_issue_cycles(program, bundles)
 
     def test_issue_cycles_reject_duplicate_ids(self):
         program = {"operations": [{"id": op_id} for op_id in range(3)]}
@@ -89,7 +90,7 @@ class ScheduledLifetimeTests(unittest.TestCase):
         for name, bundles in examples:
             with self.subTest(name=name):
                 with self.assertRaisesRegex(machine.CompileError, "operation 0 appears more than once"):
-                    compiler.find_issue_cycles(program, bundles)
+                    find_issue_cycles(program, bundles)
 
 
 if __name__ == "__main__":
