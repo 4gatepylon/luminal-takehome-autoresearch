@@ -32,6 +32,7 @@ PROGRAM_GROUPS = {
         "allocation_diagnostics/05_inclusive_boundary.json",
         "allocation_diagnostics/06_retained_vectors_16.json",
         "allocation_diagnostics/07_rolling_vectors_15_of_16.json",
+        "allocation_diagnostics/08_pinned_vector_blocks.json",
     ],
 }
 

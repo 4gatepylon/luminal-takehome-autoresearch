@@ -12,7 +12,11 @@ import score
 
 class AllocationDiagnosticProgramTests(unittest.TestCase):
     def test_extreme_programs_fill_disjoint_scratch_capacity(self):
-        for filename in ("06_retained_vectors_16.json", "07_rolling_vectors_15_of_16.json"):
+        for filename in (
+            "06_retained_vectors_16.json",
+            "07_rolling_vectors_15_of_16.json",
+            "08_pinned_vector_blocks.json",
+        ):
             with self.subTest(program=filename):
                 program = machine.load_program(score.PROGRAM_DIR / "allocation_diagnostics" / filename)
                 baseline = machine.serial_compile(program)

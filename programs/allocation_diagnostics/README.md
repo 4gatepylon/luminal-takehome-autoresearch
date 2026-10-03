@@ -1,6 +1,6 @@
 # Allocation diagnostics
 
-These seven programs isolate allocation tradeoffs while keeping the schedule fixed
+These eight programs isolate allocation tradeoffs while keeping the schedule fixed
 across strategies. Each has two input cases, and all fit the original disjoint
 allocator. They form the `allocation_diagnostics` scoring group; the eight supplied
 programs remain in `original`, and `all` includes both groups.
@@ -27,6 +27,7 @@ files can be compared with that option.
 | `05_inclusive_boundary.json` | A vector and a scalar result both write at cycle 4, when the vector is also consumed. Their inclusive lifetimes overlap, so they cannot share words. |
 | `06_retained_vectors_16.json` | Sixteen rounds load one vector and seven fresh scalars, consume the scalars, and read every vector loaded so far. All vectors stay live until the last round, while scalar locations can be reused each round. |
 | `07_rolling_vectors_15_of_16.json` | The same sixteen rounds, but each reads only the newest fifteen vectors; the oldest vector dies before the sixteenth arrives. Scalars remain local to each round. |
+| `08_pinned_vector_blocks.json` | Sixteen vectors die in reverse order, each replaced by a scalar that stays live through fourteen new vectors. Chronological first-fit leaves one scalar in each aligned block, preventing vector reuse despite seven free words per block. |
 
 The two extreme cases each use exactly 256 disjoint scratch words:
 `16 * 8` for vector loads, `16 * 7` for scalar loads, and `16` scalar add results.
@@ -34,6 +35,15 @@ Each round adds its first and seventh scalar, stores that sum and the other five
 scalars, then stores the retained vectors. These stores establish vector lifetimes
 without extra vector arithmetic results, which would exceed the baseline limit.
 The ideal reuse footprints are `16 * 8 + 7 = 135` and `15 * 8 + 7 = 127` words.
+
+The pinned-block case also uses exactly 256 disjoint words: thirty vector loads
+and sixteen scalar loads. Each scalar is read immediately after loading, making
+the scheduler wait for its write before releasing the next old vector; a final
+read keeps it live through the new vectors. New vectors are consumed in reverse
+order so all fourteen become live together. Hierarchical placement reuses the
+first fourteen old vector blocks and packs the scalars into the last two after
+those old vectors die, attaining the 128-word lower bound from the initial sixteen
+simultaneously live vectors.
 
 Reference measurements with the current scheduler (scratch words; smaller is better):
 
@@ -46,6 +56,7 @@ Reference measurements with the current scheduler (scratch words; smaller is bet
 | Inclusive boundary | 10 | 9 | 9 |
 | Sixteen retained vectors | 256 | 136 | 135 |
 | Latest fifteen of sixteen vectors | 256 | 128 | 127 |
+| Pinned vector blocks | 256 | 240 | 128 |
 
 The hierarchical column was measured separately using the allocator from
 [PR #33](https://github.com/4gatepylon/luminal-takehome-autoresearch/pull/33), without
