@@ -4,7 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import compiler
+from compiler import compilation as compiler_compilation
+from compiler.allocation import allocate_scratch_hierarchical_first_fit
 import machine
 
 
@@ -54,7 +55,7 @@ class HierarchicalFirstFitTests(unittest.TestCase):
                     for value_name, _, write_cycle_incl, last_live_cycle_incl in values
                 }
                 self.assertEqual(
-                    compiler.allocate_scratch_hierarchical_first_fit(program, value_name2lifetime_incl),
+                    allocate_scratch_hierarchical_first_fit(program, value_name2lifetime_incl),
                     expected_value_name2scratch_address,
                 )
 
@@ -64,16 +65,16 @@ class HierarchicalFirstFitTests(unittest.TestCase):
         ]}
         with patch.object(machine, "SCRATCH_WORDS", 8):
             with self.assertRaisesRegex(machine.CompileError, "no scratch space"):
-                compiler.allocate_scratch_hierarchical_first_fit(
+                allocate_scratch_hierarchical_first_fit(
                     program, {"v": (1, 3), "a": (2, 2)}
                 )
 
     def test_forced_hierarchical_first_fit_on_public_programs(self):
-        with patch.object(compiler, "allocate_scratch_first_fit", side_effect=AssertionError("unexpected first-fit")):
+        with patch.object(compiler_compilation, "allocate_scratch_first_fit", side_effect=AssertionError("unexpected first-fit")):
             for path in sorted((Path(__file__).parents[2] / "programs").glob("*.json")):
                 with self.subTest(program=path.name):
                     program = machine.load_program(path)
-                    compilation = compiler.compile_program(
+                    compilation = compiler_compilation.compile_program(
                         program, scratch_allocation_strategy="hierarchical-first-fit"
                     )
                     machine.check_compilation(program, compilation)

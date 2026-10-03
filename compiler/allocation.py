@@ -1,66 +1,8 @@
-#!/usr/bin/env python3
-"""Luminal Compiler Take Home — compiler engineering candidate implementation.
-
-The compiler greedily packs operations into bundles in source order, then
-reuses scratch for values whose scheduled lifetimes do not overlap.
-"""
+"""Value lifetime analysis and scratch allocation strategies."""
 
 from __future__ import annotations
-from typing import Optional, Literal
-import json
-import sys
 
 import machine
-
-
-def allocate_unique_scratch(program: dict) -> dict[str, int]:
-    """Assign disjoint ranges, prioritizing vectors before scalars."""
-
-    # A simple non-overlapping allocation. Vectors are placed first so their
-    # alignment does not create holes between scalar values.
-    scratch: dict[str, int] = {}
-    cursor = 0
-    operations = program["operations"]
-
-    for result_kind in ("vector", "scalar"):
-        for operation in operations:
-            spec = machine.OP_SPECS[operation["op"]]
-            if spec["result"] != result_kind:
-                continue
-            dest = operation["dest"]
-            if result_kind == "vector":
-                cursor = machine.align_up(cursor, machine.VLEN)
-                scratch[dest] = cursor
-                cursor += machine.VLEN
-            else:
-                scratch[dest] = cursor
-                cursor += 1
-
-    if cursor > machine.SCRATCH_WORDS:
-        raise machine.CompileError(
-            f"program requires {cursor} scratch words, limit is {machine.SCRATCH_WORDS}"
-        )
-
-    return scratch
-
-
-def find_issue_cycles(
-    program: dict,
-    bundles: list[dict[str, list[int]]],
-) -> dict[int, int]:
-    """Return op_id2issue_cycle; require each ID in range(len(ops)) exactly once."""
-    op_id2issue_cycle: dict[int, int] = {}
-    for issue_cycle, engine2op_ids in enumerate(bundles):
-        for op_ids in engine2op_ids.values():
-            for op_id in op_ids:
-                if op_id in op_id2issue_cycle:
-                    raise machine.CompileError(f"operation {op_id} appears more than once")
-                op_id2issue_cycle[op_id] = issue_cycle
-    if set(op_id2issue_cycle) != set(range(len(program["operations"]))):
-        raise machine.CompileError(
-            f"schedule operation IDs must cover exactly range({len(program['operations'])})"
-        )
-    return op_id2issue_cycle
 
 
 def find_lifetimes(
@@ -93,6 +35,37 @@ def find_lifetimes(
                 max(last_live_cycle_incl, op_id2issue_cycle[operation["id"]]),
             )
     return value_name2lifetime_incl
+
+
+def allocate_unique_scratch(program: dict) -> dict[str, int]:
+    """Assign disjoint ranges, prioritizing vectors before scalars."""
+
+    # A simple non-overlapping allocation. Vectors are placed first so their
+    # alignment does not create holes between scalar values.
+    scratch: dict[str, int] = {}
+    cursor = 0
+    operations = program["operations"]
+
+    for result_kind in ("vector", "scalar"):
+        for operation in operations:
+            spec = machine.OP_SPECS[operation["op"]]
+            if spec["result"] != result_kind:
+                continue
+            dest = operation["dest"]
+            if result_kind == "vector":
+                cursor = machine.align_up(cursor, machine.VLEN)
+                scratch[dest] = cursor
+                cursor += machine.VLEN
+            else:
+                scratch[dest] = cursor
+                cursor += 1
+
+    if cursor > machine.SCRATCH_WORDS:
+        raise machine.CompileError(
+            f"program requires {cursor} scratch words, limit is {machine.SCRATCH_WORDS}"
+        )
+
+    return scratch
 
 
 def allocate_scratch_first_fit(
@@ -203,107 +176,3 @@ def allocate_scratch_hierarchical_first_fit(
         else:
             raise machine.CompileError(f"no scratch space for {value_name!r}")
     return value_name2scratch_address
-
-
-def earliest_issue_cycle(
-    program: dict,
-    operation: dict,
-    producer: dict[str, int],
-    issue_cycle: dict[int, int],
-) -> int:
-    """Find the earliest cycle allowed by data dependencies and memory ordering."""
-    operations = program["operations"]
-    earliest = 0
-
-    for arg in operation.get("args", []):
-        pred_id = producer[arg]
-        pred = operations[pred_id]
-        earliest = max(
-            earliest,
-            issue_cycle[pred_id] + machine.OP_SPECS[pred["op"]]["latency"],
-        )
-
-    for pred_id in machine.memory_predecessors(program, operation["id"]):
-        earliest = max(earliest, issue_cycle[pred_id] + 1)
-
-    return earliest
-
-
-def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
-    """Greedily fill bundles in source order, stalling when necessary."""
-    operations = program["operations"]
-
-    bundles: list[dict[str, list[int]]] = []
-    curr_bundle: dict[str, list[int]] = {}
-    issue_cycle: dict[int, int] = {}
-    producer = machine.producer_map(program)
-
-    for operation in operations:
-        engine = machine.OP_SPECS[operation["op"]]["engine"]
-        earliest = earliest_issue_cycle(program, operation, producer, issue_cycle)
-
-        # Flush the current bundle, then emit empty stalls until this op is ready.
-        while (
-            len(bundles) < earliest
-            or len(curr_bundle.get(engine, [])) >= machine.ENGINE_LIMITS[engine]
-        ):
-            bundles.append(curr_bundle)
-            curr_bundle = {}
-
-        curr_bundle.setdefault(engine, []).append(operation["id"])
-        issue_cycle[operation["id"]] = len(bundles)
-
-    if curr_bundle:
-        bundles.append(curr_bundle)
-
-    return bundles
-
-
-def compile_program(
-    program: dict,
-    scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint", "hierarchical-first-fit"]] = None,
-) -> dict:
-    """Use the requested allocator, or choose the smallest successful allocation."""
-    bundles = schedule_operations(program)
-    op_id2issue_cycle = find_issue_cycles(program, bundles)
-    value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
-    # Preserve the original compiler's failure when disjoint allocation cannot fit,
-    # even if a reuse strategy could succeed. This also applies to forced strategies.
-    value_name2scratch_address = allocate_unique_scratch(program)
-    for strategy_name, allocator in (
-        ("first-fit", allocate_scratch_first_fit),
-        ("hierarchical-first-fit", allocate_scratch_hierarchical_first_fit),
-    ):
-        if scratch_allocation_strategy not in (None, strategy_name):
-            continue
-        try:
-            candidate_value_name2scratch_address = allocator(program, value_name2lifetime_incl)
-        except machine.CompileError as error:
-            if scratch_allocation_strategy == strategy_name:
-                raise RuntimeError(f"{strategy_name} allocation failed by running out of space") from error
-            continue
-        if scratch_allocation_strategy == strategy_name:
-            value_name2scratch_address = candidate_value_name2scratch_address
-            break
-        value_name2scratch_address = min(
-            (value_name2scratch_address, candidate_value_name2scratch_address),
-            key=lambda allocation: machine.scratch_footprint(program, {"scratch": allocation}),
-        )
-    return {"scratch": value_name2scratch_address, "bundles": bundles}
-
-
-def main(argv: list[str]) -> int:
-    if len(argv) != 1:
-        print("usage: python3 compiler.py <program.json>", file=sys.stderr)
-        return 2
-
-    program = machine.load_program(argv[0])
-    compilation = compile_program(program)
-    machine.check_compilation(program, compilation)
-    json.dump(compilation, sys.stdout, indent=2, sort_keys=True)
-    print()
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
