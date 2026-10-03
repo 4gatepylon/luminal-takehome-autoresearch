@@ -1,4 +1,4 @@
-"""Ordering search with uniform or temperature-controlled softmax sampling.
+"""Ordering search with uniform, softmax, or cutoff power sampling.
 
 Reference: https://chatgpt.com/share/6ac08d07-6048-83e8-9077-34bba9f773bd
 """
@@ -33,16 +33,21 @@ class OrderingOptimizer:
             "any", "first-fit", "disjoint", "hierarchical-first-fit"
         ] = "any",
         verbose: bool = False,
-        sample_strategy: Literal["uniform_at_random", "softmax"] = "uniform_at_random",
+        sample_strategy: Literal["uniform_at_random", "softmax", "power"] = "uniform_at_random",
         sample_strategy_kwargs: dict[str, float] | None = None,
     ) -> None:
-        if sample_strategy not in ("uniform_at_random", "softmax"):
+        if sample_strategy not in ("uniform_at_random", "softmax", "power"):
             raise ValueError(f"Unsupported sample strategy: {sample_strategy}")
         self.sample_strategy = sample_strategy
         self.sample_strategy_kwargs = dict(sample_strategy_kwargs or {})
         temperature = self.sample_strategy_kwargs.get("temperature", 1.0)
         if sample_strategy == "softmax" and (not np.isfinite(temperature) or temperature <= 0):
             raise ValueError("Softmax temperature must be finite and positive")
+        if sample_strategy == "power":
+            cutoff = self.sample_strategy_kwargs.get("cutoff", 0.0)
+            power = self.sample_strategy_kwargs.get("power", 2.0)
+            if not np.isfinite(cutoff) or not np.isfinite(power) or power <= 0:
+                raise ValueError("Power sampling requires a finite cutoff and finite positive power")
         self.program = program
         self.verbose = verbose
         self.scratch_allocation_strategy = scratch_allocation_strategy
@@ -67,15 +72,21 @@ class OrderingOptimizer:
         return attempt
 
     def _sample_previously_attempted_ordering(self) -> OrderingAttempt | None:
-        """Sample an eligible attempt using the selected distribution, or return None."""
+        """Sample a reorderable attempt; return None if empty or all scores miss the cutoff."""
         attempts = [attempt for attempt in self.database.values() if attempt.can_reorder]
         if not attempts:
             return None
         probabilities = None
-        if self.sample_strategy == "softmax":
+        if self.sample_strategy != "uniform_at_random":
             scores = np.sqrt([attempt.speedup * attempt.memory_improvement for attempt in attempts])
-            temperature = self.sample_strategy_kwargs.get("temperature", 1.0)
-            weights = np.exp((scores - scores.max()) / temperature)
+            if self.sample_strategy == "softmax":
+                temperature = self.sample_strategy_kwargs.get("temperature", 1.0)
+                weights = np.exp((scores - scores.max()) / temperature)
+            else:
+                weights = np.maximum(scores - self.sample_strategy_kwargs.get("cutoff", 0.0), 0.0)
+                if not weights.any():
+                    return None
+                weights = (weights / weights.max()) ** self.sample_strategy_kwargs.get("power", 2.0)
             probabilities = weights / weights.sum()
         return attempts[np.random.choice(len(attempts), p=probabilities)]
 

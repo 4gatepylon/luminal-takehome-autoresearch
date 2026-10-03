@@ -46,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
         help="scratch allocator; any tries every allocator and keeps the smallest footprint",
     )
     parser.add_argument(
-        "--sample-strategy", choices=("uniform_at_random", "softmax"),
+        "--sample-strategy", choices=("uniform_at_random", "softmax", "power"),
         default="uniform_at_random", help="distribution for sampling previous orderings",
     )
     parser.add_argument("--temperature", type=float, default=1.0, help="softmax sampling temperature")
@@ -54,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
         "--n-optimization-iterations", type=int, default=128,
         help="ordering search iterations per program (default: 128; 0 skips search)",
     )
+    parser.add_argument("--cutoff", type=float, default=0.0, help="score cutoff for power sampling")
+    parser.add_argument("--power", type=float, default=2.0, help="exponent for power sampling")
     args = parser.parse_args(argv)
     group_name2filenames = {
         **PROGRAM_GROUPS,
@@ -70,6 +72,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"ordering search iterations: {args.n_optimization_iterations}")
     if args.sample_strategy == "softmax":
         print(f"softmax temperature: {args.temperature}")
+    elif args.sample_strategy == "power":
+        print(f"power sampling cutoff: {args.cutoff}, power: {args.power}")
     filename2speedup_and_scratch_reduction: dict[str, tuple[float, float]] = {}
     print(f"{'program':30} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
     print("-" * 60)
@@ -79,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
             program, scratch_allocation_strategy=args.allocation_strategy,
             n_optimization_iterations=args.n_optimization_iterations,
             sample_strategy=args.sample_strategy,
-            sample_strategy_kwargs={"temperature": args.temperature},
+            sample_strategy_kwargs={"temperature": args.temperature, "cutoff": args.cutoff, "power": args.power},
         )
         cycles = machine.check_compilation(program, compilation)
         for case in program["cases"]:

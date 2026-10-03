@@ -94,7 +94,7 @@ def compile_program(
     n_optimization_iterations: int = 128,
     max_inner_iterations: int = 32,
     crash_on_sampling_failure: bool = False,
-    sample_strategy: Literal["uniform_at_random", "softmax"] = "uniform_at_random",
+    sample_strategy: Literal["uniform_at_random", "softmax", "power"] = "uniform_at_random",
     sample_strategy_kwargs: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """Search valid orderings; zero iterations compiles in the original order."""
