@@ -6,7 +6,7 @@ reuses scratch for values whose scheduled lifetimes do not overlap.
 """
 
 from __future__ import annotations
-
+from typing import Optional, Literal
 import json
 import sys
 
@@ -208,27 +208,26 @@ def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
     return bundles
 
 
-def compile_program(program: dict) -> dict:
+def compile_program(program: dict, scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint"]] = None) -> dict:
     """Schedule a validated program and choose the smallest successful allocation."""
     bundles = schedule_operations(program)
     op_id2issue_cycle = find_issue_cycles(program, bundles)
     value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
-    try:
-        value_name2scratch_address = allocate_scratch(program, value_name2lifetime_incl)
-    except machine.CompileError:
-        value_name2scratch_address = allocate_unique_scratch(program)
-    else:
+    value_name2scratch_address = allocate_unique_scratch(program)
+    if scratch_allocation_strategy != "disjoint":
         try:
-            unique_value_name2scratch_address = allocate_unique_scratch(program)
-        except machine.CompileError:
-            pass  # Reuse can fit even when disjoint allocation cannot.
-        else:
-            value_name2scratch_address = min(
-                (value_name2scratch_address, unique_value_name2scratch_address),
-                key=lambda candidate_value_name2scratch_address: machine.scratch_footprint(
-                    program, {"scratch": candidate_value_name2scratch_address}
-                ),
-            )
+            unique_value_name2scratch_address = allocate_scratch(program, value_name2lifetime_incl)
+            # Overwrite only if needed (force-using first-fit is possible)
+            if scratch_allocation_strategy != "first-fit":
+                value_name2scratch_address = min(
+                    (value_name2scratch_address, unique_value_name2scratch_address),
+                    key=lambda candidate_value_name2scratch_address: machine.scratch_footprint(
+                        program, {"scratch": candidate_value_name2scratch_address}
+                    ),
+                )
+        except machine.CompileError as e:
+            if scratch_allocation_strategy == "first-fit":
+                raise RuntimeError(f"first-fit allocation failed by running out of space and therefore cannot occur!") from e
     return {"scratch": value_name2scratch_address, "bundles": bundles}
 
 
