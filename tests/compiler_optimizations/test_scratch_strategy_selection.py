@@ -38,17 +38,28 @@ class ScratchStrategySelectionTests(unittest.TestCase):
             ("hierarchical-first-fit", {"a": 0}, {"a": 1}, {"a": 2}, {"a": 2}),
         ]
         for strategy, disjoint_result, first_fit_result, hierarchical_result, expected_result in examples:
+            def allocate(program, value_name2lifetime_incl, *, mode="default"):
+                result = {"default": first_fit_result, "vectors_first": hierarchical_result}[mode]
+                if isinstance(result, Exception):
+                    raise result
+                return result
+
             with (
                 self.subTest(strategy=strategy, results=(disjoint_result, first_fit_result, hierarchical_result)),
                 patch.object(compiler_compilation, "allocate_unique_scratch", side_effect=[disjoint_result]) as disjoint,
-                patch.object(compiler_compilation, "allocate_scratch_first_fit", side_effect=[first_fit_result]) as first_fit,
-                patch.object(compiler_compilation, "allocate_scratch_hierarchical_first_fit", side_effect=[hierarchical_result], create=True) as hierarchical,
+                patch.object(compiler_compilation, "allocate_scratch_first_fit", side_effect=allocate) as first_fit,
             ):
                 compilation = compiler_compilation.compile_program(self.program, scratch_allocation_strategy=strategy)
                 self.assertEqual(compilation["scratch"], expected_result)
                 disjoint.assert_called_once()
-                self.assertEqual(first_fit.call_count, int(strategy in (None, "first-fit")))
-                self.assertEqual(hierarchical.call_count, int(strategy in (None, "hierarchical-first-fit")))
+                expected_modes = {
+                    None: ["default", "vectors_first"], "disjoint": [],
+                    "first-fit": ["default"], "hierarchical-first-fit": ["vectors_first"],
+                }[strategy]
+                self.assertEqual(
+                    sorted(call.kwargs.get("mode", "default") for call in first_fit.call_args_list),
+                    expected_modes,
+                )
                 machine.check_compilation(self.program, compilation)
                 machine.check_case(self.program, compilation, self.program["cases"][0])
 
@@ -58,20 +69,15 @@ class ScratchStrategySelectionTests(unittest.TestCase):
                 self.subTest(strategy=strategy),
                 patch.object(compiler_compilation, "allocate_unique_scratch", side_effect=machine.CompileError("baseline full")),
                 patch.object(compiler_compilation, "allocate_scratch_first_fit") as first_fit,
-                patch.object(compiler_compilation, "allocate_scratch_hierarchical_first_fit", create=True) as hierarchical,
             ):
                 with self.assertRaisesRegex(machine.CompileError, "baseline full"):
                     compiler_compilation.compile_program(self.program, scratch_allocation_strategy=strategy)
                 first_fit.assert_not_called()
-                hierarchical.assert_not_called()
 
     def test_forced_reuse_failure_does_not_fall_back(self):
-        for strategy, allocator_name in (
-            ("first-fit", "allocate_scratch_first_fit"),
-            ("hierarchical-first-fit", "allocate_scratch_hierarchical_first_fit"),
-        ):
+        for strategy in ("first-fit", "hierarchical-first-fit"):
             with self.subTest(strategy=strategy), patch.object(
-                compiler_compilation, allocator_name, side_effect=machine.CompileError("out of space"), create=True
+                compiler_compilation, "allocate_scratch_first_fit", side_effect=machine.CompileError("out of space")
             ):
                 with self.assertRaisesRegex(RuntimeError, f"{strategy} allocation failed") as raised:
                     compiler_compilation.compile_program(self.program, scratch_allocation_strategy=strategy)

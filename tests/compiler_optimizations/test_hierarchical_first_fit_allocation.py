@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from compiler.allocation import allocate_scratch_first_fit, allocate_scratch_hierarchical_first_fit, find_lifetimes
+from compiler.allocation import allocate_scratch_first_fit, find_lifetimes
 from compiler.scheduling import find_issue_cycles, schedule_operations
 import machine
 
@@ -62,7 +62,7 @@ class HierarchicalFirstFitTests(unittest.TestCase):
                     for value_name, _, write_cycle_incl, last_live_cycle_incl in values
                 }
                 self.assertEqual(
-                    allocate_scratch_hierarchical_first_fit(program, value_name2lifetime_incl),
+                    allocate_scratch_first_fit(program, value_name2lifetime_incl, mode="vectors_first"),
                     expected_value_name2scratch_address,
                 )
 
@@ -72,8 +72,8 @@ class HierarchicalFirstFitTests(unittest.TestCase):
         ]}
         with patch.object(machine, "SCRATCH_WORDS", 8):
             with self.assertRaisesRegex(machine.CompileError, "no scratch space"):
-                allocate_scratch_hierarchical_first_fit(
-                    program, {"v": (1, 3), "a": (2, 2)}
+                allocate_scratch_first_fit(
+                    program, {"v": (1, 3), "a": (2, 2)}, mode="vectors_first"
                 )
 
     def test_hierarchical_first_fit_on_all_programs(self):
@@ -86,7 +86,7 @@ class HierarchicalFirstFitTests(unittest.TestCase):
                 value_name2lifetime_incl = find_lifetimes(program, find_issue_cycles(program, bundles))
                 compilation = {
                     "bundles": bundles,
-                    "scratch": allocate_scratch_hierarchical_first_fit(program, value_name2lifetime_incl),
+                    "scratch": allocate_scratch_first_fit(program, value_name2lifetime_incl, mode="vectors_first"),
                 }
                 machine.check_compilation(program, compilation)
                 for case in program["cases"]:
@@ -98,11 +98,9 @@ class HierarchicalFirstFitTests(unittest.TestCase):
         )
         bundles = schedule_operations(program)
         value_name2lifetime_incl = find_lifetimes(program, find_issue_cycles(program, bundles))
-        for allocator, expected_words in (
-            (allocate_scratch_first_fit, 240), (allocate_scratch_hierarchical_first_fit, 128),
-        ):
-            with self.subTest(allocator=allocator.__name__):
-                compilation = {"scratch": allocator(program, value_name2lifetime_incl)}
+        for mode, expected_words in (("default", 240), ("vectors_first", 128)):
+            with self.subTest(mode=mode):
+                compilation = {"scratch": allocate_scratch_first_fit(program, value_name2lifetime_incl, mode=mode)}
                 self.assertEqual(machine.scratch_footprint(program, compilation), expected_words)
 
 
