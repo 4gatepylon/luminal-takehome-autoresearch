@@ -34,8 +34,8 @@ class OperationDependencies:
 
     def latest_dependency(
         self, operation: dict, ordering: tuple[int, ...] | None = None
-    ) -> dict | None:
-        """Return the latest prerequisite in a valid ordering, or None."""
+    ) -> dict | int:
+        """Return the latest prerequisite in a valid ordering, or -1."""
         if ordering is None:
             ordering = tuple(range(len(self.dependencies)))
         assert all(type(op_id) is int for op_id in ordering)
@@ -44,7 +44,7 @@ class OperationDependencies:
         return max(
             self.dependencies[operation["id"]],
             key=lambda pred: ordering.index(pred["id"]),
-            default=None,
+            default=-1,
         )
 
 
