@@ -14,7 +14,7 @@ import machine
 
 
 def allocate_unique_scratch(program: dict) -> dict[str, int]:
-    """Assign disjoint ranges as a fallback if reuse fragments scratch."""
+    """Assign disjoint ranges, prioritizing vectors before scalars."""
 
     # A simple non-overlapping allocation. Vectors are placed first so their
     # alignment does not create holes between scalar values.
@@ -115,9 +115,8 @@ def allocate_scratch(
     end. Alignment holes remain free: placing a vector at a higher address does
     not claim the gap below it. Only the chosen words are reserved, through e_v.
 
-    If first-fit runs out of space, discard it and use allocate_unique_scratch:
-    vectors then scalars, in source order within each kind. Neither strategy
-    guarantees minimum footprint; the fallback fits the supplied programs.
+    Raise CompileError if no aligned range fits; first-fit does not guarantee
+    minimum footprint.
     """
     value_name2width = {
         operation["dest"]: (
@@ -151,7 +150,7 @@ def allocate_scratch(
                 )
                 break
         else:
-            return allocate_unique_scratch(program)
+            raise machine.CompileError(f"no scratch space for {value_name!r}")
     return value_name2scratch_address
 
 
@@ -210,11 +209,26 @@ def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
 
 
 def compile_program(program: dict) -> dict:
-    """Compile one validated IR program into scratch allocations and bundles."""
+    """Schedule a validated program and choose the smallest successful allocation."""
     bundles = schedule_operations(program)
     op_id2issue_cycle = find_issue_cycles(program, bundles)
     value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
-    value_name2scratch_address = allocate_scratch(program, value_name2lifetime_incl)
+    try:
+        value_name2scratch_address = allocate_scratch(program, value_name2lifetime_incl)
+    except machine.CompileError:
+        value_name2scratch_address = allocate_unique_scratch(program)
+    else:
+        try:
+            unique_value_name2scratch_address = allocate_unique_scratch(program)
+        except machine.CompileError:
+            pass  # Reuse can fit even when disjoint allocation cannot.
+        else:
+            value_name2scratch_address = min(
+                (value_name2scratch_address, unique_value_name2scratch_address),
+                key=lambda candidate_value_name2scratch_address: machine.scratch_footprint(
+                    program, {"scratch": candidate_value_name2scratch_address}
+                ),
+            )
     return {"scratch": value_name2scratch_address, "bundles": bundles}
 
 
