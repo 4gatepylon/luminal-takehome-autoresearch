@@ -32,7 +32,7 @@ class AllocationDiagnosticProgramTests(unittest.TestCase):
             program = machine.load_program(score.PROGRAM_DIR / filename)
             for strategy in ("any", "first-fit", "disjoint"):
                 with self.subTest(program=filename, strategy=strategy):
-                    compilation = compile_program(program, scratch_allocation_strategy=strategy)
+                    compilation = compile_program(program, scratch_allocation_strategy=strategy, n_optimization_iterations=4)
                     machine.check_compilation(program, compilation)
                     for case in program["cases"]:
                         machine.check_case(program, compilation, case)
