@@ -56,11 +56,11 @@ python3 score.py
 Compile one program to a JSON schedule with:
 
 ```sh
-python3 -m compiler.compiler programs/03_vector_axpy.json > axpy.schedule.json
-python3 machine.py programs/03_vector_axpy.json axpy.schedule.json
+python3 -m compiler.compiler programs/original_programs/03_vector_axpy.json > axpy.schedule.json
+python3 machine.py programs/original_programs/03_vector_axpy.json axpy.schedule.json
 ```
 
-Eight public programs are in `programs/`. Submission grading uses another
+Eight public programs are in `programs/original_programs/`. Submission grading uses another
 eight programs that are not included in the candidate repository. Hidden
 programs use only the documented operations and limits below. Solutions that
 special-case public filenames, operation IDs, or constants will not generalize.
