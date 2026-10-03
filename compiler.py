@@ -75,6 +75,7 @@ def find_lifetimes(
     cycle, even when that write is after the final bundle.
     """
     value_name2lifetime_incl: dict[str, tuple[int, int]] = {}
+    # Initialize the lifetime dict with each value's write cycle as both endpoints.
     for operation in program["operations"]:
         spec = machine.OP_SPECS[operation["op"]]
         if spec["result"] is not None:
