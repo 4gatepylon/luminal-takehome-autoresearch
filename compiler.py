@@ -84,6 +84,7 @@ def find_lifetimes(
                 write_cycle_incl, write_cycle_incl
             )
 
+    # Extend lifetimes to the last read; max makes traversal order irrelevant.
     for operation in program["operations"]:
         for value_name in operation.get("args", []):
             write_cycle_incl, last_live_cycle_incl = value_name2lifetime_incl[value_name]
@@ -195,7 +196,6 @@ def schedule_operations(program: dict) -> list[dict[str, list[int]]]:
     issue_cycle: dict[int, int] = {}
     producer = machine.producer_map(program)
 
-    # Traverse top to bottom so every predecessor already has an issue cycle.
     for operation in operations:
         engine = machine.OP_SPECS[operation["op"]]["engine"]
         earliest = earliest_issue_cycle(program, operation, producer, issue_cycle)
