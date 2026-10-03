@@ -1,6 +1,6 @@
 """Check allocator selection with controlled allocator results:
 
-- Automatic selection chooses the smallest successful footprint.
+- The "any" strategy chooses the smallest successful footprint.
 - Forcing a strategy invokes that allocator and returns its allocation.
 - Disjoint allocation failure stops compilation; forced reuse failure raises RuntimeError.
 
@@ -29,12 +29,12 @@ class ScratchStrategySelectionTests(unittest.TestCase):
         exhausted = machine.CompileError("out of space")
         # Strategy, disjoint result, first-fit result, hierarchical result, chosen result.
         examples = [
-            (None, {"a": 2}, {"a": 1}, {"a": 0}, {"a": 0}),
-            (None, {"a": 2}, {"a": 0}, {"a": 1}, {"a": 0}),
-            (None, {"a": 0}, {"a": 1}, {"a": 2}, {"a": 0}),
-            (None, {"a": 2}, exhausted, {"a": 0}, {"a": 0}),
-            (None, {"a": 2}, {"a": 0}, exhausted, {"a": 0}),
-            (None, {"a": 2}, exhausted, exhausted, {"a": 2}),
+            ("any", {"a": 2}, {"a": 1}, {"a": 0}, {"a": 0}),
+            ("any", {"a": 2}, {"a": 0}, {"a": 1}, {"a": 0}),
+            ("any", {"a": 0}, {"a": 1}, {"a": 2}, {"a": 0}),
+            ("any", {"a": 2}, exhausted, {"a": 0}, {"a": 0}),
+            ("any", {"a": 2}, {"a": 0}, exhausted, {"a": 0}),
+            ("any", {"a": 2}, exhausted, exhausted, {"a": 2}),
             ("disjoint", {"a": 2}, {"a": 0}, {"a": 1}, {"a": 2}),
             ("first-fit", {"a": 0}, {"a": 2}, {"a": 1}, {"a": 2}),
             ("hierarchical-first-fit", {"a": 0}, {"a": 1}, {"a": 2}, {"a": 2}),
@@ -55,7 +55,7 @@ class ScratchStrategySelectionTests(unittest.TestCase):
                 self.assertEqual(compilation["scratch"], expected_result)
                 disjoint.assert_called_once()
                 expected_modes = {
-                    None: ["default", "vectors_first"], "disjoint": [],
+                    "any": ["default", "vectors_first"], "disjoint": [],
                     "first-fit": ["default"], "hierarchical-first-fit": ["vectors_first"],
                 }[strategy]
                 self.assertEqual(
@@ -66,7 +66,7 @@ class ScratchStrategySelectionTests(unittest.TestCase):
                 machine.check_case(self.program, compilation, self.program["cases"][0])
 
     def test_disjoint_failure_stops_every_strategy_before_reuse(self):
-        for strategy in (None, "disjoint", "first-fit", "hierarchical-first-fit"):
+        for strategy in ("any", "disjoint", "first-fit", "hierarchical-first-fit"):
             with (
                 self.subTest(strategy=strategy),
                 patch.object(compiler_compilation, "allocate_unique_scratch", side_effect=machine.CompileError("baseline full")),

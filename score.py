@@ -40,8 +40,10 @@ PROGRAM_GROUPS = {
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--allocation-strategy", choices=("first-fit", "disjoint", "hierarchical-first-fit"),
-        help="force a scratch allocator; omit to use automatic selection",
+        "--allocation-strategy",
+        choices=("any", "first-fit", "disjoint", "hierarchical-first-fit"),
+        default="any",
+        help="scratch allocator; any tries every allocator and keeps the smallest footprint",
     )
     args = parser.parse_args(argv)
     group_name2filenames = {
@@ -54,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(f"group {group_name!r} has missing programs: {sorted(missing_filenames)}")
 
     print("Luminal Compiler Take Home — compiler engineering public benchmark")
-    print(f"scratch allocation strategy: {args.allocation_strategy or 'automatic'}")
+    print(f"scratch allocation strategy: {args.allocation_strategy}")
     filename2speedup_and_scratch_reduction: dict[str, tuple[float, float]] = {}
     print(f"{'program':30} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
     print("-" * 60)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import traceback
-from typing import Optional, Literal
+from typing import Literal
 
 import machine
 
@@ -27,9 +27,9 @@ ALLOCATION_NAME2ALLOCATOR_FN = {
 
 def compile_program(
     program: dict,
-    scratch_allocation_strategy: Optional[
-        Literal["first-fit", "disjoint", "hierarchical-first-fit"]
-    ] = None,
+    scratch_allocation_strategy: Literal[
+        "any", "first-fit", "disjoint", "hierarchical-first-fit"
+    ] = "any",
     verbose: bool = False,
 ) -> dict:
     """Schedule a validated program and choose the smallest successful allocation."""
@@ -40,7 +40,7 @@ def compile_program(
     # our baseline. It can crash on memory-intensive programs that better allocators might not crash
     # on. However, we think it's worth keeping the exact same behavior.
     scratch_allocations = [allocate_unique_scratch(program)]
-    if scratch_allocation_strategy not in (None, "disjoint"):
+    if scratch_allocation_strategy not in ("any", "disjoint"):
         try:
             scratch_allocations[0] = ALLOCATION_NAME2ALLOCATOR_FN[
                 scratch_allocation_strategy
@@ -49,7 +49,7 @@ def compile_program(
             raise RuntimeError(
                 f"{scratch_allocation_strategy} allocation failed. However, it was required by user request. The compilation cannot proceed."
             ) from error
-    elif scratch_allocation_strategy is None:
+    elif scratch_allocation_strategy == "any":
         for allocator_fn in ALLOCATION_NAME2ALLOCATOR_FN.values():
             try:
                 scratch_allocations.append(
