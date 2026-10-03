@@ -15,6 +15,31 @@ import sys
 import machine
 
 
+class OperationDependencies:
+    """Data and memory prerequisites in the validated program's original order."""
+
+    def __init__(self, program: dict):
+        operations = program["operations"]
+        producer = machine.producer_map(program)
+        self.dependencies: dict[int, list[dict]] = {}
+        for operation in operations:
+            data = [operations[producer[arg]] for arg in operation.get("args", [])]
+            memory = [
+                operations[pred_id]
+                for pred_id in machine.memory_predecessors(program, operation["id"])
+            ]
+            self.dependencies[operation["id"]] = data + memory
+
+    def latest_dependency(self, operation: dict) -> dict | None:
+        """Return the latest prerequisite operation, or None if independent."""
+        # IDs follow dependency order, so indirect prerequisites are earlier too.
+        return max(
+            self.dependencies[operation["id"]],
+            key=lambda pred: pred["id"],
+            default=None,
+        )
+
+
 def allocate_scratch(program: dict) -> dict[str, int]:
     """Assign scratch addresses to every SSA result."""
 
