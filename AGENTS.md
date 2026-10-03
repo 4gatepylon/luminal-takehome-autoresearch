@@ -8,4 +8,4 @@
 
 - All documentation must describe the code as it is and its algorithmic, implementation, or design choices. Never reference PR discussions, conversations, or unrelated work history. READMEs must not reference planned or unimplemented features, work in progress, or pending PRs.
 - Describe the resulting code, not the conversation that led to it. Never add "does not do X" merely because a user asked you to stop doing X and you changed the PR. For example, never write "Checks the machine contract and final memory, not heuristic address choices or scores." Write "Checks the machine contract and final memory."
-- Never put specific numbers or values from a particular run's exact results in comments, docstrings, or documentation. Describe the property being checked or the theoretical expectation, clearly labeled as such.
+- Never put specific numbers or values from a particular run's exact results in comments, docstrings, or documentation: algorithms and therefore their results WILL CHANGE. Describe the property being checked or the theoretical expectation, clearly labeled as such.
