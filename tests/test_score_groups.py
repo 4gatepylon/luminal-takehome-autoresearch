@@ -44,7 +44,7 @@ class ScoreGroupTests(unittest.TestCase):
                     self.subTest(strategy=strategy),
                     patch.object(score, "PROGRAM_DIR", program_dir),
                     patch.object(score, "PROGRAM_GROUPS", {"original": ["a.json", "b.json"], "overlap": ["a.json"]}),
-                    patch.object(score.compiler, "compile_program", side_effect=compile_example) as compile_program,
+                    patch.object(score, "compile_program", side_effect=compile_example) as compile_program,
                     patch.object(score.machine, "serial_compile", wraps=original_serial_compile) as serial_compile,
                     redirect_stdout(output),
                 ):
@@ -64,7 +64,7 @@ class ScoreGroupTests(unittest.TestCase):
             tempfile.TemporaryDirectory() as directory,
             patch.object(score, "PROGRAM_DIR", Path(directory)),
             patch.object(score, "PROGRAM_GROUPS", {"original": ["missing.json"]}),
-            patch.object(score.compiler, "compile_program") as compile_program,
+            patch.object(score, "compile_program") as compile_program,
         ):
             with self.assertRaisesRegex(ValueError, "missing programs"):
                 score.main([])
