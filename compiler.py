@@ -34,16 +34,15 @@ class OperationDependencies:
 
     def latest_dependency(
         self, operation: dict, ordering: tuple[int, ...] | None = None
-    ) -> dict | int:
-        """Return the latest prerequisite in a valid ordering, or -1."""
+    ) -> int:
+        """Return the latest prerequisite's index in the ordering, or -1."""
         if ordering is None:
             ordering = tuple(range(len(self.dependencies)))
         assert all(type(op_id) is int for op_id in ordering)
         # No transitive search is needed: each indirect prerequisite precedes
         # one of these direct prerequisites in any valid ordering.
         return max(
-            self.dependencies[operation["id"]],
-            key=lambda pred: ordering.index(pred["id"]),
+            (ordering.index(pred["id"]) for pred in self.dependencies[operation["id"]]),
             default=-1,
         )
 
