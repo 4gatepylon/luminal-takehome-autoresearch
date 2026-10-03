@@ -1,0 +1,17 @@
+{
+  "name": "partial_overlap_barrier",
+  "buffers": {"data": 8, "scalars": 1, "out": 8},
+  "operations": [
+    {"id": 0, "op": "vload", "dest": "before", "buffer": "data", "offset": 0},
+    {"id": 1, "op": "load", "dest": "replacement", "buffer": "scalars", "offset": 0},
+    {"id": 2, "op": "store", "args": ["replacement"], "buffer": "data", "offset": 3},
+    {"id": 3, "op": "vload", "dest": "after", "buffer": "data", "offset": 0},
+    {"id": 4, "op": "vxor", "dest": "difference", "args": ["before", "after"]},
+    {"id": 5, "op": "vstore", "args": ["difference"], "buffer": "out", "offset": 0}
+  ],
+  "cases": [
+    {"data": [3, 6, 9, 12, 15, 18, 21, 24], "scalars": [23], "out": [99, 99, 99, 99, 99, 99, 99, 99]},
+    {"data": [4294967295, 4294967294, 0, 1, 2147483648, 2147483647, 7, 13], "scalars": [4294967295], "out": [2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481]},
+    {"data": [0, 0, 0, 0, 0, 0, 0, 0], "scalars": [0], "out": [0, 0, 0, 0, 0, 0, 0, 0]}
+  ]
+}

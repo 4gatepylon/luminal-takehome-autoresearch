@@ -15,6 +15,12 @@ import machine
 PROGRAM_DIR = Path(__file__).parent / "programs"
 # Filenames are relative to PROGRAM_DIR. The special "all" group is discovered.
 PROGRAM_GROUPS = {
+    "scheduling_diagnostics": [
+        "scheduling_diagnostics/01_shared_roots_fanout.json",
+        "scheduling_diagnostics/02_shared_value_branches.json",
+        "scheduling_diagnostics/03_mixed_width_overlap.json",
+        "scheduling_diagnostics/04_partial_overlap_barrier.json",
+    ],
     "original": [
         "original_programs/01_scalar_pipeline.json",
         "original_programs/02_scalar_dual_chain.json",

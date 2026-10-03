@@ -1,0 +1,19 @@
+{
+  "name": "mixed_width_overlap",
+  "buffers": {"scalars": 2, "data": 8, "out": 16},
+  "operations": [
+    {"id": 0, "op": "load", "dest": "left", "buffer": "scalars", "offset": 0},
+    {"id": 1, "op": "load", "dest": "right", "buffer": "scalars", "offset": 1},
+    {"id": 2, "op": "vload", "dest": "input", "buffer": "data", "offset": 0},
+    {"id": 3, "op": "add", "dest": "sum", "args": ["left", "right"]},
+    {"id": 4, "op": "splat", "dest": "broadcast_sum", "args": ["sum"]},
+    {"id": 5, "op": "vadd", "dest": "doubled", "args": ["input", "input"]},
+    {"id": 6, "op": "vstore", "args": ["broadcast_sum"], "buffer": "out", "offset": 0},
+    {"id": 7, "op": "vstore", "args": ["doubled"], "buffer": "out", "offset": 8}
+  ],
+  "cases": [
+    {"scalars": [3, 6], "data": [3, 6, 9, 12, 15, 18, 21, 24], "out": [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]},
+    {"scalars": [4294967295, 4294967294], "data": [4294967295, 4294967294, 0, 1, 2147483648, 2147483647, 7, 13], "out": [2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481, 2271560481]},
+    {"scalars": [0, 0], "data": [0, 0, 0, 0, 0, 0, 0, 0], "out": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+  ]
+}
