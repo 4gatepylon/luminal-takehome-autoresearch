@@ -4,8 +4,8 @@ These programs are meant to showcase the benefits of hierarchical allocation ove
 
 ```sh
 python3 score.py
-python3 score.py --strategy first-fit
-python3 score.py --strategy disjoint
+python3 score.py --allocation-strategy first-fit
+python3 score.py --allocation-strategy disjoint
 ```
 
 | Program | What it isolates |
