@@ -40,7 +40,7 @@ PROGRAM_GROUPS = {
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--strategy", choices=("first-fit", "disjoint"),
+        "--allocation-strategy", choices=("first-fit", "disjoint"),
         help="force a scratch allocator; omit to use automatic selection",
     )
     args = parser.parse_args(argv)
@@ -54,13 +54,13 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(f"group {group_name!r} has missing programs: {sorted(missing_filenames)}")
 
     print("Luminal Compiler Take Home — compiler engineering public benchmark")
-    print(f"scratch allocation strategy: {args.strategy or 'automatic'}")
+    print(f"scratch allocation strategy: {args.allocation_strategy or 'automatic'}")
     filename2speedup_and_scratch_reduction: dict[str, tuple[float, float]] = {}
     print(f"{'program':30} {'cycles':>8} {'baseline':>9} {'speedup':>9} {'scratch':>8} {'reduction':>10}")
     print("-" * 60)
     for filename in group_name2filenames["all"]:
         program = machine.load_program(PROGRAM_DIR / filename)
-        compilation = compile_program(program, scratch_allocation_strategy=args.strategy)
+        compilation = compile_program(program, scratch_allocation_strategy=args.allocation_strategy)
         cycles = machine.check_compilation(program, compilation)
         for case in program["cases"]:
             machine.check_case(program, compilation, case)
