@@ -24,6 +24,13 @@ PROGRAM_GROUPS = {
         "07_scalar_selects.json",
         "08_vector_reduction.json",
     ],
+    "allocation_diagnostics": [
+        "allocation_diagnostics/01_alignment_holes.json",
+        "allocation_diagnostics/02_vector_block_migration.json",
+        "allocation_diagnostics/03_vector_lifetime_gaps.json",
+        "allocation_diagnostics/04_scalar_tail_reuse.json",
+        "allocation_diagnostics/05_inclusive_boundary.json",
+    ],
 }
 
 
