@@ -5,7 +5,7 @@ Checks the machine contract and final memory, not heuristic address choices or s
 
 import unittest
 
-from compiler import compiler
+from compiler import compile_program
 import machine
 import score
 
@@ -16,7 +16,7 @@ class AllocationDiagnosticProgramTests(unittest.TestCase):
             program = machine.load_program(score.PROGRAM_DIR / filename)
             for strategy in (None, "first-fit", "disjoint"):
                 with self.subTest(program=filename, strategy=strategy):
-                    compilation = compiler.compile_program(program, scratch_allocation_strategy=strategy)
+                    compilation = compile_program(program, scratch_allocation_strategy=strategy)
                     machine.check_compilation(program, compilation)
                     for case in program["cases"]:
                         machine.check_case(program, compilation, case)

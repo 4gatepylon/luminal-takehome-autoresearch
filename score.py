@@ -7,7 +7,7 @@ import argparse
 import math
 from pathlib import Path
 
-from compiler import compiler
+from compiler import compile_program
 import machine
 
 
@@ -57,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     print("-" * 60)
     for filename in group_name2filenames["all"]:
         program = machine.load_program(PROGRAM_DIR / filename)
-        compilation = compiler.compile_program(program, scratch_allocation_strategy=args.strategy)
+        compilation = compile_program(program, scratch_allocation_strategy=args.strategy)
         cycles = machine.check_compilation(program, compilation)
         for case in program["cases"]:
             machine.check_case(program, compilation, case)
