@@ -2,7 +2,8 @@
 
 - Vectors are placed first; each value uses the lowest aligned range with disjoint lifetimes.
 - Exhausted scratch raises CompileError.
-- Forced allocation executes the original programs correctly using this allocator.
+- Direct hierarchical allocation produces correct final buffers for all program cases.
+- Selecting hierarchical allocation in the compiler raises NotImplementedError.
 - The pinned-block fixture should, in theory, use around 128 words with hierarchical
   first-fit, compared to chronological first-fit's theoretical 240 words.
 """
@@ -12,7 +13,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from compiler import compilation as compiler_compilation
-from compiler.allocation import allocate_scratch_hierarchical_first_fit
+from compiler.allocation import allocate_scratch_first_fit, allocate_scratch_hierarchical_first_fit, find_lifetimes
+from compiler.scheduling import find_issue_cycles, schedule_operations
 import machine
 
 
@@ -76,27 +78,37 @@ class HierarchicalFirstFitTests(unittest.TestCase):
                     program, {"v": (1, 3), "a": (2, 2)}
                 )
 
-    def test_forced_hierarchical_first_fit_on_public_programs(self):
-        paths = sorted((Path(__file__).parents[2] / "programs" / "original_programs").glob("*.json"))
+    def test_hierarchical_first_fit_on_all_programs(self):
+        paths = sorted((Path(__file__).parents[2] / "programs").rglob("*.json"))
         self.assertTrue(paths)
-        with patch.object(compiler_compilation, "allocate_scratch_first_fit", side_effect=AssertionError("unexpected first-fit")):
-            for path in paths:
-                with self.subTest(program=path.name):
-                    program = machine.load_program(path)
-                    compilation = compiler_compilation.compile_program(
-                        program, scratch_allocation_strategy="hierarchical-first-fit"
-                    )
-                    machine.check_compilation(program, compilation)
-                    for case in program["cases"]:
-                        machine.check_case(program, compilation, case)
+        for path in paths:
+            with self.subTest(program=path.name):
+                program = machine.load_program(path)
+                bundles = schedule_operations(program)
+                value_name2lifetime_incl = find_lifetimes(program, find_issue_cycles(program, bundles))
+                compilation = {
+                    "bundles": bundles,
+                    "scratch": allocate_scratch_hierarchical_first_fit(program, value_name2lifetime_incl),
+                }
+                machine.check_compilation(program, compilation)
+                for case in program["cases"]:
+                    machine.check_case(program, compilation, case)
+
+    def test_compiler_rejects_hierarchical_strategy(self):
+        with self.assertRaises(NotImplementedError):
+            compiler_compilation.compile_program({}, scratch_allocation_strategy="hierarchical-first-fit")
 
     def test_pinned_vector_blocks_footprint(self):
         program = machine.load_program(
             Path(__file__).parents[2] / "programs" / "allocation_diagnostics" / "08_pinned_vector_blocks.json"
         )
-        for strategy, expected_words in (("first-fit", 240), ("hierarchical-first-fit", 128)):
-            with self.subTest(strategy=strategy):
-                compilation = compiler_compilation.compile_program(program, scratch_allocation_strategy=strategy)
+        bundles = schedule_operations(program)
+        value_name2lifetime_incl = find_lifetimes(program, find_issue_cycles(program, bundles))
+        for allocator, expected_words in (
+            (allocate_scratch_first_fit, 240), (allocate_scratch_hierarchical_first_fit, 128),
+        ):
+            with self.subTest(allocator=allocator.__name__):
+                compilation = {"scratch": allocator(program, value_name2lifetime_incl)}
                 self.assertEqual(machine.scratch_footprint(program, compilation), expected_words)
 
 
