@@ -40,7 +40,7 @@ PROGRAM_GROUPS = {
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--allocation-strategy", choices=("first-fit", "disjoint"),
+        "--allocation-strategy", choices=("first-fit", "disjoint", "hierarchical-first-fit"),
         help="force a scratch allocator; omit to use automatic selection",
     )
     args = parser.parse_args(argv)

@@ -51,7 +51,7 @@ python3 -m unittest -v
 python3 score.py
 ```
 
-`python3 score.py` evaluates each program once and reports every `PROGRAM_GROUPS` aggregate plus `all`, using automatic allocation unless `--allocation-strategy first-fit` or `--allocation-strategy disjoint` is supplied.
+`python3 score.py` evaluates each program once and reports every `PROGRAM_GROUPS` aggregate plus `all`, using automatic allocation unless `--allocation-strategy first-fit`, `--allocation-strategy disjoint`, or `--allocation-strategy hierarchical-first-fit` is supplied.
 
 Compile one program to a JSON schedule with:
 

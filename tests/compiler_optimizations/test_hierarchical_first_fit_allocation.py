@@ -1,4 +1,10 @@
-"""Tests hierarchical first-fit ordering, lifetime reuse, and forced execution."""
+"""Check hierarchical first-fit allocation:
+
+- Vectors are placed first; each value uses the lowest aligned range with disjoint lifetimes.
+- Exhausted scratch raises CompileError.
+- Forced allocation executes the original programs correctly using this allocator.
+- The pinned-block fixture uses 128 words, compared with chronological first-fit's 240.
+"""
 
 import unittest
 from pathlib import Path
@@ -70,8 +76,10 @@ class HierarchicalFirstFitTests(unittest.TestCase):
                 )
 
     def test_forced_hierarchical_first_fit_on_public_programs(self):
+        paths = sorted((Path(__file__).parents[2] / "programs" / "original_programs").glob("*.json"))
+        self.assertTrue(paths)
         with patch.object(compiler_compilation, "allocate_scratch_first_fit", side_effect=AssertionError("unexpected first-fit")):
-            for path in sorted((Path(__file__).parents[2] / "programs").glob("*.json")):
+            for path in paths:
                 with self.subTest(program=path.name):
                     program = machine.load_program(path)
                     compilation = compiler_compilation.compile_program(
@@ -80,6 +88,15 @@ class HierarchicalFirstFitTests(unittest.TestCase):
                     machine.check_compilation(program, compilation)
                     for case in program["cases"]:
                         machine.check_case(program, compilation, case)
+
+    def test_pinned_vector_blocks_footprint(self):
+        program = machine.load_program(
+            Path(__file__).parents[2] / "programs" / "allocation_diagnostics" / "08_pinned_vector_blocks.json"
+        )
+        for strategy, expected_words in (("first-fit", 240), ("hierarchical-first-fit", 128)):
+            with self.subTest(strategy=strategy):
+                compilation = compiler_compilation.compile_program(program, scratch_allocation_strategy=strategy)
+                self.assertEqual(machine.scratch_footprint(program, compilation), expected_words)
 
 
 if __name__ == "__main__":

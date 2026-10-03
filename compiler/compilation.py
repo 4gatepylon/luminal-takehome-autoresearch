@@ -23,8 +23,7 @@ def compile_program(
     bundles = schedule_operations(program)
     op_id2issue_cycle = find_issue_cycles(program, bundles)
     value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
-    # Preserve the original compiler's failure when disjoint allocation cannot fit,
-    # even if a reuse strategy could succeed. This also applies to forced strategies.
+    # Disjoint allocation must fit before any strategy is attempted.
     value_name2scratch_address = allocate_unique_scratch(program)
     for strategy_name, allocator in (
         ("first-fit", allocate_scratch_first_fit),
@@ -43,6 +42,6 @@ def compile_program(
             break
         value_name2scratch_address = min(
             (value_name2scratch_address, candidate_value_name2scratch_address),
-            key=lambda allocation: machine.scratch_footprint(program, {"scratch": allocation}),
+            key=lambda value_name2address: machine.scratch_footprint(program, {"scratch": value_name2address}),
         )
     return {"scratch": value_name2scratch_address, "bundles": bundles}

@@ -131,7 +131,7 @@ def allocate_scratch_hierarchical_first_fit(
     program: dict,
     value_name2lifetime_incl: dict[str, tuple[int, int]],
 ) -> dict[str, int]:
-    """First-fit all vectors, then all scalars, by (write_cycle_incl, name).
+    """Place vectors first, then scalars; sort each by (write_cycle_incl, name).
 
     Each value searches from address 0, aligned to its width. A range fits iff
     its lifetime [s, e] and EVERY reserved lifetime [s_other, e_other] in those
@@ -150,7 +150,6 @@ def allocate_scratch_hierarchical_first_fit(
             value_name,
         ),
     )
-    # Keep every interval: the scalar pass can go back in time after vectors.
     scratch_address2lifetimes_incl: list[list[tuple[int, int]]] = [
         [] for _ in range(machine.SCRATCH_WORDS)
     ]

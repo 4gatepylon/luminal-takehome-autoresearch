@@ -1,8 +1,8 @@
 """Check these properties of the allocation diagnostic programs:
 
 - The three capacity fixtures require exactly 256 disjoint scratch words.
-- Automatic, forced first-fit, and forced disjoint allocation produce the same
-  final buffers as the reference interpreter for every input case.
+- Automatic selection and each forced allocation strategy produce the same final
+  buffers as the reference interpreter for every input case.
 - Each compilation issues every operation exactly once, respects operand readiness,
   memory ordering and engine limits, and uses aligned, in-bounds scratch ranges
   that do not overlap for simultaneously live values.
@@ -30,7 +30,7 @@ class AllocationDiagnosticProgramTests(unittest.TestCase):
     def test_diagnostic_programs_with_each_supported_strategy(self):
         for filename in score.PROGRAM_GROUPS["allocation_diagnostics"]:
             program = machine.load_program(score.PROGRAM_DIR / filename)
-            for strategy in (None, "first-fit", "disjoint"):
+            for strategy in (None, "first-fit", "disjoint", "hierarchical-first-fit"):
                 with self.subTest(program=filename, strategy=strategy):
                     compilation = compile_program(program, scratch_allocation_strategy=strategy)
                     machine.check_compilation(program, compilation)

@@ -1,6 +1,8 @@
-"""Tests allocator selection and failure contracts using controlled allocator results.
+"""Check allocator selection with controlled allocator results:
 
-Address choices are test inputs, not assumptions about any allocation algorithm.
+- Automatic selection chooses the smallest successful footprint.
+- Forcing a strategy invokes that allocator and returns its allocation.
+- Disjoint allocation failure stops compilation; forced reuse failure raises RuntimeError.
 """
 
 import unittest
