@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """Luminal Compiler Take Home — compiler engineering candidate implementation.
 
-The compiler allocates every SSA value once and greedily packs operations into
-bundles in the supplied order. Improve compile_program without
-changing its input or output contract. Reuse scratch for values whose scheduled
-lifetimes do not overlap to improve the scratch-footprint component of the score.
+The compiler greedily packs operations into bundles in the supplied order, then
+reuses scratch for values whose scheduled lifetimes do not overlap.
 """
 
 from __future__ import annotations
-
+from typing import Optional, Literal
 import json
 import sys
 
@@ -57,8 +55,8 @@ class OperationDependencies:
         )
 
 
-def allocate_scratch(program: dict) -> dict[str, int]:
-    """Assign scratch addresses to every SSA result."""
+def allocate_unique_scratch(program: dict) -> dict[str, int]:
+    """Assign disjoint ranges, prioritizing vectors before scalars."""
 
     # A simple non-overlapping allocation. Vectors are placed first so their
     # alignment does not create holes between scalar values.
@@ -86,6 +84,116 @@ def allocate_scratch(program: dict) -> dict[str, int]:
         )
 
     return scratch
+
+
+def find_issue_cycles(
+    program: dict,
+    bundles: list[dict[str, list[int]]],
+) -> dict[int, int]:
+    """Return op_id2issue_cycle; require each ID in range(len(ops)) exactly once."""
+    op_id2issue_cycle: dict[int, int] = {}
+    for issue_cycle, engine2op_ids in enumerate(bundles):
+        for op_ids in engine2op_ids.values():
+            for op_id in op_ids:
+                if op_id in op_id2issue_cycle:
+                    raise machine.CompileError(f"operation {op_id} appears more than once")
+                op_id2issue_cycle[op_id] = issue_cycle
+    if set(op_id2issue_cycle) != set(range(len(program["operations"]))):
+        raise machine.CompileError(
+            f"schedule operation IDs must cover exactly range({len(program['operations'])})"
+        )
+    return op_id2issue_cycle
+
+
+def find_lifetimes(
+    program: dict,
+    op_id2issue_cycle: dict[int, int],
+) -> dict[str, tuple[int, int]]:
+    """Return value_name2lifetime_incl for a valid schedule.
+
+    Each interval is (write_cycle_incl, last_live_cycle_incl). The start is
+    the producer's issue cycle plus latency; the end is the maximum of that
+    start and every consumer's issue cycle. Unused results occupy their write
+    cycle, even when that write is after the final bundle.
+    """
+    value_name2lifetime_incl: dict[str, tuple[int, int]] = {}
+    # Initialize the lifetime dict with each value's write cycle as both endpoints.
+    for operation in program["operations"]:
+        spec = machine.OP_SPECS[operation["op"]]
+        if spec["result"] is not None:
+            write_cycle_incl = op_id2issue_cycle[operation["id"]] + spec["latency"]
+            value_name2lifetime_incl[operation["dest"]] = (
+                write_cycle_incl, write_cycle_incl
+            )
+
+    # Extend lifetimes to the last read; max makes traversal order irrelevant.
+    for operation in program["operations"]:
+        for value_name in operation.get("args", []):
+            write_cycle_incl, last_live_cycle_incl = value_name2lifetime_incl[value_name]
+            value_name2lifetime_incl[value_name] = (
+                write_cycle_incl,
+                max(last_live_cycle_incl, op_id2issue_cycle[operation["id"]]),
+            )
+    return value_name2lifetime_incl
+
+
+def allocate_scratch_first_fit(
+    program: dict,
+    value_name2lifetime_incl: dict[str, tuple[int, int]],
+) -> dict[str, int]:
+    """Return value_name2scratch_address using aligned first-fit.
+
+    For lifetime [s_v, e_v] (both inclusive) and width w_v (VLEN or 1),
+    process values by ascending (s_v, -w_v, name_v). Vectors precede scalars
+    only for equal write cycles; equal-width ties use Python string ordering.
+    Source order and operand position have no separate precedence.
+
+    Choose the smallest a >= 0 with a % w_v == 0 and a + w_v <= SCRATCH_WORDS
+    such that every word x in [a, a + w_v) has last_live_cycle_incl[x] < s_v.
+    Initialize these last-live cycles to -1, then set allocated words to e_v.
+    Processing by start time makes this exclude all overlapping lifetimes.
+    Strict inequality is necessary because writes happen before reads.
+    EVERY value searches again from address 0, not from the previous allocation's
+    end. Alignment holes remain free: placing a vector at a higher address does
+    not claim the gap below it. Only the chosen words are reserved, through e_v.
+
+    Raise CompileError if no aligned range fits; first-fit does not guarantee
+    minimum footprint.
+    """
+    value_name2width = {
+        operation["dest"]: (
+            machine.VLEN if machine.OP_SPECS[operation["op"]]["result"] == "vector" else 1
+        )
+        for operation in program["operations"]
+        if machine.OP_SPECS[operation["op"]]["result"] is not None
+    }
+    ordered_value_names = sorted(
+        value_name2lifetime_incl,
+        key=lambda value_name: (
+            value_name2lifetime_incl[value_name][0],
+            -value_name2width[value_name],
+            value_name,
+        ),
+    )
+    scratch_address2last_live_cycle_incl = [-1] * machine.SCRATCH_WORDS
+    value_name2scratch_address: dict[str, int] = {}
+    for value_name in ordered_value_names:
+        write_cycle_incl, last_live_cycle_incl = value_name2lifetime_incl[value_name]
+        width = value_name2width[value_name]
+        for scratch_start_incl in range(0, machine.SCRATCH_WORDS - width + 1, width):
+            scratch_end_excl = scratch_start_incl + width
+            if all(
+                scratch_address2last_live_cycle_incl[scratch_address] < write_cycle_incl
+                for scratch_address in range(scratch_start_incl, scratch_end_excl)
+            ):
+                value_name2scratch_address[value_name] = scratch_start_incl
+                scratch_address2last_live_cycle_incl[scratch_start_incl:scratch_end_excl] = (
+                    [last_live_cycle_incl] * width
+                )
+                break
+        else:
+            raise machine.CompileError(f"no scratch space for {value_name!r}")
+    return value_name2scratch_address
 
 
 def earliest_issue_cycle(
@@ -147,11 +255,38 @@ def schedule_operations(
     return bundles
 
 
-def compile_program(program: dict, ordering: tuple[int, ...] | None = None) -> dict:
-    """Compile one validated IR program into scratch allocations and bundles."""
-    scratch = allocate_scratch(program)
+def compile_program(
+    program: dict,
+    scratch_allocation_strategy: Optional[Literal["first-fit", "disjoint"]] = None,
+    *,
+    ordering: tuple[int, ...] | None = None,
+) -> dict:
+    """Schedule a validated program and choose the smallest successful allocation."""
     bundles = schedule_operations(program, ordering)
-    return {"scratch": scratch, "bundles": bundles}
+    op_id2issue_cycle = find_issue_cycles(program, bundles)
+    value_name2lifetime_incl = find_lifetimes(program, op_id2issue_cycle)
+    # NOTE: we want to run this disjoint allocation first to fail in the same was as the original compiler.
+    # for programs that COULD be fit more efficiently, but the original compiler failed, this maintains the
+    # exact same behavior. However, we may change this once we have more deeply validated the compiler.
+    value_name2scratch_address = allocate_unique_scratch(program)
+    if scratch_allocation_strategy != "disjoint":
+        try:
+            unique_value_name2scratch_address = allocate_scratch_first_fit(program, value_name2lifetime_incl)
+            # Overwrite only if needed (force-using first-fit is possible)
+            if scratch_allocation_strategy == "first-fit":
+                value_name2scratch_address = unique_value_name2scratch_address
+            else:
+                assert scratch_allocation_strategy != "disjoint"
+                value_name2scratch_address = min(
+                    (value_name2scratch_address, unique_value_name2scratch_address),
+                    key=lambda candidate_value_name2scratch_address: machine.scratch_footprint(
+                        program, {"scratch": candidate_value_name2scratch_address}
+                    ),
+                )
+        except machine.CompileError as e:
+            if scratch_allocation_strategy == "first-fit":
+                raise RuntimeError(f"first-fit allocation failed by running out of space and therefore cannot occur!") from e
+    return {"scratch": value_name2scratch_address, "bundles": bundles}
 
 
 def main(argv: list[str]) -> int:
