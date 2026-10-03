@@ -1,8 +1,8 @@
 - Keep code simple, direct, and easy to modify. Avoid unnecessary abstractions or
   performance optimizations; prefer a straightforward implementation.
-- Name variables so readers know what they contain and how it is represented.
-  Use `data_predecessor_ids`, `memory_predecessor_ids`, and `predecessor_ids` for
-  lists of operation IDs; use `operations` or `predecessor_ops` for operation objects.
+- Name variables so readers know what they contain. For example,
+  `data_predecessor_ids` instead of `data` when dealing with data predecessors
+  and storing their integer IDs (instead of the full objects).
 - Distinguish stable operation IDs from positions in a particular ordering. Use
   `_id` for an identifier and `_index` for a position; do not treat them as interchangeable.
 - Name dictionaries using `x2y` to describe their key-to-value mapping, such as
