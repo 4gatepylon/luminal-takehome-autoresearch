@@ -95,7 +95,7 @@ def find_lifetimes(
     return value_name2lifetime_incl
 
 
-def allocate_scratch(
+def allocate_scratch_first_fit(
     program: dict,
     value_name2lifetime_incl: dict[str, tuple[int, int]],
 ) -> dict[str, int]:
@@ -216,7 +216,7 @@ def compile_program(program: dict, scratch_allocation_strategy: Optional[Literal
     value_name2scratch_address = allocate_unique_scratch(program)
     if scratch_allocation_strategy != "disjoint":
         try:
-            unique_value_name2scratch_address = allocate_scratch(program, value_name2lifetime_incl)
+            unique_value_name2scratch_address = allocate_scratch_first_fit(program, value_name2lifetime_incl)
             # Overwrite only if needed (force-using first-fit is possible)
             if scratch_allocation_strategy != "first-fit":
                 value_name2scratch_address = min(
